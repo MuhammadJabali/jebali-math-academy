@@ -5,32 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>أكاديمية Jebali للرياضيات</title>
     
-    <!-- استدعاء مكتبة التصميم Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- استدعاء مكتبة React الأساسية للواجهة -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
     
-    <!-- الحاوية الأساسية للتطبيق -->
     <div id="root"></div>
 
-    <!-- كود التطبيق المدمج (React + Supabase + Gemini) -->
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         import { GoogleGenerativeAI } from 'https://esm.run/@google/generative-ai';
 
         const { useState, useEffect } = React;
 
-        // 1. مفاتيح قاعدة بيانات Supabase (الجديدة)
-        const supabaseUrl = 'ضع_رابط_المشروع_الجديد_هنا';
-        const supabaseAnonKey = 'ضع_مفتاح_المشروع_الجديد_هنا';
+        // مفاتيح Supabase الخاصة بمشروعك الجديد
+        const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        // 2. مفتاح الذكاء الاصطناعي Gemini
+        // مفتاح الذكاء الاصطناعي (أضف المفتاح الذي استخرجته سابقاً هنا)
         const GEMINI_API_KEY = 'ضع_مفتاح_جيميني_هنا';
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
@@ -41,7 +36,6 @@
             const [aiFeedback, setAiFeedback] = useState('');
             const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-            // جلب البيانات من Supabase
             useEffect(() => {
                 async function fetchLatestSession() {
                     try {
@@ -62,7 +56,6 @@
                 fetchLatestSession();
             }, []);
 
-            // تحليل الصور عبر Gemini
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -89,15 +82,14 @@
                     };
                 } catch (error) {
                     console.error(error);
-                    setAiFeedback('حدث خطأ أثناء الاتصال بالمساعد الذكي.');
+                    setAiFeedback(isArabic ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. تأكد من صحة مفتاح Gemini.' : 'Error communicating with AI. Check Gemini Key.');
                     setIsAnalyzing(false);
                 }
             };
 
             return (
-                <div className={`p-6 md:p-10 max-w-5xl mx-auto ${isArabic ? 'rtl' : 'ltr'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+                <div className={`p-6 md:p-10 max-w-5xl mx-auto ${isArabic ? 'rtl text-right' : 'ltr text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     
-                    {/* شريط التحكم العلوى */}
                     <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
                         <div>
                             <h1 className="text-2xl font-black">{isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}</h1>
@@ -108,9 +100,7 @@
                         </button>
                     </header>
 
-                    {/* الكروت الرئيسية */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        {/* كارت المالية */}
                         <div className="bg-white p-6 rounded-2xl border-t-4 border-orange-500 shadow-sm flex flex-col justify-between">
                             <div>
                                 <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">{isArabic ? 'المستحقات المالية' : 'Billing'}</span>
@@ -122,7 +112,6 @@
                             </a>
                         </div>
 
-                        {/* كارت المنهج */}
                         <div className="bg-white p-6 rounded-2xl border-t-4 border-emerald-500 shadow-sm md:col-span-2">
                             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{isArabic ? 'إنجاز المنهج' : 'Progress'}</span>
                             <div className="flex justify-between items-end mt-4 mb-2">
@@ -133,12 +122,11 @@
                         </div>
                     </div>
 
-                    {/* وحدة الذكاء الاصطناعي */}
                     <div className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200">
                         <h4 className="text-lg font-black mb-4">{isArabic ? 'التقييم الذكي للواجبات' : 'AI Homework Evaluation'}</h4>
                         <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
                         <label htmlFor="hw-upload" className="inline-block px-8 py-3 bg-gray-900 text-white font-bold rounded-xl cursor-pointer">
-                            {isAnalyzing ? '⏳...' : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
+                            {isAnalyzing ? (isArabic ? '⏳ جاري التحليل...' : '⏳ Analyzing...') : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
                         </label>
                         
                         {aiFeedback && (
