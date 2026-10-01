@@ -3,146 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أكاديمية Jebali للرياضيات</title>
+    <title>لوحة تحكم المعلم | أكاديمية Jebali</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans">
+<body class="bg-gray-100 text-gray-900 font-sans">
     
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        import { GoogleGenerativeAI } from 'https://esm.run/@google/generative-ai';
-
         const { useState, useEffect } = React;
 
-        // مفاتيح Supabase الخاصة بمشروعك الجديد
+        // مفاتيح قاعدة البيانات
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        // مفتاح الذكاء الاصطناعي (أضف المفتاح الذي استخرجته سابقاً هنا)
-        const GEMINI_API_KEY = 'ضع_مفتاح_جيميني_هنا';
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        function AdminPanel() {
+            const [session, setSession] = useState(null);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
+            
+            // بيانات لوحة التحكم
+            const [students, setStudents] = useState([]);
+            
+            // نماذج الإدخال
+            const [newStudent, setNewStudent] = useState({ name: '', system: '', grade: '', rate: '' });
+            const [newSession, setNewSession] = useState({ student_id: '', duration: '' });
+            const [msg, setMsg] = useState('');
 
-        function App() {
-            const [isArabic, setIsArabic] = useState(true);
-            const [sessionCost, setSessionCost] = useState(0); 
-            const [isLoading, setIsLoading] = useState(true);
-            const [aiFeedback, setAiFeedback] = useState('');
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
-
+            // التحقق من تسجيل الدخول
             useEffect(() => {
-                async function fetchLatestSession() {
-                    try {
-                        const { data, error } = await supabase
-                            .from('sessions')
-                            .select('calculated_cost')
-                            .order('created_at', { ascending: false })
-                            .limit(1);
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    if (session) fetchStudents();
+                });
 
-                        if (error) throw error;
-                        if (data && data.length > 0) setSessionCost(data[0].calculated_cost);
-                    } catch (error) {
-                        console.error('خطأ الاتصال بقاعدة البيانات:', error.message);
-                    } finally {
-                        setIsLoading(false);
-                    }
-                }
-                fetchLatestSession();
+                supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                    if (session) fetchStudents();
+                });
             }, []);
 
-            const handleImageUpload = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
+            async function fetchStudents() {
+                const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+                if (data) setStudents(data);
+            }
 
-                setIsAnalyzing(true);
-                setAiFeedback(isArabic ? 'جاري تحليل خطوات الحل بالذكاء الاصطناعي...' : 'Analyzing solution steps...');
+            // دالة تسجيل الدخول
+            async function handleLogin(e) {
+                e.preventDefault();
+                setLoginError('');
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) setLoginError('بيانات الدخول غير صحيحة، تأكد من الإيميل وكلمة المرور.');
+            }
 
-                try {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = async () => {
-                        const base64Data = reader.result.split(',')[1];
-                        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                        
-                        const prompt = isArabic 
-                            ? "أنت معلم رياضيات خبير. قم بتحليل هذه الصورة التي تحتوي على حل رياضي بخط اليد. تحقق من صحة الخطوات، شجع الطالب، وحدد أي أخطاء."
-                            : "You are an expert math tutor. Analyze this handwritten math solution. Check the steps, provide encouragement, and point out mistakes.";
+            // دالة تسجيل الخروج
+            async function handleLogout() {
+                await supabase.auth.signOut();
+            }
 
-                        const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
-                        const result = await model.generateContent([prompt, imagePart]);
-                        
-                        setAiFeedback((await result.response).text());
-                        setIsAnalyzing(false);
-                    };
-                } catch (error) {
-                    console.error(error);
-                    setAiFeedback(isArabic ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. تأكد من صحة مفتاح Gemini.' : 'Error communicating with AI. Check Gemini Key.');
-                    setIsAnalyzing(false);
+            // دالة إضافة طالب جديد
+            async function handleAddStudent(e) {
+                e.preventDefault();
+                setMsg('جاري إضافة الطالب...');
+                const { error } = await supabase.from('students').insert([{
+                    student_name: newStudent.name,
+                    curriculum_system: newStudent.system,
+                    grade_level: newStudent.grade,
+                    hourly_rate: parseFloat(newStudent.rate)
+                }]);
+                
+                if (!error) {
+                    setMsg('✅ تم إضافة الطالب بنجاح!');
+                    fetchStudents();
+                    setNewStudent({ name: '', system: '', grade: '', rate: '' });
+                } else {
+                    setMsg('❌ حدث خطأ: ' + error.message);
                 }
-            };
+                setTimeout(() => setMsg(''), 4000);
+            }
 
+            // دالة تسجيل حصة لطالب
+            async function handleAddSession(e) {
+                e.preventDefault();
+                setMsg('جاري تسجيل الحصة...');
+                const { error } = await supabase.from('sessions').insert([{
+                    student_id: newSession.student_id,
+                    duration_hours: parseFloat(newSession.duration)
+                }]);
+                
+                if (!error) {
+                    setMsg('✅ تم تسجيل الحصة وحساب التكلفة تلقائياً بنجاح!');
+                    setNewSession({ student_id: '', duration: '' });
+                } else {
+                    setMsg('❌ حدث خطأ: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 4000);
+            }
+
+            // الشاشة المعروضة إذا لم يكن المستخدم مسجل الدخول (شاشة القفل)
+            if (!session) {
+                return (
+                    <div className="flex items-center justify-center min-h-screen">
+                        <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-lg w-full max-w-sm border-t-8 border-gray-900">
+                            <h2 className="text-2xl font-black mb-2 text-center text-gray-900">أكاديمية Jebali</h2>
+                            <p className="text-sm font-bold text-gray-500 mb-8 text-center">بوابة الإدارة المركزية</p>
+                            
+                            {loginError && <p className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-sm font-bold">{loginError}</p>}
+                            
+                            <input type="email" placeholder="البريد الإلكتروني" required className="w-full p-4 mb-4 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:border-gray-900 transition" value={email} onChange={e => setEmail(e.target.value)} />
+                            <input type="password" placeholder="كلمة المرور" required className="w-full p-4 mb-8 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none focus:border-gray-900 transition" value={password} onChange={e => setPassword(e.target.value)} />
+                            
+                            <button type="submit" className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-gray-800 transition transform hover:-translate-y-1 shadow-lg shadow-gray-200">تسجيل الدخول</button>
+                        </form>
+                    </div>
+                );
+            }
+
+            // الشاشة المعروضة للمدير بعد الدخول السليم
             return (
-                <div className={`p-6 md:p-10 max-w-5xl mx-auto ${isArabic ? 'rtl text-right' : 'ltr text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                    
-                    <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
+                <div className="p-6 md:p-10 max-w-5xl mx-auto">
+                    <header className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 gap-4 border border-gray-100">
                         <div>
-                            <h1 className="text-2xl font-black">{isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}</h1>
-                            <p className="text-gray-500 font-bold mt-1 text-sm">{isArabic ? 'لوحة الطالب: أحمد سيد' : 'Student: Ahmed Sayed'}</p>
+                            <h1 className="text-2xl font-black text-gray-900">لوحة تحكم المعلم</h1>
+                            <p className="text-sm font-bold text-gray-500 mt-1">مرحباً بك في مركز إدارة الأكاديمية</p>
                         </div>
-                        <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 bg-gray-900 text-white rounded-lg font-bold text-sm">
-                            {isArabic ? 'English' : 'العربية'}
-                        </button>
+                        <button onClick={handleLogout} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-black hover:bg-red-100 transition">تسجيل خروج</button>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-2xl border-t-4 border-orange-500 shadow-sm flex flex-col justify-between">
-                            <div>
-                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">{isArabic ? 'المستحقات المالية' : 'Billing'}</span>
-                                <h3 className="text-4xl font-black mt-4">{isLoading ? '...' : sessionCost} <span className="text-xl text-gray-400">EGP</span></h3>
-                                <p className="text-sm text-gray-500 mt-2 font-bold">{isArabic ? 'حصة اليوم (قيد الانتظار)' : 'Today (Unpaid)'}</p>
-                            </div>
-                            <a href="https://ipn.eg" target="_blank" className="text-center py-3 mt-6 bg-orange-500 text-white font-bold rounded-xl w-full">
-                                {isArabic ? 'سداد عبر InstaPay' : 'Pay with InstaPay'}
-                            </a>
+                    {/* رسائل النظام */}
+                    {msg && (
+                        <div className={`mb-8 p-4 font-black rounded-xl border ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : (msg.includes('❌') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100')}`}>
+                            {msg}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* كارت إضافة طالب جديد */}
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
+                            <h3 className="text-xl font-black mb-6 text-gray-900">👤 إضافة طالب جديد</h3>
+                            <form onSubmit={handleAddStudent} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">اسم الطالب بالكامل</label>
+                                    <input type="text" placeholder="مثال: أحمد سيد" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">النظام الدراسي</label>
+                                    <input type="text" placeholder="مثال: IGCSE, IB, American" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">المرحلة / الصف</label>
+                                    <input type="text" placeholder="مثال: Year 10 / Grade 9" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">تكلفة الساعة (بالجنيه)</label>
+                                    <input type="number" placeholder="مثال: 400" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
+                                </div>
+                                <button type="submit" className="w-full bg-blue-500 text-white font-black py-4 rounded-xl hover:bg-blue-600 transition shadow-lg shadow-blue-100 mt-2">حفظ ملف الطالب</button>
+                            </form>
                         </div>
 
-                        <div className="bg-white p-6 rounded-2xl border-t-4 border-emerald-500 shadow-sm md:col-span-2">
-                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{isArabic ? 'إنجاز المنهج' : 'Progress'}</span>
-                            <div className="flex justify-between items-end mt-4 mb-2">
-                                <span className="font-bold">Unit 1: Numbers (IGCSE Year 9)</span>
-                                <span className="font-black text-emerald-500">20%</span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-emerald-500 h-full rounded-full w-1/5"></div></div>
+                        {/* كارت تسجيل الحصص */}
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
+                            <h3 className="text-xl font-black mb-6 text-gray-900">⏱️ تسجيل وقت حصة</h3>
+                            <form onSubmit={handleAddSession} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">اختر الطالب</label>
+                                    <select required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold outline-none" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
+                                        <option value="">-- اضغط لاختيار الطالب --</option>
+                                        {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 block mb-1">مدة الحصة بالساعات (يمكن استخدام كسور)</label>
+                                    <input type="number" step="0.25" placeholder="مثال: 1.5 لساعة ونصف" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
+                                </div>
+                                
+                                <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl mt-4">
+                                    <p className="text-xs font-bold text-orange-800 leading-relaxed">
+                                        💡 بمجرد تسجيل الحصة، ستقوم قاعدة البيانات تلقائياً بضرب المدة في سعر ساعة الطالب، وسيظهر المبلغ المطلوب للمحاسبة فوراً في لوحة الطالب.
+                                    </p>
+                                </div>
+
+                                <button type="submit" className="w-full bg-orange-500 text-white font-black py-4 rounded-xl hover:bg-orange-600 transition shadow-lg shadow-orange-100 mt-2">تسجيل الحصة واعتماد التكلفة</button>
+                            </form>
                         </div>
                     </div>
-
-                    <div className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200">
-                        <h4 className="text-lg font-black mb-4">{isArabic ? 'التقييم الذكي للواجبات' : 'AI Homework Evaluation'}</h4>
-                        <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
-                        <label htmlFor="hw-upload" className="inline-block px-8 py-3 bg-gray-900 text-white font-bold rounded-xl cursor-pointer">
-                            {isAnalyzing ? (isArabic ? '⏳ جاري التحليل...' : '⏳ Analyzing...') : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
-                        </label>
-                        
-                        {aiFeedback && (
-                            <div className="mt-6 p-6 bg-indigo-50 border border-indigo-100 rounded-xl">
-                                <h5 className="font-black text-indigo-900 mb-2">✨ {isArabic ? 'ملاحظات المساعد الذكي:' : 'AI Feedback:'}</h5>
-                                <p className="text-indigo-800 text-sm leading-relaxed whitespace-pre-wrap font-bold">{aiFeedback}</p>
-                            </div>
-                        )}
-                    </div>
-
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<AdminPanel />);
     </script>
 </body>
 </html>
