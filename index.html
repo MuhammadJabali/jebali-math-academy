@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أكاديمية Jebali للرياضيات</title>
+    
+    <!-- استدعاء مكتبة التصميم Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- استدعاء مكتبة React الأساسية للواجهة -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+    
+    <!-- الحاوية الأساسية للتطبيق -->
+    <div id="root"></div>
+
+    <!-- كود التطبيق المدمج (React + Supabase + Gemini) -->
+    <script type="text/babel" data-type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        import { GoogleGenerativeAI } from 'https://esm.run/@google/generative-ai';
+
+        const { useState, useEffect } = React;
+
+        // 1. مفاتيح قاعدة بيانات Supabase (الجديدة)
+        const supabaseUrl = 'ضع_رابط_المشروع_الجديد_هنا';
+        const supabaseAnonKey = 'ضع_مفتاح_المشروع_الجديد_هنا';
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        // 2. مفتاح الذكاء الاصطناعي Gemini
+        const GEMINI_API_KEY = 'ضع_مفتاح_جيميني_هنا';
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+        function App() {
+            const [isArabic, setIsArabic] = useState(true);
+            const [sessionCost, setSessionCost] = useState(0); 
+            const [isLoading, setIsLoading] = useState(true);
+            const [aiFeedback, setAiFeedback] = useState('');
+            const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+            // جلب البيانات من Supabase
+            useEffect(() => {
+                async function fetchLatestSession() {
+                    try {
+                        const { data, error } = await supabase
+                            .from('sessions')
+                            .select('calculated_cost')
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+
+                        if (error) throw error;
+                        if (data && data.length > 0) setSessionCost(data[0].calculated_cost);
+                    } catch (error) {
+                        console.error('خطأ الاتصال بقاعدة البيانات:', error.message);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                }
+                fetchLatestSession();
+            }, []);
+
+            // تحليل الصور عبر Gemini
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setIsAnalyzing(true);
+                setAiFeedback(isArabic ? 'جاري تحليل خطوات الحل بالذكاء الاصطناعي...' : 'Analyzing solution steps...');
+
+                try {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = async () => {
+                        const base64Data = reader.result.split(',')[1];
+                        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                        
+                        const prompt = isArabic 
+                            ? "أنت معلم رياضيات خبير. قم بتحليل هذه الصورة التي تحتوي على حل رياضي بخط اليد. تحقق من صحة الخطوات، شجع الطالب، وحدد أي أخطاء."
+                            : "You are an expert math tutor. Analyze this handwritten math solution. Check the steps, provide encouragement, and point out mistakes.";
+
+                        const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
+                        const result = await model.generateContent([prompt, imagePart]);
+                        
+                        setAiFeedback((await result.response).text());
+                        setIsAnalyzing(false);
+                    };
+                } catch (error) {
+                    console.error(error);
+                    setAiFeedback('حدث خطأ أثناء الاتصال بالمساعد الذكي.');
+                    setIsAnalyzing(false);
+                }
+            };
+
+            return (
+                <div className={`p-6 md:p-10 max-w-5xl mx-auto ${isArabic ? 'rtl' : 'ltr'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+                    
+                    {/* شريط التحكم العلوى */}
+                    <header className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
+                        <div>
+                            <h1 className="text-2xl font-black">{isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}</h1>
+                            <p className="text-gray-500 font-bold mt-1 text-sm">{isArabic ? 'لوحة الطالب: أحمد سيد' : 'Student: Ahmed Sayed'}</p>
+                        </div>
+                        <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 bg-gray-900 text-white rounded-lg font-bold text-sm">
+                            {isArabic ? 'English' : 'العربية'}
+                        </button>
+                    </header>
+
+                    {/* الكروت الرئيسية */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* كارت المالية */}
+                        <div className="bg-white p-6 rounded-2xl border-t-4 border-orange-500 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">{isArabic ? 'المستحقات المالية' : 'Billing'}</span>
+                                <h3 className="text-4xl font-black mt-4">{isLoading ? '...' : sessionCost} <span className="text-xl text-gray-400">EGP</span></h3>
+                                <p className="text-sm text-gray-500 mt-2 font-bold">{isArabic ? 'حصة اليوم (قيد الانتظار)' : 'Today (Unpaid)'}</p>
+                            </div>
+                            <a href="https://ipn.eg" target="_blank" className="text-center py-3 mt-6 bg-orange-500 text-white font-bold rounded-xl w-full">
+                                {isArabic ? 'سداد عبر InstaPay' : 'Pay with InstaPay'}
+                            </a>
+                        </div>
+
+                        {/* كارت المنهج */}
+                        <div className="bg-white p-6 rounded-2xl border-t-4 border-emerald-500 shadow-sm md:col-span-2">
+                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{isArabic ? 'إنجاز المنهج' : 'Progress'}</span>
+                            <div className="flex justify-between items-end mt-4 mb-2">
+                                <span className="font-bold">Unit 1: Numbers (IGCSE Year 9)</span>
+                                <span className="font-black text-emerald-500">20%</span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-emerald-500 h-full rounded-full w-1/5"></div></div>
+                        </div>
+                    </div>
+
+                    {/* وحدة الذكاء الاصطناعي */}
+                    <div className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200">
+                        <h4 className="text-lg font-black mb-4">{isArabic ? 'التقييم الذكي للواجبات' : 'AI Homework Evaluation'}</h4>
+                        <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
+                        <label htmlFor="hw-upload" className="inline-block px-8 py-3 bg-gray-900 text-white font-bold rounded-xl cursor-pointer">
+                            {isAnalyzing ? '⏳...' : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
+                        </label>
+                        
+                        {aiFeedback && (
+                            <div className="mt-6 p-6 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                <h5 className="font-black text-indigo-900 mb-2">✨ {isArabic ? 'ملاحظات المساعد الذكي:' : 'AI Feedback:'}</h5>
+                                <p className="text-indigo-800 text-sm leading-relaxed whitespace-pre-wrap font-bold">{aiFeedback}</p>
+                            </div>
+                        )}
+                    </div>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
