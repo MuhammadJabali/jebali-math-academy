@@ -16,7 +16,7 @@
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .glass-input option { color: black; }
+        .glass-input option { color: black; background: white; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -179,14 +179,34 @@
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اسم الطالب بالكامل' : 'Full Name'}</label>
                                     <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
                                 </div>
+                                
+                                {/* قائمة النظام الدراسي المنسدلة */}
                                 <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'النظام الدراسي (IGCSE, IB...)' : 'System (IGCSE, IB...)'}</label>
-                                    <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})} />
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'النظام الدراسي' : 'Curriculum System'}</label>
+                                    <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})}>
+                                        <option value="" disabled>{isArabic ? '-- اختر النظام الدراسي --' : '-- Select System --'}</option>
+                                        <option value="IGCSE">IGCSE (British)</option>
+                                        <option value="IB">IB (International Baccalaureate)</option>
+                                        <option value="American Diploma">American Diploma</option>
+                                        <option value="National (Languages)">National (Languages / لغات)</option>
+                                        <option value="National (Arabic)">National (Arabic / عربي)</option>
+                                    </select>
                                 </div>
+
+                                {/* قائمة المرحلة/الصف المنسدلة */}
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade Level'}</label>
-                                    <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})} />
+                                    <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                        <option value="" disabled>{isArabic ? '-- اختر المرحلة أو الصف --' : '-- Select Grade Level --'}</option>
+                                        <option value="Grade 7 / Year 8">Grade 7 / Year 8</option>
+                                        <option value="Grade 8 / Year 9">Grade 8 / Year 9</option>
+                                        <option value="Grade 9 / Year 10">Grade 9 / Year 10</option>
+                                        <option value="Grade 10 / Year 11">Grade 10 / Year 11</option>
+                                        <option value="Grade 11 / Year 12">Grade 11 / Year 12</option>
+                                        <option value="Grade 12 / Year 13">Grade 12 / Year 13</option>
+                                    </select>
                                 </div>
+
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'تكلفة الساعة (بالجنيه)' : 'Hourly Rate (EGP)'}</label>
                                     <input type="number" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
@@ -206,7 +226,7 @@
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب' : 'Select Student'}</label>
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
                                         <option value="" disabled>{isArabic ? '-- اضغط لاختيار الطالب --' : '-- Select Student --'}</option>
-                                        {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                        {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system} - {s.grade_level})</option>)}
                                     </select>
                                 </div>
                                 <div>
