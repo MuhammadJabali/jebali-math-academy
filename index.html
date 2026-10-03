@@ -1,207 +1,199 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أكاديمية Jebali للرياضيات | Jebali Math Academy</title>
+    <title id="pageTitle">Jebali Math Academy | أكاديمية الجبالي للرياضيات</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
-        .glass-card { background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.15); }
-        .glass-card-hover:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); transform: translateY(-4px); }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .glass-card { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-card:hover { transform: translateY(-8px); border-color: rgba(249, 115, 22, 0.6); box-shadow: 0 25px 50px -12px rgba(249, 115, 22, 0.25); background: rgba(255, 255, 255, 0.07); }
+        .glow-effect { position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 min-h-screen text-white selection:bg-blue-500 selection:text-white">
+<body class="bg-slate-950 min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
 
-    <div id="root"></div>
+    <!-- إضاءات خلفية جمالية تفاعلية -->
+    <div class="glow-effect top-[-100px] right-[-100px]"></div>
+    <div class="glow-effect bottom-[-100px] left-[-100px]"></div>
 
-    <script type="text/babel">
-        const { useState } = React;
-
-        function LandingPage() {
-            const [isArabic, setIsArabic] = useState(true);
-
-            return (
-                <div className={`min-h-screen flex flex-col justify-between ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                    
-                    {/* شريط الملاحة العلوي */}
-                    <header className="max-w-6xl w-full mx-auto p-4 md:p-6 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-blue-500/30">
-                                📐
-                            </div>
-                            <div>
-                                <h1 className="text-xl md:text-2xl font-black tracking-tight">
-                                    {isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}
-                                </h1>
-                                <p className="text-xs text-blue-300 font-bold">
-                                    {isArabic ? 'المناهج الدولية واللغات' : 'International Math Curricula'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <button 
-                                onClick={() => setIsArabic(!isArabic)} 
-                                className="px-5 py-2 glass-card hover:bg-white/20 rounded-full font-bold text-xs md:text-sm transition shadow-md"
-                            >
-                                {isArabic ? 'English' : 'العربية'}
-                            </button>
-                        </div>
-                    </header>
-
-                    {/* القسم الرئيسي الترحيبي */}
-                    <main className="max-w-6xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
-                        <div className="text-center max-w-3xl mx-auto mb-12">
-                            <span className="inline-block px-4 py-1.5 glass-card rounded-full text-xs font-black text-blue-300 mb-4 border border-blue-400/30 shadow-sm">
-                                ✨ {isArabic ? 'منظومة تعليمية متكاملة مدعومة بالذكاء الاصطناعي' : 'Next-Gen AI-Powered Math Learning'}
-                            </span>
-                            <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                                {isArabic ? (
-                                    <>
-                                        نحو تفوق استثنائي في <br />
-                                        <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">
-                                            الرياضيات الدولية
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        Master International <br />
-                                        <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">
-                                            Mathematics with Confidence
-                                        </span>
-                                    </>
-                                )}
-                            </h2>
-                            <p className="text-base md:text-lg text-slate-300 font-medium leading-relaxed">
-                                {isArabic 
-                                    ? 'برامج متخصصة لطلاب IGCSE، IB، والدبلومة الأمريكية. متابعة أكاديمية دقيقة، تصحيح ذكي للواجبات وفق معايير الاختبارات، وتقارير تفصيلية مستمرة لأولياء الأمور.' 
-                                    : 'Specialized programs for IGCSE, IB, and American Diploma. Precision syllabus tracking, instant exam-standard homework evaluation, and transparent parental reporting.'}
-                            </p>
-                        </div>
-
-                        {/* بوابات الدخول السريع */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-                            
-                            {/* بوابة الطالب */}
-                            <a href="student.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
-                                <div>
-                                    <div className="w-14 h-14 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
-                                        👨‍🎓
-                                    </div>
-                                    <h3 className="text-2xl font-black mb-3">
-                                        {isArabic ? 'بوابة الطلاب' : 'Student Portal'}
-                                    </h3>
-                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                                        {isArabic 
-                                            ? 'رفع الواجبات وتصحيحها فورياً بالذكاء الاصطناعي، ومتابعة درجات المهارات والوحدات.' 
-                                            : 'Submit homework, get instant AI evaluation with mark scheme tips, and track unit progress.'}
-                                    </p>
-                                </div>
-                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-blue-300 group-hover:gap-3 transition-all">
-                                    <span>{isArabic ? 'دخول الطالب' : 'Access Portal'}</span>
-                                    <span>{isArabic ? '←' : '→'}</span>
-                                </div>
-                            </a>
-
-                            {/* بوابة ولي الأمر */}
-                            <a href="parent.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500`}></div>
-                                <div>
-                                    <div className="w-14 h-14 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
-                                        👨‍👩‍👦
-                                    </div>
-                                    <h3 className="text-2xl font-black mb-3">
-                                        {isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}
-                                    </h3>
-                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                                        {isArabic 
-                                            ? 'تقرير موجز لنقاط القوة والضعف وخطة العلاج، وسجل الحصص، والمستحقات مع إمكانية طباعة PDF.' 
-                                            : 'Executive summaries of strengths and weaknesses, session logs, and printable official PDF reports.'}
-                                    </p>
-                                </div>
-                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-emerald-300 group-hover:gap-3 transition-all">
-                                    <span>{isArabic ? 'دخول ولي الأمر' : 'Access Portal'}</span>
-                                    <span>{isArabic ? '←' : '→'}</span>
-                                </div>
-                            </a>
-
-                            {/* بوابة المعلم والإدارة */}
-                            <a href="admin.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
-                                <div>
-                                    <div className="w-14 h-14 bg-orange-500/20 text-orange-300 border border-orange-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
-                                        🛡️
-                                    </div>
-                                    <h3 className="text-2xl font-black mb-3">
-                                        {isArabic ? 'لوحة الإدارة والمعلم' : 'Admin & Tutor'}
-                                    </h3>
-                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                                        {isArabic 
-                                            ? 'تسجيل الحصص والمهارات الأكاديمية، اعتماد وتعديل درجات الواجبات، ومتابعة الحسابات والفواتير.' 
-                                            : 'Log academic strand & skills, endorse homework scores, and manage finances and students.'}
-                                    </p>
-                                </div>
-                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-orange-300 group-hover:gap-3 transition-all">
-                                    <span>{isArabic ? 'دخول المعلم' : 'Admin Login'}</span>
-                                    <span>{isArabic ? '←' : '→'}</span>
-                                </div>
-                            </a>
-
-                        </div>
-
-                        {/* المناهج والأنظمة المغطاة */}
-                        <div className="glass-card p-8 rounded-3xl mb-8">
-                            <h4 className="text-center text-sm font-black uppercase tracking-wider text-blue-300 mb-6">
-                                {isArabic ? 'المناهج التعليمية الدولية المعتمدة' : 'Accredited Curricula Covered'}
-                            </h4>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
-                                    🇬🇧 IGCSE (Cambridge / Edexcel)
-                                </div>
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
-                                    🌐 IB Diploma (AA & AI)
-                                </div>
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
-                                    🇺🇸 American Diploma (SAT / ACT)
-                                </div>
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
-                                    🇪🇬 National & Language Schools
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* شريط التواصل السريع عبر واتساب */}
-                        <div className="text-center">
-                            <a 
-                                href="https://wa.me/201069338883?text=مرحباً،%20أرغب%20في%20الاستفسار%20عن%20حجز%20حصص%20الرياضيات%20في%20أكاديمية%20Jebali" 
-                                target="_blank" 
-                                className="inline-flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition shadow-lg shadow-emerald-600/30 text-sm md:text-base"
-                            >
-                                <span className="text-xl">💬</span>
-                                <span>{isArabic ? 'تواصل مباشرة عبر WhatsApp للحجز والاستفسار' : 'Contact via WhatsApp for Inquiries'}</span>
-                            </a>
-                        </div>
-                    </main>
-
-                    {/* التذييل السفلي */}
-                    <footer className="max-w-6xl w-full mx-auto p-6 text-center text-xs text-slate-400 font-bold border-t border-white/10 mt-12">
-                        <p>© 2026 {isArabic ? 'أكاديمية Jebali للرياضيات — جميع الحقوق محفوظة.' : 'Jebali Math Academy — All Rights Reserved.'}</p>
-                    </footer>
-
+    <div class="relative max-w-6xl mx-auto px-4 py-6 min-h-screen flex flex-col justify-between">
+        
+        <!-- الهيدر الاحترافي -->
+        <header class="flex justify-between items-center glass-panel px-6 py-4 rounded-2xl shadow-2xl">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-tr from-orange-500 via-amber-500 to-blue-600 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-orange-500/20">📐</div>
+                <div>
+                    <h1 id="brandTitle" class="font-black text-lg md:text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">Jebali Math Academy</h1>
+                    <p id="brandSubtitle" class="text-[10px] md:text-xs text-orange-400 font-bold">بوابة الاحتراف والتميز في الرياضيات</p>
                 </div>
-            );
-        }
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="toggleLanguage()" id="langBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/10 transition flex items-center gap-2 border border-white/10">
+                    🌐 <span id="langText">English</span>
+                </button>
+            </div>
+        </header>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<LandingPage />);
+        <!-- القسم الرئيسي (Hero Section) -->
+        <main class="my-10 text-center">
+            
+            <!-- شارة ترحيبية متحركة -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-black mb-6 shadow-inner">
+                <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+                <span id="badgeText">المنظومة التعليمية الأقوى للرياضيات في مصر والعالم العربي</span>
+            </div>
+            
+            <h2 id="mainHeading" class="text-4xl md:text-6xl font-black mb-6 leading-tight tracking-tight">
+                ارتقِ بمستواك الرياضي إلى <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-blue-500">القمة بذكاء</span>
+            </h2>
+            
+            <p id="mainDesc" class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-semibold mb-12 leading-relaxed">
+                منصة رقمية متطورة مصممة خصيصاً لطلاب المناهج المحلية والدولية (IGCSE، American، IB). توثيق فوري للحصص، متابعة لولي الأمر، ومساعد جبر ذكي متقدم.
+            </p>
+
+            <!-- البطاقات الثلاث الرئيسية (البوابات الفاخرة) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
+                
+                <!-- بوابة الطالب -->
+                <a href="student.html" class="glass-card p-8 rounded-3xl text-center group block relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-400 opacity-0 group-hover:opacity-150 transition duration-300"></div>
+                    <div class="w-16 h-16 bg-blue-500/10 border border-blue-500/30 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-5 group-hover:scale-110 group-hover:bg-blue-500/20 transition duration-300 shadow-lg">
+                        🎓
+                    </div>
+                    <h3 id="studentPortalTitle" class="text-xl font-black mb-2 text-white group-hover:text-blue-400 transition">بوابة الطالب</h3>
+                    <p id="studentPortalDesc" class="text-xs text-slate-400 mb-8 leading-relaxed">سجل الحصص، شارك في تحدي اليوم الرياضي، وارفع صور حلول الواجبات بكل سهولة.</p>
+                    <span class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl transition shadow-lg shadow-blue-600/30 w-full group-hover:translate-y-[-2px]">
+                        <span id="studentBtnText">دخول الطالب</span> 🚀
+                    </span>
+                </a>
+
+                <!-- بوابة ولي الأمر -->
+                <a href="parent.html" class="glass-card p-8 rounded-3xl text-center group block relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-100 transition duration-300"></div>
+                    <div class="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-5 group-hover:scale-110 group-hover:bg-emerald-500/20 transition duration-300 shadow-lg">
+                        👨‍👩‍👦
+                    </div>
+                    <h3 id="parentPortalTitle" class="text-xl font-black mb-2 text-white group-hover:text-emerald-400 transition">بوابة ولي الأمر</h3>
+                    <p id="parentPortalDesc" class="text-xs text-slate-400 mb-8 leading-relaxed">تابع تقارير الحصص الدقيقة، المستحقات المالية المعلقة، وطرق السداد الفوري الآمنة.</p>
+                    <span class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-lg shadow-emerald-600/30 w-full group-hover:translate-y-[-2px]">
+                        <span id="parentBtnText">متابعة ولي الأمر</span> 📊
+                    </span>
+                </a>
+
+                <!-- لوحة الإدارة -->
+                <a href="admin.html" class="glass-card p-8 rounded-3xl text-center group block relative overflow-hidden border-orange-500/20">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-amber-400 opacity-0 group-hover:opacity-100 transition duration-300"></div>
+                    <div class="w-16 h-16 bg-orange-500/10 border border-orange-500/30 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-5 group-hover:scale-110 group-hover:bg-orange-500/20 transition duration-300 shadow-lg">
+                        👨‍🏫
+                    </div>
+                    <h3 id="adminPortalTitle" class="text-xl font-black mb-2 text-white group-hover:text-orange-400 transition">لوحة الإدارة</h3>
+                    <p id="adminPortalDesc" class="text-xs text-slate-400 mb-8 leading-relaxed">نظام التحكم الشامل، توثيق الحصص بدقة الأرباع ساعة، وتقارير الواتساب الفورية.</p>
+                    <span class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-400 text-white text-xs font-black rounded-xl transition shadow-lg shadow-orange-500/30 w-full group-hover:translate-y-[-2px]">
+                        <span id="adminBtnText">إدارة الأكاديمية</span> ⚙️
+                    </span>
+                </a>
+
+            </div>
+
+            <!-- شريط الميزات السريعة السفلي -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                <div class="glass-panel p-4 rounded-2xl text-center border border-white/5">
+                    <div class="text-xl font-black text-orange-400 mb-1">الأنظمة الدولية</div>
+                    <div id="feat1" class="text-[11px] text-slate-400 font-semibold">IGCSE, American, IB</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center border border-white/5">
+                    <div class="text-xl font-black text-blue-400 mb-1">توثيق فوري</div>
+                    <div id="feat2" class="text-[11px] text-slate-400 font-semibold">تقارير واتساب تلقائية</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center border border-white/5">
+                    <div class="text-xl font-black text-emerald-400 mb-1">أداء صاروخي</div>
+                    <div id="feat3" class="text-[11px] text-slate-400 font-semibold">سرعة تصفح فائقة</div>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl text-center border border-white/5">
+                    <div class="text-xl font-black text-amber-400 mb-1">KaTeX Math</div>
+                    <div id="feat4" class="text-[11px] text-slate-400 font-semibold">عرض معادلات احترافي</div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- التذييل -->
+        <footer class="text-center py-6 border-t border-white/10 text-xs text-slate-400 font-semibold flex flex-col md:flex-row justify-between items-center gap-3">
+            <span id="footerCopy">© 2026 Jebali Math Academy. جميع الحقوق محفوظة.</span>
+            <span class="text-orange-400 font-bold tracking-wider">ENGINEERED FOR EXCELLENCE 📐</span>
+        </footer>
+
+    </div>
+
+    <!-- كود تبديل اللغة المتقدم والتفاعلي -->
+    <script>
+        let currentLang = 'ar';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            const root = document.documentElement;
+            root.lang = currentLang;
+            root.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            if (currentLang === 'en') {
+                document.getElementById('brandSubtitle').innerText = 'Professional Math Excellence Portal';
+                document.getElementById('badgeText').innerText = 'The Leading Mathematics Educational Platform in MENA';
+                document.getElementById('mainHeading').innerHTML = 'Elevate Your Math Skills to the <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-blue-500">Peak Smartly</span>';
+                document.getElementById('mainDesc').innerText = 'An advanced digital platform tailored for local and international students (IGCSE, American, IB). Instant session tracking, parent monitoring, and smart algebra assistant.';
+                
+                document.getElementById('studentPortalTitle').innerText = 'Student Portal';
+                document.getElementById('studentPortalDesc').innerText = 'Log sessions, participate in daily math challenges, and upload paper solution images seamlessly.';
+                document.getElementById('studentBtnText').innerText = 'Student Login';
+
+                document.getElementById('parentPortalTitle').innerText = 'Parent Portal';
+                document.getElementById('parentPortalDesc').innerText = 'Track detailed session reports, pending financial dues, and secure instant payment methods.';
+                document.getElementById('parentBtnText').innerText = 'Parent Tracking';
+
+                document.getElementById('adminPortalTitle').innerText = 'Admin Dashboard';
+                document.getElementById('adminPortalDesc').innerText = 'Comprehensive control system, quarter-hour session documentation, and instant WhatsApp reports.';
+                document.getElementById('adminBtnText').innerText = 'Academy Management';
+
+                document.getElementById('feat1').innerText = 'IGCSE, American, IB';
+                document.getElementById('feat2').innerText = 'Automated WhatsApp Reports';
+                document.getElementById('feat3').innerText = 'Instant Load Performance';
+                document.getElementById('feat4').innerText = 'Advanced Math Rendering';
+
+                document.getElementById('footerCopy').innerText = '© 2026 Jebali Math Academy. All rights reserved.';
+                document.getElementById('langText').innerText = 'العربية';
+            } else {
+                document.getElementById('brandSubtitle').innerText = 'بوابة الاحتراف والتميز في الرياضيات';
+                document.getElementById('badgeText').innerText = 'المنظومة التعليمية الأقوى للرياضيات في مصر والعالم العربي';
+                document.getElementById('mainHeading').innerHTML = 'ارتقِ بمستواك الرياضي إلى <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-400 to-blue-500">القمة بذكاء</span>';
+                document.getElementById('mainDesc').innerText = 'منصة رقمية متطورة مصممة خصيصاً لطلاب المناهج المحلية والدولية (IGCSE، American، IB). توثيق فوري للحصص، متابعة لولي الأمر، ومساعد جبر ذكي متقدم.';
+                
+                document.getElementById('studentPortalTitle').innerText = 'بوابة الطالب';
+                document.getElementById('studentPortalDesc').innerText = 'سجل الحصص، شارك في تحدي اليوم الرياضي، وارفع صور حلول الواجبات بكل سهولة.';
+                document.getElementById('studentBtnText').innerText = 'دخول الطالب';
+
+                document.getElementById('parentPortalTitle').innerText = 'بوابة ولي الأمر';
+                document.getElementById('parentPortalDesc').innerText = 'تابع تقارير الحصص الدقيقة، المستحقات المالية المعلقة، وطرق السداد الفوري الآمنة.';
+                document.getElementById('parentBtnText').innerText = 'متابعة ولي الأمر';
+
+                document.getElementById('adminPortalTitle').innerText = 'لوحة الإدارة';
+                document.getElementById('adminPortalDesc').innerText = 'نظام التحكم الشامل، توثيق الحصص بدقة الأرباع ساعة، وتقارير الواتساب الفورية.';
+                document.getElementById('adminBtnText').innerText = 'إدارة الأكاديمية';
+
+                document.getElementById('feat1').innerText = 'IGCSE, American, IB';
+                document.getElementById('feat2').innerText = 'تقارير واتساب تلقائية';
+                document.getElementById('feat3').innerText = 'سرعة تصفح فائقة';
+                document.getElementById('feat4').innerText = 'عرض معادلات احترافي';
+
+                document.getElementById('footerCopy').innerText = '© 2026 Jebali Math Academy. جميع الحقوق محفوظة.';
+                document.getElementById('langText').innerText = 'English';
+            }
+        }
     </script>
 </body>
 </html>
