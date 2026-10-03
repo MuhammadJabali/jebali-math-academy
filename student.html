@@ -26,7 +26,6 @@
     <!-- شاشة تسجيل الدخول -->
     <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
         <div class="absolute top-6 left-6 flex gap-2">
-            <button onclick="toggleLang()" id="langBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">🌐 English</button>
             <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
         </div>
 
@@ -42,13 +41,13 @@
                 <input type="password" id="passwordInput" placeholder="كلمة المرور" required class="w-full p-4 glass-input rounded-xl font-bold text-center" />
                 <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">تسجيل الدخول</button>
                 <div class="flex justify-between items-center text-xs mt-3 px-1 font-bold">
-                    <button type="button" onclick="switchMode('forgot')" class="text-orange-300 hover:underline">نسيت كلمة المرور؟</button>
+                    <button type="button" onclick="handleForgotPassword()" class="text-orange-300 hover:underline w-full text-center">نسيت كلمة المرور؟</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- لوحة الطالب الرئيسية (تكون مخفية حتى يتم تسجيل الدخول) -->
+    <!-- لوحة الطالب الرئيسية -->
     <div id="dashboardContainer" class="hidden p-4 md:p-8 max-w-4xl mx-auto">
         <header class="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
             <div>
@@ -121,7 +120,6 @@
         const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
         let currentStudent = null;
-        let currentLang = 'ar';
 
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -142,25 +140,38 @@
 
             try {
                 let targetEmail = inputVal;
+                
+                // إذا لم يكن المدخل إيميل (أي رقم هاتف)، نبحث عنه بمرونة في جدول الطلاب
                 if (!targetEmail.includes('@')) {
                     const cleanPhone = targetEmail.replace(/\D/g, '');
-                    const { data: stRecord } = await supabase
+                    const { data: stRecords, error: qError } = await supabase
                         .from('students')
-                        .select('email')
-                        .ilike('student_phone', `%${cleanPhone}%`)
-                        .single();
+                        .select('email, student_phone, parent_phone');
 
-                    if (!stRecord || !stRecord.email) {
-                        showAlert(alertBox, 'لم يتم العثور على بريد مسجل لهذا الهاتف.', 'bg-red-500/20 text-red-100');
+                    if (qError || !stRecords) {
+                        showAlert(alertBox, 'خطأ في الاتصال بقاعدة البيانات.', 'bg-red-500/20 text-red-100');
                         btn.innerText = 'تسجيل الدخول';
                         return;
                     }
-                    targetEmail = stRecord.email;
+
+                    // مطابقة مرنة لرقم الهاتف
+                    const matchedStudent = stRecords.find(st => {
+                        const p1 = (st.student_phone || '').replace(/\D/g, '');
+                        const p2 = (st.parent_phone || '').replace(/\D/g, '');
+                        return p1.includes(cleanPhone) || p2.includes(cleanPhone) || cleanPhone.includes(p1);
+                    });
+
+                    if (!matchedStudent || !matchedStudent.email) {
+                        showAlert(alertBox, 'لم يتم العثور على بريد مسجل لهذا الهاتف. حاول كتابة البريد الإلكتروني مباشرة.', 'bg-red-500/20 text-red-100');
+                        btn.innerText = 'تسجيل الدخول';
+                        return;
+                    }
+                    targetEmail = matchedStudent.email;
                 }
 
                 const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password: passwordVal });
                 if (error) {
-                    showAlert(alertBox, 'خطأ في بيانات الدخول.', 'bg-red-500/20 text-red-100');
+                    showAlert(alertBox, 'خطأ في كلمة المرور أو بيانات الدخول.', 'bg-red-500/20 text-red-100');
                     btn.innerText = 'تسجيل الدخول';
                 } else {
                     await loadStudentData(targetEmail);
@@ -169,6 +180,25 @@
                 showAlert(alertBox, 'حدث خطأ غير متوقع.', 'bg-red-500/20 text-red-100');
                 btn.innerText = 'تسجيل الدخول';
             }
+        };
+
+        window.handleForgotPassword = async function() {
+            const inputVal = document.getElementById('loginInput').value.trim();
+            const alertBox = document.getElementById('alertBox');
+            if (!inputVal) {
+                showAlert(alertBox, 'أرجو إدخال رقم الهاتف أو البريد أولاً لاستعادة كلمة المرور.', 'bg-amber-500/20 text-amber-100');
+                return;
+            }
+            let targetEmail = inputVal;
+            if (!targetEmail.includes('@')) {
+                const cleanPhone = targetEmail.replace(/\D/g, '');
+                const { data: stRecords } = await supabase.from('students').select('email, student_phone');
+                const matched = stRecords?.find(st => (st.student_phone || '').replace(/\D/g, '').includes(cleanPhone));
+                if (matched && matched.email) targetEmail = matched.email;
+            }
+            const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
+            if (error) showAlert(alertBox, 'Error: ' + error.message, 'bg-red-500/20 text-red-100');
+            else showAlert(alertBox, '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!', 'bg-emerald-500/20 text-emerald-100');
         };
 
         async function loadStudentData(email) {
@@ -262,7 +292,6 @@
             el.className = `mb-4 p-3 rounded-xl text-xs font-bold ${cls}`;
             el.innerText = msg;
             el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 5000);
         }
 
         function renderMath() {
