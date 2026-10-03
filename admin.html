@@ -39,13 +39,9 @@
             const [loginError, setLoginError] = useState('');
             
             const [students, setStudents] = useState([]);
+            const [sessionsList, setSessionsList] = useState([]);
             const [newStudent, setNewStudent] = useState({ 
-                name: '', 
-                student_phone: '', 
-                parent_phone: '', 
-                system: '', 
-                grade: '', 
-                rate: '' 
+                name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' 
             });
             const [newSession, setNewSession] = useState({ student_id: '', duration: '' });
             const [msg, setMsg] = useState('');
@@ -53,18 +49,44 @@
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
-                    if (session) fetchStudents();
+                    if (session) {
+                        fetchStudents();
+                        fetchSessions();
+                    }
                 });
 
                 supabase.auth.onAuthStateChange((_event, session) => {
                     setSession(session);
-                    if (session) fetchStudents();
+                    if (session) {
+                        fetchStudents();
+                        fetchSessions();
+                    }
                 });
             }, []);
 
             async function fetchStudents() {
                 const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
                 if (data) setStudents(data);
+            }
+
+            async function fetchSessions() {
+                const { data } = await supabase
+                    .from('sessions')
+                    .select('*, students(student_name)')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                if (data) setSessionsList(data);
+            }
+
+            async function togglePaymentStatus(sessionId, currentStatus) {
+                const { error } = await supabase
+                    .from('sessions')
+                    .update({ is_paid: !currentStatus })
+                    .eq('id', sessionId);
+
+                if (!error) {
+                    fetchSessions();
+                }
             }
 
             async function handleLogin(e) {
@@ -91,7 +113,7 @@
                 }]);
                 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم إضافة الطالب وربط أرقام الهاتف بنجاح!' : '✅ Student and linked phones added successfully!');
+                    setMsg(isArabic ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
                     fetchStudents();
                     setNewStudent({ name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' });
                 } else {
@@ -105,17 +127,22 @@
                 setMsg(isArabic ? '⏳ جاري التسجيل...' : '⏳ Logging session...');
                 const { error } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
-                    duration_hours: parseFloat(newSession.duration)
+                    duration_hours: parseFloat(newSession.duration),
+                    is_paid: false
                 }]);
                 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم تسجيل الحصة واعتماد التكلفة!' : '✅ Session logged and cost applied!');
+                    setMsg(isArabic ? '✅ تم تسجيل الحصة بنجاح!' : '✅ Session logged successfully!');
                     setNewSession({ student_id: '', duration: '' });
+                    fetchSessions();
                 } else {
                     setMsg('❌ Error: ' + error.message);
                 }
                 setTimeout(() => setMsg(''), 4000);
             }
+
+            const totalCollected = sessionsList.filter(s => s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
+            const totalPending = sessionsList.filter(s => !s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
 
             if (!session) {
                 return (
@@ -156,7 +183,7 @@
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-orange-500/50">🛡️</div>
                             <div>
-                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة المركزية' : 'Central Admin Center'}</h1>
+                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة والمتابعة المالية' : 'Central Finance & Management'}</h1>
                                 <p className="text-blue-200 font-bold text-sm">mr.gebally@gmail.com</p>
                             </div>
                         </div>
@@ -173,17 +200,31 @@
                         </div>
                     </header>
 
+                    {/* ملخص الإيرادات */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
+                            <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{isArabic ? 'المبالغ المحصلة' : 'Collected Revenue'}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalCollected} <span className="text-xl text-blue-200">EGP</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'تم تأكيد استلامها' : 'Payment confirmed'}</p>
+                        </div>
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
+                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{isArabic ? 'المستحقات المعلقة' : 'Pending Receivables'}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalPending} <span className="text-xl text-blue-200">EGP</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'بانتظار السداد من أولياء الأمور' : 'Awaiting parent settlement'}</p>
+                        </div>
+                    </div>
+
                     {msg && (
                         <div className={`mb-8 p-4 font-black rounded-xl border ${msg.includes('✅') ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-100' : 'bg-blue-500/20 border-blue-500/50 text-blue-100'} backdrop-blur-md`}>
                             {msg}
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* إضافة طالب وتوثيق الأرقام */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        {/* إضافة طالب */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
-                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب وربط الهواتف' : '👤 Add Student & Link Phones'}</h3>
+                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب جديد' : '👤 Add New Student'}</h3>
                             <form onSubmit={handleAddStudent} className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اسم الطالب بالكامل' : 'Full Name'}</label>
@@ -192,11 +233,11 @@
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف الطالب' : 'Student Phone'}</label>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'هاتف الطالب' : 'Student Phone'}</label>
                                         <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف ولي الأمر' : 'Parent Phone'}</label>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'هاتف ولي الأمر' : 'Parent Phone'}</label>
                                         <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
                                     </div>
                                 </div>
@@ -227,7 +268,7 @@
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'تكلفة الساعة (بالجنيه)' : 'Hourly Rate (EGP)'}</label>
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'سعر الساعة (EGP)' : 'Hourly Rate (EGP)'}</label>
                                     <input type="number" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
                                 </div>
                                 <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-blue-500/30 mt-4">
@@ -237,32 +278,73 @@
                         </div>
 
                         {/* تسجيل حصة */}
-                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
+                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
-                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل وقت حصة' : '⏱️ Log Session Time'}</h3>
-                            <form onSubmit={handleAddSession} className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب' : 'Select Student'}</label>
-                                    <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
-                                        <option value="" disabled>{isArabic ? '-- اضغط لاختيار الطالب --' : '-- Select Student --'}</option>
-                                        {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system} - {s.grade_level})</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات' : 'Duration in hours'}</label>
-                                    <input type="number" step="0.25" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
-                                </div>
-                                
-                                <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl mt-4">
-                                    <p className="text-xs font-bold text-orange-200 leading-relaxed">
-                                        {isArabic ? '💡 بمجرد التسجيل، سيتم حساب التكلفة وإضافتها لفاتورة الطالب تلقائياً.' : '💡 Cost will be calculated and applied automatically.'}
-                                    </p>
-                                </div>
+                            <div>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل وقت حصة' : '⏱️ Log Session Time'}</h3>
+                                <form onSubmit={handleAddSession} className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب' : 'Select Student'}</label>
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
+                                            <option value="" disabled>{isArabic ? '-- اضغط لاختيار الطالب --' : '-- Select Student --'}</option>
+                                            {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات' : 'Duration in hours'}</label>
+                                        <input type="number" step="0.25" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
+                                    </div>
+                                    <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
+                                        {isArabic ? 'تسجيل الحصة واعتماد التكلفة' : 'Log Session & Apply Cost'}
+                                    </button>
+                                </form>
+                            </div>
 
-                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
-                                    {isArabic ? 'تسجيل الحصة واعتماد التكلفة' : 'Log Session & Apply Cost'}
-                                </button>
-                            </form>
+                            <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl mt-6">
+                                <p className="text-xs font-bold text-orange-200 leading-relaxed">
+                                    {isArabic ? '💡 تضاف الحصة مباشرة كـ (غير مدفوعة)، ويمكنك تأكيد سدادها من الجدول أدناه بمجرد استلام التحويل.' : '💡 Sessions are logged as unpaid by default; mark as paid once settlement is received.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* إدارة الحصص وتأكيد السداد */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl">
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 إدارة الحصص وتأكيد السداد' : '💳 Sessions & Settlement Control'}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">{isArabic ? 'الطالب' : 'Student'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'التاريخ' : 'Date'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'الحالة والإجراء' : 'Status & Action'}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-bold">
+                                    {sessionsList.map(s => (
+                                        <tr key={s.id} className="hover:bg-white/5 transition">
+                                            <td className="py-4 px-4">{s.students?.student_name || 'طالب'}</td>
+                                            <td className="py-4 px-4 text-sm text-blue-200">{new Date(s.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US')}</td>
+                                            <td className="py-4 px-4">{s.duration_hours} {isArabic ? 'ساعة' : 'hrs'}</td>
+                                            <td className="py-4 px-4 text-orange-300">{s.calculated_cost} EGP</td>
+                                            <td className="py-4 px-4">
+                                                <button 
+                                                    onClick={() => togglePaymentStatus(s.id, s.is_paid)}
+                                                    className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                                                        s.is_paid 
+                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40' 
+                                                            : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/30'
+                                                    }`}
+                                                >
+                                                    {s.is_paid ? (isArabic ? '✅ مدفوعة (اضغط للإلغاء)' : '✅ Paid (Click to undo)') : (isArabic ? 'تأكيد السداد 💵' : 'Mark as Paid 💵')}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
