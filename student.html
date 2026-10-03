@@ -21,8 +21,6 @@
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-
-        /* عزل المعادلات الرياضية لتظهر باتجاه لاتيني سليم LTR */
         .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.15em; }
         .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
     </style>
@@ -47,7 +45,6 @@
         const TELEGRAM_TOKEN = '8821809584:AAHaFFqJTnd1j9K4Y3-_hZdyseLRnEDsE_I';
         const TELEGRAM_CHAT_ID = '8544954637';
 
-        // مكوّن عرض المعادلات الرياضية بـ KaTeX
         function MathView({ content, className = '' }) {
             const containerRef = useRef(null);
 
@@ -86,7 +83,10 @@
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [isTranslating, setIsTranslating] = useState(false);
             const [submissions, setSubmissions] = useState([]);
-            const [historyTranslations, setHistoryTranslations] = useState({});
+
+            // ذاكرة التخزين المؤقت للترجمة الفورية (0 ثانية)
+            const [currentTransCache, setCurrentTransCache] = useState({ ar: '', en: '' });
+            const [historyTransCache, setHistoryTransCache] = useState({});
             const [loadingTransId, setLoadingTransId] = useState(null);
 
             const fetchSubmissions = async (studentId) => {
@@ -144,7 +144,6 @@
                 }
             };
 
-            // ضغط وتعديل أبعاد الصورة لضمان استجابة سريعة
             const compressImage = (file) => {
                 return new Promise((resolve) => {
                     const reader = new FileReader();
@@ -178,7 +177,6 @@
                 });
             };
 
-            // استدعاء النموذج الحديث وفق التحديث الرسمي (gemini-3.8-flash)
             const callGeminiModel = async (prompt, base64Data) => {
                 const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
                 let lastError = null;
@@ -216,7 +214,6 @@
                 throw lastError || new Error('تعذر إكمال التصحيح حالياً، يرجى المحاولة بعد لحظات');
             };
 
-            // دالة ترجمة النصوص الرياضية مع الحفاظ الصارم على KaTeX
             const translateMathText = async (textToTranslate, targetLang) => {
                 const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
 CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
@@ -258,10 +255,8 @@ ${textToTranslate}`;
                     const base64Data = await compressImage(file);
                     setAiFeedback(isArabic ? '⏳ جاري تدقيق الخطوات الرياضية واحتساب الدرجة بالذكاء الاصطناعي...' : '⏳ Evaluating mathematical steps with AI...');
 
-                    // تحديد لغة التقرير: عربي فقط إذا كان تعليم مصري عربي، وغير ذلك بالإنجليزية تلقائياً
                     const curSystem = loggedInStudent.curriculum_system || '';
                     const isEgyptianArabic = curSystem.includes('Arabic') || curSystem.includes('عربي');
-                    const targetLang = isEgyptianArabic ? 'Arabic' : 'English';
 
                     const prompt = isEgyptianArabic
                         ? `أنت مصحح امتحانات رياضيات أول معتمد للمناهج المصرية (${curSystem} / ${loggedInStudent.grade_level}).
@@ -320,6 +315,13 @@ FEEDBACK:
                     setCurrentScore(extractedScore);
                     setAiFeedback(cleanFeedback);
 
+                    // تخزين فوري للغة الأصلية في الذاكرة
+                    if (isEgyptianArabic) {
+                        setCurrentTransCache({ ar: cleanFeedback, en: '' });
+                    } else {
+                        setCurrentTransCache({ en: cleanFeedback, ar: '' });
+                    }
+
                     await supabase.from('homework_submissions').insert([{
                         student_id: loggedInStudent.id,
                         ai_feedback: cleanFeedback,
@@ -341,14 +343,32 @@ FEEDBACK:
                 }
             };
 
-            // ترجمة التقرير الحالي النشط
+            // التبديل الفوري 0 ثانية للتقرير الحالي
             const handleTranslateCurrent = async () => {
                 if (!aiFeedback || isTranslating) return;
+                const isCurrentlyArabic = hasArabicLetters(aiFeedback);
+
+                // فحص الكاش الفوري (0 ثانية)
+                if (isCurrentlyArabic && currentTransCache.en) {
+                    setAiFeedback(currentTransCache.en);
+                    return;
+                }
+                if (!isCurrentlyArabic && currentTransCache.ar) {
+                    setAiFeedback(currentTransCache.ar);
+                    return;
+                }
+
+                // الترجمة لأول مرة وتخزينها
                 setIsTranslating(true);
-                const targetLang = hasArabicLetters(aiFeedback) ? 'English' : 'Arabic';
+                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
                 try {
                     const translated = await translateMathText(aiFeedback, targetLang);
                     setAiFeedback(translated);
+                    if (targetLang === 'English') {
+                        setCurrentTransCache(prev => ({ ...prev, en: translated }));
+                    } else {
+                        setCurrentTransCache(prev => ({ ...prev, ar: translated }));
+                    }
                 } catch (e) {
                     console.error(e);
                 } finally {
@@ -356,17 +376,37 @@ FEEDBACK:
                 }
             };
 
-            // ترجمة أي تقرير من السجل القديم
+            // التبديل الفوري 0 ثانية لسجل الواجبات السابقة
             const handleTranslateHistoryItem = async (subId, originalContent) => {
                 if (loadingTransId) return;
-                setLoadingTransId(subId);
 
-                const currentText = historyTranslations[subId] || originalContent;
-                const targetLang = hasArabicLetters(currentText) ? 'English' : 'Arabic';
+                const cached = historyTransCache[subId] || {};
+                const currentDisplayed = cached.active || originalContent;
+                const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
+
+                // إذا كانت النسخة البديلة مخزنة بالفعل، يتم التبديل فوراً (0 ثانية)
+                if (isCurrentlyArabic && cached.en) {
+                    setHistoryTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
+                    return;
+                }
+                if (!isCurrentlyArabic && cached.ar) {
+                    setHistoryTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.ar } }));
+                    return;
+                }
+
+                // الترجمة لأول مرة وحفظها
+                setLoadingTransId(subId);
+                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
 
                 try {
-                    const translated = await translateMathText(currentText, targetLang);
-                    setHistoryTranslations(prev => ({ ...prev, [subId]: translated }));
+                    const translated = await translateMathText(currentDisplayed, targetLang);
+                    const newEntry = {
+                        ...cached,
+                        active: translated,
+                        [targetLang === 'English' ? 'en' : 'ar']: translated,
+                        [isCurrentlyArabic ? 'ar' : 'en']: currentDisplayed
+                    };
+                    setHistoryTransCache(prev => ({ ...prev, [subId]: newEntry }));
                 } catch (e) {
                     console.error(e);
                 } finally {
@@ -475,7 +515,7 @@ FEEDBACK:
                         </div>
                     </div>
 
-                    {/* التقييم الذكي مع زر الترجمة التفاعلي الدائم */}
+                    {/* التقييم الذكي مع زر الترجمة الفوري */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التصحيح الذكي وفق معايير الاختبارات 🤖' : 'AI Homework Examiner 🤖'}</h4>
@@ -496,14 +536,13 @@ FEEDBACK:
                                         </div>
                                     )}
 
-                                    {/* زر الترجمة يحدد اللغة التلقائية ويترجم للغة المقابلة فوراً */}
                                     <button 
                                         onClick={handleTranslateCurrent} 
                                         disabled={isTranslating}
                                         className="px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-400/30 rounded-xl text-xs font-bold transition flex items-center gap-2"
                                     >
                                         <span>🌐</span> 
-                                        {isTranslating ? '...' : (hasArabicLetters(aiFeedback) ? 'Translate to English' : 'ترجمة إلى العربية')}
+                                        {isTranslating ? '...' : (hasArabicLetters(aiFeedback) ? 'Translate to English ⚡' : 'ترجمة إلى العربية ⚡')}
                                     </button>
                                 </div>
 
@@ -514,7 +553,7 @@ FEEDBACK:
                         )}
                     </div>
 
-                    {/* سجل الواجبات السابقة مع زر ترجمة لكل واجب */}
+                    {/* سجل الواجبات السابقة مع دعم ملاحظات المعلم واعتماده */}
                     <div className="glass-card p-8 rounded-3xl">
                         <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات والدرجات السابقة' : '📚 Graded Submissions History'}</h4>
                         {submissions.length === 0 ? (
@@ -522,7 +561,8 @@ FEEDBACK:
                         ) : (
                             <div className="space-y-4">
                                 {submissions.map((sub, idx) => {
-                                    const displayedText = historyTranslations[sub.id] || sub.ai_feedback;
+                                    const cached = historyTransCache[sub.id];
+                                    const displayedText = cached ? cached.active : sub.ai_feedback;
                                     const isSubArabic = hasArabicLetters(displayedText);
                                     
                                     return (
@@ -537,6 +577,11 @@ FEEDBACK:
                                                             🎯 {sub.score} / 10
                                                         </span>
                                                     )}
+                                                    {sub.is_reviewed && (
+                                                        <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2.5 py-0.5 rounded-full font-bold">
+                                                            ✅ {isArabic ? 'معتمد من المعلم' : 'Teacher Endorsed'}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
@@ -544,16 +589,23 @@ FEEDBACK:
                                                         {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                     
-                                                    {/* زر الترجمة لكل عنصر بالسجل */}
                                                     <button 
                                                         onClick={() => handleTranslateHistoryItem(sub.id, sub.ai_feedback)}
                                                         disabled={loadingTransId === sub.id}
                                                         className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
                                                     >
-                                                        <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English' : 'عربي')}
+                                                        <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
                                                     </button>
                                                 </div>
                                             </div>
+
+                                            {/* إظهار ملاحظة المعلم إن وُجدت */}
+                                            {sub.teacher_note && (
+                                                <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-200">
+                                                    <span>👨‍🏫 {isArabic ? 'ملاحظة المعلم:' : "Teacher's Note:"} </span>
+                                                    <span className="text-white font-medium">{sub.teacher_note}</span>
+                                                </div>
+                                            )}
                                             
                                             <MathView content={displayedText} className="text-sm text-slate-200" />
                                         </div>
