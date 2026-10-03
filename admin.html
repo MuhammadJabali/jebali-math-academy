@@ -24,27 +24,8 @@
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
 
-        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.15em; }
-        .katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
-
-        /* ستايل ورقة الامتحان للمعاينة والطباعة */
-        .exam-sheet {
-            background: #ffffff;
-            color: #0f172a;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            border-radius: 1.25rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-        .exam-sheet .katex {
-            color: #000000 !important;
-        }
-
-        @media print {
-            body * { visibility: hidden; }
-            #printable-exam, #printable-exam * { visibility: visible; }
-            #printable-exam { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border-radius: 0; padding: 20mm; }
-            .no-exam-print { display: none !important; }
-        }
+        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
+        .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-align: left; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -86,24 +67,26 @@
             );
         }
 
-        // مكوّن عرض ورقة الامتحان والمارك سكيم الاحترافي
+        // مكوّن عرض ورقة الامتحان والمارك سكيم في نافذة المعاينة
         function ExamPaperView({ rawContent, studentInfo, topic }) {
             const [showAnswers, setShowAnswers] = useState(false);
             const containerRef = useRef(null);
 
-            // فصل الأسئلة عن نموذج الإجابة
+            // فصل الأسئلة عن نموذج الإجابة وتنظيف العناوين المكررة
             const splitSections = (text) => {
                 if (!text) return { questionsText: '', markSchemeText: '' };
                 const parts = text.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
-                return {
-                    questionsText: parts[0] || '',
-                    markSchemeText: parts.length > 1 ? parts.slice(1).join('\n') : ''
-                };
+                
+                let qText = parts[0] || '';
+                // إزالة أي عنوان تكراري مولّد في أول السطور
+                qText = qText.replace(/^[#\s]*.*(?:Targeted Remediation Practice|تمارين علاجية|Worksheet).*$/im, '').trim();
+
+                let msText = parts.length > 1 ? parts.slice(1).join('\n').trim() : '';
+                return { questionsText: qText, markSchemeText: msText };
             };
 
             const { questionsText, markSchemeText } = splitSections(rawContent);
 
-            // تنظيف النص وتنسيقه لعلامات Markdown
             const cleanMarkdown = (txt) => {
                 return (txt || '')
                     .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -126,42 +109,52 @@
 
             return (
                 <div ref={containerRef} className="space-y-6">
-                    {/* ورقة الأسئلة بأسلوب أوراق الامتحانات الرسمية */}
-                    <div id="printable-exam" className="exam-sheet p-6 md:p-8 text-slate-900 border border-slate-200" dir="ltr">
-                        {/* ترويسة ورقة الامتحان */}
-                        <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
-                            <div>
-                                <div className="text-xs font-black tracking-widest uppercase text-blue-700">Jebali Math Academy • Remediation Worksheet</div>
-                                <h2 className="text-xl md:text-2xl font-black mt-1 text-slate-900">{topic}</h2>
-                                <p className="text-xs text-slate-500 font-semibold mt-0.5">Targeted Practice & Method Reinforcement</p>
+                    {/* ورقة الأسئلة بستايل أوراق امتحانات كامبريدج */}
+                    <div id="printable-exam-content" className="bg-white text-slate-900 p-8 rounded-2xl shadow-xl font-inter border border-slate-200" dir="ltr">
+                        {/* ترويسة ورقة الامتحان الرسمية */}
+                        <div className="border-b-2 border-slate-900 pb-4 mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-xl font-black tracking-tight text-slate-950 uppercase">Jebali Mathematics Academy</h1>
+                                    <p className="text-xs font-bold text-blue-700 tracking-wider uppercase mt-0.5">International Assessment & Remediation Series</p>
+                                </div>
+                                <div className="text-right text-xs">
+                                    <span className="inline-block bg-slate-100 border border-slate-300 font-bold px-2.5 py-1 rounded text-slate-800">
+                                        Time: 25 Mins
+                                    </span>
+                                </div>
                             </div>
-                            <div className="text-right text-xs space-y-1">
-                                <div className="font-bold text-slate-700">Candidate: <span className="text-slate-900 font-black">{studentInfo?.student_name}</span></div>
-                                <div className="font-semibold text-slate-500">{studentInfo?.curriculum_system} • {studentInfo?.grade_level}</div>
+
+                            {/* جدول بيانات الطالب المعتمد */}
+                            <div className="mt-4 grid grid-cols-2 gap-2 text-xs border border-slate-300 rounded-lg p-3 bg-slate-50">
+                                <div><span className="text-slate-500 font-medium">Candidate Name:</span> <strong className="text-slate-900">{studentInfo?.student_name}</strong></div>
+                                <div><span className="text-slate-500 font-medium">Curriculum:</span> <strong className="text-slate-900">{studentInfo?.curriculum_system} ({studentInfo?.grade_level})</strong></div>
+                                <div><span className="text-slate-500 font-medium">Topic Syllabus:</span> <strong className="text-slate-900">{topic}</strong></div>
+                                <div><span className="text-slate-500 font-medium">Date:</span> <strong className="text-slate-900">{new Date().toLocaleDateString('en-GB')}</strong></div>
                             </div>
                         </div>
 
-                        {/* تعليمات ورقة الاختبار */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-6 text-xs text-slate-600 font-medium">
-                            <span className="font-bold text-slate-800">Instructions:</span> Answer all questions. Showing all working clearly. Give your answers in the requested form.
+                        {/* صندوق تعليمات الاختبار */}
+                        <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-3 mb-6 text-xs text-blue-950 leading-relaxed">
+                            <strong>Instructions:</strong> Answer all questions. You must show all necessary working clearly in the spaces provided. Give your answers in the simplest index/standard form requested.
                         </div>
 
-                        {/* نص ورقة الأسئلة المنظم */}
-                        <div className="text-sm md:text-base leading-relaxed text-slate-800 font-normal whitespace-pre-wrap">
+                        {/* نص الأسئلة */}
+                        <div className="text-sm leading-loose text-slate-900 font-normal whitespace-pre-wrap">
                             {cleanMarkdown(questionsText)}
                         </div>
                     </div>
 
-                    {/* قسم نموذج الإجابة وتوزيع الدرجات للمعلم (قابل للفتح والإغلاق) */}
+                    {/* قسم نموذج الإجابة للمعلم فقط (مخفي عن الطباعة) */}
                     {markSchemeText && (
-                        <div className="no-exam-print rounded-2xl border border-indigo-500/30 bg-slate-900/90 overflow-hidden" dir="ltr">
+                        <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/90 overflow-hidden" dir="ltr">
                             <button 
                                 onClick={() => setShowAnswers(!showAnswers)}
                                 className="w-full p-4 flex justify-between items-center bg-indigo-950/40 hover:bg-indigo-900/40 transition text-left"
                             >
                                 <div className="flex items-center gap-2">
                                     <span className="text-lg">🔑</span>
-                                    <span className="font-black text-indigo-300 text-sm">Official Mark Scheme & Examiner Notes</span>
+                                    <span className="font-black text-indigo-300 text-sm">Official Mark Scheme (Tutor Reference Only)</span>
                                 </div>
                                 <span className="text-xs bg-indigo-500/20 text-indigo-200 px-3 py-1 rounded-full font-bold">
                                     {showAnswers ? 'Hide Mark Scheme ▲' : 'Show Mark Scheme ▼'}
@@ -169,7 +162,7 @@
                             </button>
 
                             {showAnswers && (
-                                <div className="p-5 border-t border-indigo-500/20 bg-slate-950/50 text-sm text-indigo-100 whitespace-pre-wrap font-mono leading-relaxed">
+                                <div className="p-5 border-t border-indigo-500/20 bg-slate-950/60 text-xs text-indigo-100 whitespace-pre-wrap font-mono leading-relaxed">
                                     {cleanMarkdown(markSchemeText)}
                                 </div>
                             )}
@@ -329,7 +322,79 @@
                 }
             };
 
-            // إرسال الأسئلة فقط للطالب عبر واتساب دون نموذج الإجابة
+            // دالة الطباعة المعزولة تماماً لمنع التكرار وضبط مقاس A4
+            const handlePrintIsolatedExam = () => {
+                const examEl = document.getElementById('printable-exam-content');
+                if (!examEl) return;
+
+                let iframe = document.getElementById('isolated-print-frame');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'isolated-print-frame';
+                    iframe.style.position = 'fixed';
+                    iframe.style.right = '0';
+                    iframe.style.bottom = '0';
+                    iframe.style.width = '0';
+                    iframe.style.height = '0';
+                    iframe.style.border = '0';
+                    document.body.appendChild(iframe);
+                }
+
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(`
+                    <!DOCTYPE html>
+                    <html lang="en" dir="ltr">
+                    <head>
+                        <title>${practiceModal.topic} - ${practiceModal.student?.student_name}</title>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+                        <style>
+                            @page {
+                                size: A4 portrait;
+                                margin: 15mm 15mm 15mm 15mm;
+                            }
+                            body {
+                                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                                color: #0f172a;
+                                background: #ffffff;
+                                margin: 0;
+                                padding: 0;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                            .border-b-2 { border-bottom: 2px solid #0f172a; }
+                            .border { border: 1px solid #cbd5e1; }
+                            .rounded-lg { border-radius: 8px; }
+                            .p-3 { padding: 10px 14px; }
+                            .mb-6 { margin-bottom: 20px; }
+                            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                            .bg-slate-50 { background-color: #f8fafc; }
+                            .bg-blue-50\\/60 { background-color: #eff6ff; }
+                            .text-xs { font-size: 11px; line-height: 1.5; }
+                            .text-sm { font-size: 13.5px; line-height: 1.8; }
+                            .text-xl { font-size: 18px; margin: 0; }
+                            .font-black { font-weight: 900; }
+                            .font-bold { font-weight: 700; }
+                            .uppercase { text-transform: uppercase; }
+                            .whitespace-pre-wrap { white-space: pre-wrap; }
+                            .katex { font-size: 1.15em !important; color: #000000 !important; }
+                            .katex-display { margin: 14px 0 !important; }
+                        </style>
+                    </head>
+                    <body>
+                        ${examEl.innerHTML}
+                    </body>
+                    </html>
+                `);
+                doc.close();
+
+                setTimeout(() => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                }, 350);
+            };
+
             const sendPracticeWhatsApp = () => {
                 if (!practiceModal || !practiceModal.student?.student_phone) {
                     return alert(isArabic ? 'رقم هاتف الطالب غير متوفر!' : 'Student phone not found!');
@@ -338,14 +403,13 @@
                 let phone = practiceModal.student.student_phone.replace(/\D/g, '');
                 if (phone.startsWith('0')) phone = '2' + phone;
 
-                // استخراج نص الأسئلة فقط
                 const parts = practiceModal.content.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
-                const questionsOnly = parts[0].trim();
+                let qText = parts[0].replace(/^[#\s]*.*(?:Targeted Remediation Practice|تمارين علاجية|Worksheet).*$/im, '').trim();
 
                 const cleanText = encodeURIComponent(
                     `مرحباً ${practiceModal.student.student_name} 📐\nإليك ورقة تمارين علاجية للتدريب على درس (${practiceModal.topic}):\n\n` +
-                    questionsOnly + 
-                    `\n\nقم بحل المسائل بخط يدك وتسليمها قبل الحصة القادمة!`
+                    qText + 
+                    `\n\nقم بحل المسائل بخط يدك وتسليمها قبل موعد الحصة القادمة!`
                 );
 
                 window.open(`https://wa.me/${phone}?text=${cleanText}`, '_blank');
@@ -556,7 +620,7 @@
                             <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
                                 <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
                             </a>
-                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
                             <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
@@ -881,12 +945,12 @@
                         )}
                     </div>
 
-                    {/* نافذة ورقة الامتحان التفاعلية (Exam Paper Modal) */}
+                    {/* نافذة ورقة الامتحان التفاعلية المخصصة */}
                     {practiceModal && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-50">
                             <div className="glass-card p-6 md:p-8 rounded-3xl max-w-3xl w-full border border-white/20 shadow-2xl max-h-[92vh] flex flex-col justify-between">
                                 <div>
-                                    <div className="no-exam-print flex justify-between items-center mb-4 border-b border-white/10 pb-3">
+                                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
                                         <div>
                                             <h3 className="text-xl font-black text-white">📝 ورقة التمارين الامتحانية المخصصة</h3>
                                             <p className="text-xs text-blue-300 font-bold mt-1">
@@ -906,7 +970,7 @@
                                     </div>
                                 </div>
 
-                                <div className="no-exam-print flex flex-wrap gap-3 pt-4 border-t border-white/10 mt-2">
+                                <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10 mt-2">
                                     <button 
                                         onClick={sendPracticeWhatsApp}
                                         className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/30"
@@ -915,10 +979,10 @@
                                     </button>
 
                                     <button 
-                                        onClick={() => window.print()}
+                                        onClick={handlePrintIsolatedExam}
                                         className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition text-sm flex items-center gap-1.5 shadow-md"
                                     >
-                                        <span>🖨️</span> {isArabic ? 'طباعة ورقة الامتحان' : 'Print Exam'}
+                                        <span>🖨️</span> {isArabic ? 'طباعة ورقة الامتحان (A4)' : 'Print Exam (A4)'}
                                     </button>
 
                                     <button 
