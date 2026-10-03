@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,58 +17,98 @@
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState } = React;
+        const { useState, useEffect } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
         function ParentPortal() {
-            const [phoneInput, setPhoneInput] = useState('');
+            const [lang, setLang] = useState('ar');
+            const [loginInput, setLoginInput] = useState('');
             const [password, setPassword] = useState('');
             const [studentData, setStudentData] = useState(null);
             const [sessions, setSessions] = useState([]);
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
 
+            const [isSettingUp, setIsSettingUp] = useState(false);
+            const [newPassword, setNewPassword] = useState('');
+            const [pendingStudent, setPendingStudent] = useState(null);
+
+            useEffect(() => {
+                document.documentElement.lang = lang;
+                document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            }, [lang]);
+
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoading(true);
                 setErrorMsg('');
 
-                let cleanPhone = phoneInput.replace(/\D/g, '');
+                const queryVal = loginInput.trim();
+                let cleanPhone = queryVal.replace(/\D/g, '');
 
-                // البحث إما برقم ولي الأمر أو رقم الطالب
-                const { data, error } = await supabase
-                    .from('students')
-                    .select('*')
-                    .or(`parent_phone.ilike.%${cleanPhone}%,student_phone.ilike.%${cleanPhone}%`)
-                    .single();
+                let query = supabase.from('students').select('*');
+                if (cleanPhone.length >= 8) {
+                    query = query.or(`parent_phone.ilike.%${cleanPhone}%,student_phone.ilike.%${cleanPhone}%,email.ilike.%${queryVal}%`);
+                } else {
+                    query = query.ilike('email', `%${queryVal}%`);
+                }
+
+                const { data, error } = await query.single();
 
                 if (error || !data) {
-                    setErrorMsg('رقم الهاتف المدخل غير مسجل في النظام.');
+                    setErrorMsg(lang === 'ar' ? 'لم يتم العثور على طالب بهذه البيانات.' : 'Record not found.');
                     setLoading(false);
                     return;
                 }
 
-                // التحقق من كلمة المرور
-                if (data.password && data.password !== password) {
-                    setErrorMsg('كلمة المرور غير صحيحة!');
+                if (!data.password) {
+                    setPendingStudent(data);
+                    setIsSettingUp(true);
+                    setLoading(false);
+                    return;
+                }
+
+                if (data.password !== password) {
+                    setErrorMsg(lang === 'ar' ? 'كلمة المرور غير صحيحة!' : 'Incorrect password!');
                     setLoading(false);
                     return;
                 }
 
                 setStudentData(data);
-                fetchParentData(data.id);
+                fetchParentSessions(data.id);
                 setLoading(false);
             }
 
-            async function fetchParentData(studentId) {
+            async function handleSetupCredentials(e) {
+                e.preventDefault();
+                setLoading(true);
+
+                const { error } = await supabase.from('students').update({
+                    password: newPassword.trim()
+                }).eq('id', pendingStudent.id);
+
+                if (error) {
+                    setErrorMsg('Error: ' + error.message);
+                    setLoading(false);
+                    return;
+                }
+
+                const updatedStudent = { ...pendingStudent, password: newPassword.trim() };
+                setStudentData(updatedStudent);
+                fetchParentSessions(updatedStudent.id);
+                setIsSettingUp(false);
+                setLoading(false);
+            }
+
+            async function fetchParentSessions(studentId) {
                 const { data: sessData } = await supabase
                     .from('sessions')
                     .select('*')
@@ -77,43 +117,51 @@
                 if (sessData) setSessions(sessData);
             }
 
+            const forgotPassword = () => {
+                const teacherPhone = '201069338883';
+                const msg = `مرحباً أستاذي، لقد نسيت كلمة المرور الخاصة ببوابة ولي الأمر. أرجو المساعدة.`;
+                window.open(`https://wa.me/${teacherPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+            };
+
             if (!studentData) {
                 return (
-                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
-                        <div className="absolute top-6 left-6">
-                            <a href="index.html" className="px-5 py-2 glass-card rounded-full font-bold text-xs hover:bg-white/20 transition flex items-center gap-2">
-                                <span>🏠</span> الرئيسية
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                        <div className="absolute top-6 left-6 flex gap-2">
+                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">
+                                🌐 {lang === 'ar' ? 'English' : 'العربية'}
+                            </button>
+                            <a href="index.html" className="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">
+                                🏠 {lang === 'ar' ? 'الرئيسية' : 'Home'}
                             </a>
                         </div>
 
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
                             <div className="text-6xl mb-4">👨‍👩‍👦</div>
-                            <h2 className="text-3xl font-black mb-2">بوابة ولي الأمر</h2>
-                            <p className="text-blue-200 text-xs mb-6">أدخل رقم هاتف ولي الأمر أو الطالب مع كلمة المرور</p>
+                            <h2 className="text-3xl font-black mb-2">{lang === 'ar' ? 'بوابة ولي الأمر' : 'Parent Portal'}</h2>
+                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'هاتف ولي الأمر، الطالب، أو الإيميل + كلمة المرور' : 'Parent phone, student phone, or email + password'}</p>
                             
                             {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
 
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <input 
-                                    type="tel" 
-                                    placeholder="رقم الهاتف (ولي الأمر أو الطالب)" 
-                                    required 
-                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
-                                    value={phoneInput} 
-                                    onChange={e => setPhoneInput(e.target.value)} 
-                                />
-                                <input 
-                                    type="password" 
-                                    placeholder="كلمة المرور" 
-                                    required 
-                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
-                                    value={password} 
-                                    onChange={e => setPassword(e.target.value)} 
-                                />
-                                <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
-                                    {loading ? 'جاري التحقق...' : 'دخول بوابة ولي الأمر'}
-                                </button>
-                            </form>
+                            {!isSettingUp ? (
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <input type="text" placeholder={lang === 'ar' ? 'الهاتف أو البريد الإلكتروني' : 'Phone or Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
+                                    <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
+                                    <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
+                                        {loading ? '...' : (lang === 'ar' ? 'دخول بوابة ولي الأمر' : 'Login')}
+                                    </button>
+                                    <button type="button" onClick={forgotPassword} className="text-xs text-blue-300 hover:underline block w-full mt-2 font-bold">
+                                        {lang === 'ar' ? 'هل نسيت كلمة المرور؟' : 'Forgot Password?'}
+                                    </button>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleSetupCredentials} className="space-y-4">
+                                    <p className="text-xs text-emerald-300 font-bold">أهلاً بك! يرجى تعيين كلمة مرور خاصة بك لأول مرة:</p>
+                                    <input type="password" placeholder="أدخل كلمة مرور جديدة" required className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-sm">
+                                        حفظ وبدء المتابعة ✅
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     </div>
                 );
@@ -122,36 +170,29 @@
             const totalUnpaid = sessions.filter(s => !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
 
             return (
-                <div className="p-4 md:p-8 max-w-4xl mx-auto font-cairo" dir="rtl">
+                <div className="p-4 md:p-8 max-w-4xl mx-auto font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
                         <div>
-                            <h1 className="text-xl md:text-2xl font-black">متابعة ولي الأمر • {studentData.student_name} 📐</h1>
+                            <h1 className="text-xl md:text-2xl font-black">{lang === 'ar' ? `متابعة ولي الأمر • ${studentData.student_name}` : `Parent Portal • ${studentData.student_name}`} 📐</h1>
                             <p className="text-blue-200 text-xs mt-1">{studentData.curriculum_system} • {studentData.grade_level}</p>
                         </div>
                         <div className="flex gap-2">
-                            <a href="index.html" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">
-                                🏠 الرئيسية
-                            </a>
-                            <button onClick={() => setStudentData(null)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-xs transition">
-                                خروج
-                            </button>
+                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card rounded-xl font-bold text-xs transition">🌐 {lang === 'ar' ? 'English' : 'العربية'}</button>
+                            <a href="index.html" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 {lang === 'ar' ? 'الرئيسية' : 'Home'}</a>
+                            <button onClick={() => setStudentData(null)} className="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">{lang === 'ar' ? 'خروج' : 'Logout'}</button>
                         </div>
                     </header>
 
-                    {/* الملخص المالي */}
                     <div className="glass-card p-6 rounded-3xl mb-8 border-t-4 border-orange-500">
-                        <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">المستحقات المالية المعلقة</span>
+                        <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{lang === 'ar' ? 'المستحقات المالية المعلقة' : 'Pending Dues'}</span>
                         <h3 className="text-3xl font-black mt-3 text-white">{totalUnpaid} <span className="text-lg text-blue-200">EGP</span></h3>
-                        <p className="text-xs text-blue-200 mt-2">يمكنكم السداد بسهولة عبر InstaPay أو المحافظ الإلكترونية الخاصة بالأستاذ.</p>
+                        <p className="text-xs text-blue-200 mt-2">{lang === 'ar' ? 'يمكنكم السداد بسهولة عبر InstaPay.' : 'You can pay easily via InstaPay.'}</p>
                     </div>
 
-                    {/* سجل حصص المتابعة */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-lg font-black mb-4 flex items-center gap-2">
-                            <span>📋</span> سجل الحصص والمصاريف
-                        </h3>
+                        <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> {lang === 'ar' ? 'سجل الحصص والمصاريف' : 'Sessions & Expenses Record'}</h3>
                         {sessions.length === 0 ? (
-                            <p className="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة للطالب بعد.</p>
+                            <p className="text-xs text-slate-300 text-center py-6">{lang === 'ar' ? 'لا توجد حصص مسجلة بعد.' : 'No sessions recorded yet.'}</p>
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map(s => (
@@ -163,7 +204,7 @@
                                         <div className="flex items-center gap-4">
                                             <span className="text-xs font-black text-orange-300">{s.calculated_cost} EGP</span>
                                             <span className={`text-xs px-3 py-1 rounded-full font-bold ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-orange-500/20 text-orange-300'}`}>
-                                                {s.is_paid ? '✅ مسددة' : '⏳ معلقة'}
+                                                {s.is_paid ? (lang === 'ar' ? '✅ مسددة' : '✅ Paid') : (lang === 'ar' ? '⏳ معلقة' : '⏳ Pending')}
                                             </span>
                                         </div>
                                     </div>
