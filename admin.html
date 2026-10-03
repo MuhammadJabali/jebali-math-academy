@@ -40,6 +40,7 @@
             
             const [students, setStudents] = useState([]);
             const [sessionsList, setSessionsList] = useState([]);
+            const [homeworkList, setHomeworkList] = useState([]);
             const [newStudent, setNewStudent] = useState({ 
                 name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' 
             });
@@ -49,20 +50,20 @@
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
-                    if (session) {
-                        fetchStudents();
-                        fetchSessions();
-                    }
+                    if (session) loadAllData();
                 });
 
                 supabase.auth.onAuthStateChange((_event, session) => {
                     setSession(session);
-                    if (session) {
-                        fetchStudents();
-                        fetchSessions();
-                    }
+                    if (session) loadAllData();
                 });
             }, []);
+
+            async function loadAllData() {
+                fetchStudents();
+                fetchSessions();
+                fetchHomeworks();
+            }
 
             async function fetchStudents() {
                 const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
@@ -78,6 +79,15 @@
                 if (data) setSessionsList(data);
             }
 
+            async function fetchHomeworks() {
+                const { data } = await supabase
+                    .from('homework_submissions')
+                    .select('*, students(student_name, curriculum_system)')
+                    .order('created_at', { ascending: false })
+                    .limit(15);
+                if (data) setHomeworkList(data);
+            }
+
             async function togglePaymentStatus(sessionId, currentStatus) {
                 const { error } = await supabase
                     .from('sessions')
@@ -89,13 +99,20 @@
 
             async function deleteSession(sessionId) {
                 if (!window.confirm(isArabic ? 'هل أنت متأكد من حذف هذه الحصة؟' : 'Are you sure you want to delete this session?')) return;
-                
                 const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
                 if (!error) {
                     setMsg(isArabic ? '✅ تم حذف الحصة بنجاح.' : '✅ Session deleted successfully.');
                     fetchSessions();
-                } else {
-                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 3000);
+            }
+
+            async function deleteStudent(studentId) {
+                if (!window.confirm(isArabic ? 'تحذير: سيتم حذف الطالب وجميع حصصه وواجباته المرتبطة. هل تود المتابعة؟' : 'Warning: This will delete student and all linked sessions/homeworks. Continue?')) return;
+                const { error } = await supabase.from('students').delete().eq('id', studentId);
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم حذف ملف الطالب بنجاح.' : '✅ Student profile deleted.');
+                    loadAllData();
                 }
                 setTimeout(() => setMsg(''), 3000);
             }
@@ -152,7 +169,6 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            // توليد رابط ومحتوى رسالة الواتساب لولي الأمر
             const sendWhatsAppInvoice = (student) => {
                 const studentSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
                 const unpaidAmount = studentSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
@@ -160,11 +176,11 @@
                 
                 let phone = student.parent_phone ? student.parent_phone.replace(/\D/g, '') : '';
                 if (phone.startsWith('0')) {
-                    phone = '2' + phone; // إضافة مفتاح مصر تلقائياً
+                    phone = '2' + phone;
                 }
 
                 const message = isArabic 
-                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتقرير حساب الطالب/ة: *${student.student_name}*%0A• النظام: ${student.curriculum_system} (${student.grade_level})%0A• الحصص غير المسددة: ${studentSessions.length} حصة (${unpaidHours} ساعة)%0A• إجمالي المستحق: *${unpaidAmount} جنيه مصري*%0A%0Aللسداد عبر InstaPay أو المحافظ الإلكترونية، ويمكنكم متابعة تفاصيل الواجبات والحصص عبر رابط الأكاديمية:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
+                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتقرير حساب الطالب/ة: *${student.student_name}*%0A• النظام: ${student.curriculum_system} (${student.grade_level})%0A• الحصص غير المسددة: ${studentSessions.length} حصة (${unpaidHours} ساعة)%0A• إجمالي المستحق: *${unpaidAmount} جنيه مصري*%0A%0Aللسداد عبر InstaPay أو المحافظ الإلكترونية، ويمكنكم متابعة تفاصيل الواجبات والحصص عبر الرابط:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
                     : `Hello from Jebali Math Academy 📐%0A%0AStatement for student: *${student.student_name}*%0A• Curriculum: ${student.curriculum_system}%0A• Pending sessions: ${studentSessions.length} (${unpaidHours} hrs)%0A• Total due: *${unpaidAmount} EGP*%0A%0APortal link:%0Ahttps://jebali-math-academy.pages.dev/parent.html`;
 
                 window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
@@ -229,7 +245,7 @@
                         </div>
                     </header>
 
-                    {/* إحصائيات سريعة */}
+                    {/* الإحصائيات المالية */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
                             <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{isArabic ? 'المبالغ المحصلة' : 'Collected Revenue'}</span>
@@ -329,10 +345,9 @@
                                 </form>
                             </div>
 
-                            {/* قائمة الطلاب مع أزرار واتساب السريعة */}
                             <div className="mt-8 pt-6 border-t border-white/10">
-                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال مطالبة عبر WhatsApp:' : '📲 WhatsApp Invoices:'}</h4>
-                                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال مطالبة سريعة عبر WhatsApp:' : '📲 Quick WhatsApp Invoices:'}</h4>
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                                     {students.map(st => (
                                         <div key={st.id} className="flex justify-between items-center p-2.5 bg-white/5 rounded-xl text-xs font-bold">
                                             <span>{st.student_name}</span>
@@ -348,9 +363,9 @@
                         </div>
                     </div>
 
-                    {/* إدارة الحصص وتأكيد السداد والحذف */}
-                    <div className="glass-card p-6 md:p-8 rounded-3xl">
-                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 إدارة الحصص والإجراءات' : '💳 Sessions Control & Actions'}</h3>
+                    {/* إدارة الحصص وتأكيد السداد */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 إدارة الحصص والحسابات' : '💳 Sessions Control & Accounts'}</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
                                 <thead>
@@ -397,6 +412,82 @@
                             </table>
                         </div>
                     </div>
+
+                    {/* سجل وإدارة الطلاب */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '👥 سجل وإدارة الطلاب المسجلين' : '👥 Registered Students Management'}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">{isArabic ? 'اسم الطالب' : 'Student Name'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'النظام والمرحلة' : 'System & Grade'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'سعر الساعة' : 'Hourly Rate'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'هاتف الطالب' : 'Student Phone'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'هاتف ولي الأمر' : 'Parent Phone'}</th>
+                                        <th className="pb-3 px-4 text-center">{isArabic ? 'إجراء' : 'Action'}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-bold">
+                                    {students.map(st => (
+                                        <tr key={st.id} className="hover:bg-white/5 transition">
+                                            <td className="py-4 px-4">{st.student_name}</td>
+                                            <td className="py-4 px-4 text-sm text-blue-200">{st.curriculum_system} - {st.grade_level}</td>
+                                            <td className="py-4 px-4 text-emerald-300">{st.hourly_rate} EGP</td>
+                                            <td className="py-4 px-4 text-sm">{st.student_phone || '-'}</td>
+                                            <td className="py-4 px-4 text-sm">{st.parent_phone || '-'}</td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button 
+                                                    onClick={() => deleteStudent(st.id)}
+                                                    title={isArabic ? 'حذف ملف الطالب' : 'Delete Student'}
+                                                    className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي' : '📝 Recent Homework & AI Evaluations'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'متابعة ما تم تسليمه وتقييمه آلياً للطلاب' : 'Review recent automated evaluations generated for students'}</p>
+                            </div>
+                            <span className="text-3xl">🤖</span>
+                        </div>
+
+                        {homeworkList.length === 0 ? (
+                            <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد واجبات مسلمة بعد.' : 'No homework submissions found.'}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {homeworkList.map((hw) => (
+                                    <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
+                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
+                                                    {hw.students?.curriculum_system}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-blue-200 font-bold">
+                                                {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
+                                            <p className="text-sm text-slate-200 whitespace-pre-wrap font-bold leading-relaxed">{hw.ai_feedback}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             );
         }
