@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة الإدارة | أكاديمية Jebali</title>
+    <title>لوحة الإدارة الاحترافية | أكاديمية Jebali</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- محرك المعادلات الرياضية العالمي KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
@@ -72,7 +72,6 @@
             const [showAnswers, setShowAnswers] = useState(false);
             const containerRef = useRef(null);
 
-            // فصل الأسئلة عن نموذج الإجابة وتنظيف العناوين المكررة
             const splitSections = (text) => {
                 if (!text) return { questionsText: '', markSchemeText: '' };
                 const parts = text.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
@@ -175,12 +174,16 @@
             const [students, setStudents] = useState([]);
             const [sessionsList, setSessionsList] = useState([]);
             const [homeworkList, setHomeworkList] = useState([]);
+            
             const [newStudent, setNewStudent] = useState({ 
                 name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: ''
             });
+            
+            // الهيكل الجديد للحصة المطور (المجال، الدرس، المهارة)
             const [newSession, setNewSession] = useState({ 
-                student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' 
+                student_id: '', duration: '', strand: 'Geometry & Trigonometry', lesson_topic: '', targeted_skill: '' 
             });
+
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [editingHw, setEditingHw] = useState(null);
             const [msg, setMsg] = useState('');
@@ -488,31 +491,32 @@
 
             async function handleAddSession(e) {
                 e.preventDefault();
-                setMsg(isArabic ? '⏳ جاري التسجيل الأكاديمي للحصة...' : '⏳ Logging session...');
+                setMsg(isArabic ? '⏳ جاري تسجيل وتوثيق الحصة الأكاديمية...' : '⏳ Logging session metadata...');
                 
                 const selectedStudent = students.find(s => s.id === newSession.student_id);
                 const duration = parseFloat(newSession.duration);
 
+                // حفظ الحصة متضمنة المجال والدرس والمهارة الدقيقة
                 const { error } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
                     duration_hours: duration,
                     strand: newSession.strand,
                     lesson_topic: newSession.lesson_topic.trim(),
-                    skills_covered: newSession.skills_covered.trim(),
+                    skills_covered: newSession.targeted_skill.trim(),
                     is_paid: false
                 }]);
                 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم تسجيل الحصة والمحتوى الأكاديمي بنجاح!' : '✅ Session and skills logged successfully!');
+                    setMsg(isArabic ? '✅ تم تسجيل الحصة والمهارات الأكاديمية بنجاح!' : '✅ Session and instructional metadata logged!');
                     setLastLoggedInfo({
                         student: selectedStudent,
                         duration: duration,
                         cost: duration * (selectedStudent.hourly_rate || 0),
                         strand: newSession.strand,
                         topic: newSession.lesson_topic.trim(),
-                        skills: newSession.skills_covered.trim()
+                        skill: newSession.targeted_skill.trim()
                     });
-                    setNewSession({ student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' });
+                    setNewSession({ student_id: '', duration: '', strand: 'Geometry & Trigonometry', lesson_topic: '', targeted_skill: '' });
                     fetchSessions();
                 } else {
                     setMsg('❌ Error: ' + error.message);
@@ -522,7 +526,7 @@
 
             const sendWhatsApp = (target) => {
                 if (!lastLoggedInfo) return;
-                const { student, duration, cost, strand, topic, skills } = lastLoggedInfo;
+                const { student, duration, cost, strand, topic, skill } = lastLoggedInfo;
 
                 const formatPhone = (p) => {
                     if (!p) return '';
@@ -537,15 +541,15 @@
                 const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
                 const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
-                const academicDetails = topic ? `%0A📚 *المحتوى التعليمي للحصة:*%0A• الفرع: ${strand}%0A• الدرس: ${topic}${skills ? `%0A• المهارات المكتسبة: ${skills}` : ''}` : '';
+                const academicDetails = topic ? `%0A📚 *التقرير الأكاديمي للحصة:*%0A• المجال: ${strand}%0A• الدرس: ${topic}${skill ? `%0A• المهارة المستهدفة: ${skill}` : ''}` : '';
 
                 const parentMsg = isArabic 
-                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة (${cost} EGP)${academicDetails}%0A%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0Aيمكنكم متابعة تقرير الحصص والواجبات عبر الرابط:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
-                    : `Hello from Jebali Math Academy 📐%0A%0ASession logged for: *${student.student_name}*%0A• Duration: ${duration} hrs (${cost} EGP)%0A• Strand: ${strand}%0A• Topic: ${topic || 'N/A'}%0A• Skills: ${skills || 'N/A'}%0A%0A• Total Due: *${totalUnpaid} EGP*%0AParent portal:%0Ahttps://jebali-math-academy.pages.dev/parent.html`;
+                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة (${cost} EGP)${academicDetails}%0A%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0Aيمكنكم متابعة تفاصيل الحصص عبر بوابتكم:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
+                    : `Hello from Jebali Math Academy 📐%0A%0ASession logged for: *${student.student_name}*%0A• Duration: ${duration} hrs (${cost} EGP)%0A• Strand: ${strand}%0A• Topic: ${topic || 'N/A'}%0A• Skill: ${skill || 'N/A'}%0A%0A• Total Due: *${totalUnpaid} EGP*`;
 
                 const studentMsg = isArabic
-                    ? `مرحباً ${student.student_name} 📐%0Aتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}%0Aتأكد من مراجعة الدرس وتسليم الواجب لتصحيحه فوراً بالذكاء الاصطناعي عبر بوابتك:%0Ahttps://jebali-math-academy.pages.dev/student.html`
-                    : `Hello ${student.student_name} 📐%0AYour session (${duration} hrs) is logged.%0A• Topic: ${topic || 'N/A'}%0ASubmit your homework on the portal:%0Ahttps://jebali-math-academy.pages.dev/student.html`;
+                    ? `مرحباً ${student.student_name} 📐%0Aتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}%0Aتأكد من تسليم واجبك لتصحيحه فوراً عبر بوابتك:%0Ahttps://jebali-math-academy.pages.dev/student.html`
+                    : `Hello ${student.student_name} 📐%0AYour session (${duration} hrs) is logged.%0A• Topic: ${topic || 'N/A'}`;
 
                 if (target === 'parent') {
                     if (!parentPhone) return alert(isArabic ? 'رقم ولي الأمر غير مسجل!' : 'Parent phone not found!');
@@ -579,8 +583,8 @@
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍‍🏫</div>
-                                <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة' : 'Admin Portal'}</h2>
+                                <div className="text-6xl mb-4">👨‍🏫</div>
+                                <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة الاحترافية' : 'Admin Portal'}</h2>
                                 <p className="text-blue-200 font-bold mt-2 text-sm">{isArabic ? 'أدخل بيانات الاعتماد للمتابعة' : 'Enter credentials to proceed'}</p>
                             </div>
                             
@@ -604,7 +608,7 @@
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-orange-500/50">🛡️</div>
                             <div>
-                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة والمتابعة' : 'Management & Finance'}</h1>
+                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة والتصميم التعليمي' : 'Instructional Management & Finance'}</h1>
                                 <p className="text-blue-200 font-bold text-sm">mr.gebally@gmail.com</p>
                             </div>
                         </div>
@@ -695,7 +699,6 @@
                                                     : (newStudent.system ? '-- Select Grade --' : '-- Select System First --')}
                                             </option>
                                             
-                                            {/* المراحل البريطانية من Year 1 إلى Year 13 */}
                                             {newStudent.system === 'IGCSE' && (
                                                 <>
                                                     <option value="Year 1">Year 1</option>
@@ -714,7 +717,6 @@
                                                 </>
                                             )}
                                             
-                                            {/* المراحل الأمريكية والوطنية من Grade 1 إلى Grade 12 */}
                                             {newStudent.system && newStudent.system !== 'IGCSE' && (
                                                 <>
                                                     <option value="Grade 1">Grade 1</option>
@@ -745,11 +747,11 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة وتوثيق المحتوى الأكاديمي */}
+                        {/* تسجيل الحصة وتوثيق التصميم التعليمي (Strand, Topic, Skill) */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة والمحتوى الأكاديمي' : '⏱️ Log Session & Academic Content'}</h3>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة وتوثيق المهارات' : '⏱️ Log Session & Taxonomy'}</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
@@ -769,41 +771,40 @@
                                         <div>
                                             <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المجال الرياضي (Strand)' : 'Strand'}</label>
                                             <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value})}>
-                                                <option value="Algebra">Algebra (الجبر)</option>
                                                 <option value="Geometry & Trigonometry">Geometry & Trigonometry (الهندسة وحساب المثلثات)</option>
-                                                <option value="Calculus">Calculus (التفاضل والتكامل)</option>
+                                                <option value="Algebra & Functions">Algebra & Functions (الجبر والدوال)</option>
                                                 <option value="Statistics & Probability">Statistics & Probability (الإحصاء والاحتمالات)</option>
-                                                <option value="Number & Arithmetic">Number & Arithmetic (الأعداد والحساب)</option>
-                                                <option value="Mechanics / Applied">Mechanics / Applied (الميكانيكا والتطبيقية)</option>
+                                                <option value="Number & Exponents">Number & Exponents (الأعداد والأسس)</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس المشروح (Lesson / Topic)' : 'Lesson / Topic'}</label>
-                                            <input type="text" required placeholder="مثال: Quadratic Formula" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.lesson_topic} onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} />
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس أو الوحدة (Lesson / Topic)' : 'Lesson / Topic'}</label>
+                                            <input type="text" required placeholder="مثال: Relationships in Triangles" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.lesson_topic} onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارات المغطاة (Skills Covered)' : 'Skills Covered'}</label>
-                                        <input type="text" placeholder="مثال: Completing square, discriminant analysis" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.skills_covered} onChange={e => setNewSession({...newSession, skills_covered: e.target.value})} />
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (Targeted Skill)' : 'Targeted Micro-Skill'}</label>
+                                        <input type="text" required placeholder="مثال: Applying the Circumcenter Theorem" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.targeted_skill} onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} />
                                     </div>
 
                                     <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
-                                        {isArabic ? 'تسجيل الحصة واعتماد التكلفة والمحتوى' : 'Log Session & Academic Content'}
+                                        {isArabic ? 'تسجيل الحصة واعتماد المعايير الأكاديمية' : 'Log Session & Taxonomy'}
                                     </button>
                                 </form>
                             </div>
 
                             <div className="mt-8 pt-6 border-t border-white/10">
-                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال تقرير ومطالبة عبر WhatsApp:' : '📲 Send WhatsApp Report & Invoice:'}</h4>
+                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال التقرير والمطالبة عبر WhatsApp:' : '📲 Send WhatsApp Report & Invoice:'}</h4>
                                 
                                 {lastLoggedInfo ? (
                                     <div className="p-4 bg-white/10 rounded-2xl border border-white/15">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <span className="text-xs text-emerald-300 font-bold block">✨ {isArabic ? 'تم التسجيل الأكاديمي لـ:' : 'Academic Log for:'}</span>
+                                                <span className="text-xs text-emerald-300 font-bold block">✨ {isArabic ? 'تم توثيق الحصة لـ:' : 'Academic Log for:'}</span>
                                                 <h5 className="text-base font-black text-white">{lastLoggedInfo.student.student_name} ({lastLoggedInfo.duration} {isArabic ? 'ساعة' : 'hrs'})</h5>
-                                                <p className="text-xs text-blue-200 font-bold mt-1">📖 {lastLoggedInfo.strand} - {lastLoggedInfo.topic}</p>
+                                                <p className="text-xs text-blue-200 font-bold mt-1">📖 {lastLoggedInfo.strand} • {lastLoggedInfo.topic}</p>
+                                                <p className="text-xs text-indigo-300 font-bold mt-0.5">🎯 {lastLoggedInfo.skill}</p>
                                             </div>
                                             <span className="text-sm font-black text-orange-300">{lastLoggedInfo.cost} EGP</span>
                                         </div>
@@ -834,8 +835,8 @@
                                     <div className="p-4 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center">
                                         <p className="text-xs text-blue-200 font-bold">
                                             {isArabic 
-                                                ? '💡 سجّل الحصة ومحتواها الأكاديمي لتظهر لك هنا خيارات الإرسال المخصصة.' 
-                                                : '💡 Log a session with its topic to reveal customized WhatsApp options.'}
+                                                ? '💡 سجّل الحصة ومحتواها لتظهر لك هنا خيارات الإرسال المخصصة.' 
+                                                : '💡 Log a session with taxonomy to reveal WhatsApp options.'}
                                         </p>
                                     </div>
                                 )}
@@ -845,13 +846,13 @@
 
                     {/* إدارة الحصص وتأكيد السداد */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمحتوى المشروح' : '💳 Sessions & Syllabus Log'}</h3>
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمحتوى الأكاديمي' : '💳 Sessions & Taxonomy Log'}</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
                                 <thead>
                                     <tr className="border-b border-white/10 text-blue-200 text-sm">
                                         <th className="pb-3 px-4">{isArabic ? 'الطالب' : 'Student'}</th>
-                                        <th className="pb-3 px-4">{isArabic ? 'الدرس والفرع (Topic & Strand)' : 'Topic & Strand'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'المجال والدرس والمهارة (Taxonomy)' : 'Taxonomy Details'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'حالة السداد' : 'Payment Status'}</th>
@@ -864,7 +865,7 @@
                                             <td className="py-4 px-4">{s.students?.student_name || 'طالب'}</td>
                                             <td className="py-4 px-4 text-sm">
                                                 <div className="text-white font-bold">{s.lesson_topic || 'حصة عامة'}</div>
-                                                <div className="text-xs text-blue-200">{s.strand || 'General'} {s.skills_covered ? `• ${s.skills_covered}` : ''}</div>
+                                                <div className="text-xs text-blue-200">{s.strand} {s.skills_covered ? `• ${s.skills_covered}` : ''}</div>
                                             </td>
                                             <td className="py-4 px-4">{s.duration_hours} {isArabic ? 'ساعة' : 'hrs'}</td>
                                             <td className="py-4 px-4 text-orange-300">{s.calculated_cost} EGP</td>
