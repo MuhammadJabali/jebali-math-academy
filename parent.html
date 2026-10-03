@@ -1,277 +1,117 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة أولياء الأمور | أكاديمية Jebali</title>
+    <title>بوابة ولي الأمر | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- محرك المعادلات الرياضية العالمي KaTeX -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
-        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .glass-input option { color: black; background: white; }
-
-        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.05em; }
-        .katex-display { margin: 0.4em 0; overflow-x: auto; overflow-y: hidden; }
-
-        @media print {
-            body { background: white !important; color: black !important; }
-            .no-print { display: none !important; }
-            .glass-card { background: white !important; border: 1px solid #ccc !important; box-shadow: none !important; color: black !important; }
-            .print-text-dark { color: #111 !important; }
-            table { border-collapse: collapse; width: 100%; color: black !important; }
-            th, td { border: 1px solid #ddd !important; padding: 8px !important; }
-            .katex { color: black !important; }
-        }
+        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
-    
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState, useEffect, useRef } = React;
+        const { useState } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        const _k1 = 'AQ.Ab8RN6IuH_dXqryRODB';
-        const _k2 = 'sqoHJKec_OQi9VUuMl7NiAzv-86f2_w';
-        const GEMINI_API_KEY = _k1 + _k2;
-
-        function MathView({ content, className = '' }) {
-            const containerRef = useRef(null);
-
-            useEffect(() => {
-                if (containerRef.current && window.renderMathInElement) {
-                    window.renderMathInElement(containerRef.current, {
-                        delimiters: [
-                            { left: '$$', right: '$$', display: true },
-                            { left: '$', right: '$', display: false }
-                        ],
-                        throwOnError: false
-                    });
-                }
-            }, [content]);
-
-            return (
-                <div 
-                    ref={containerRef} 
-                    className={`leading-relaxed whitespace-pre-wrap font-medium ${className}`}
-                >
-                    {content}
-                </div>
-            );
-        }
-
-        // دالة استخراج بطاقات التقرير الموجز لولي الأمر (نقاط قوة / نقاط ضعف / خطة علاج)
-        function parseExecutiveSummary(text, isArabic) {
-            if (!text) return null;
-
-            let strengths = '';
-            let weaknesses = '';
-            let actionPlan = '';
-
-            // البحث باللغة الإنجليزية أو العربية
-            const strengthsMatch = text.match(/(?:\*\*Strengths:\*\*|\*\*نقاط القوة:\*\*|Strengths:|نقاط القوة:)([\s\S]*?)(?=(?:\*\*Errors|\*\*الأخطاء|Errors:|الأخطاء:|$))/i);
-            const weaknessesMatch = text.match(/(?:\*\*Errors & Corrections:\*\*|\*\*الأخطاء والملاحظات:\*\*|Errors & Corrections:|الأخطاء والملاحظات:)([\s\S]*?)(?=(?:\*\*Examiner Tips|\*\*نصيحة المصحح|Examiner Tips:|نصيحة المصحح:|$))/i);
-            const tipsMatch = text.match(/(?:\*\*Examiner Tips for Full Marks:\*\*|\*\*نصيحة المصحح للحصول على الدرجة الكاملة:\*\*|Examiner Tips:|نصيحة المصحح:)([\s\S]*?)$/i);
-
-            if (strengthsMatch) strengths = strengthsMatch[1].trim();
-            if (weaknessesMatch) weaknesses = weaknessesMatch[1].trim();
-            if (tipsMatch) actionPlan = tipsMatch[1].trim();
-
-            if (!strengths && !weaknesses && !actionPlan) {
-                return null; // إذا كان التقرير بنظام قديم غير مقسم
-            }
-
-            return { strengths, weaknesses, actionPlan };
-        }
-
         function ParentPortal() {
-            const [isArabic, setIsArabic] = useState(true);
-            const [phone, setPhone] = useState('');
-            const [myKids, setMyKids] = useState([]);
-            const [selectedStudent, setSelectedStudent] = useState(null);
+            const [phoneInput, setPhoneInput] = useState('');
+            const [password, setPassword] = useState('');
+            const [studentData, setStudentData] = useState(null);
             const [sessions, setSessions] = useState([]);
-            const [submissions, setSubmissions] = useState([]);
-            const [isLoading, setIsLoading] = useState(false);
-            const [errorMessage, setErrorMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [errorMsg, setErrorMsg] = useState('');
 
-            const [transCache, setTransCache] = useState({});
-            const [loadingTransId, setLoadingTransId] = useState(null);
-
-            const handleSearchByPhone = async (e) => {
+            async function handleLogin(e) {
                 e.preventDefault();
-                setIsLoading(true);
-                setErrorMessage('');
+                setLoading(true);
+                setErrorMsg('');
 
-                const cleanPhone = phone.trim();
+                let cleanPhone = phoneInput.replace(/\D/g, '');
+
+                // البحث إما برقم ولي الأمر أو رقم الطالب
                 const { data, error } = await supabase
                     .from('students')
                     .select('*')
-                    .or(`parent_phone.eq.${cleanPhone},student_phone.eq.${cleanPhone}`);
+                    .or(`parent_phone.ilike.%${cleanPhone}%,student_phone.ilike.%${cleanPhone}%`)
+                    .single();
 
-                setIsLoading(false);
-
-                if (error) {
-                    setErrorMessage(isArabic ? 'حدث خطأ في الاتصال بالخادم.' : 'Server connection error.');
+                if (error || !data) {
+                    setErrorMsg('رقم الهاتف المدخل غير مسجل في النظام.');
+                    setLoading(false);
                     return;
                 }
 
-                if (!data || data.length === 0) {
-                    setErrorMessage(isArabic ? 'عفواً، لا يوجد حساب مسجل بهذا الرقم.' : 'No records found matching this phone number.');
+                // التحقق من كلمة المرور
+                if (data.password && data.password !== password) {
+                    setErrorMsg('كلمة المرور غير صحيحة!');
+                    setLoading(false);
                     return;
                 }
 
-                setMyKids(data);
+                setStudentData(data);
+                fetchParentData(data.id);
+                setLoading(false);
+            }
 
-                if (data.length === 1) {
-                    loadStudentData(data[0]);
-                }
-            };
-
-            const loadStudentData = async (student) => {
-                setIsLoading(true);
-                setSelectedStudent(student);
-
-                const { data: sessionData } = await supabase
+            async function fetchParentData(studentId) {
+                const { data: sessData } = await supabase
                     .from('sessions')
                     .select('*')
-                    .eq('student_id', student.id)
+                    .eq('student_id', studentId)
                     .order('created_at', { ascending: false });
-                setSessions(sessionData || []);
+                if (sessData) setSessions(sessData);
+            }
 
-                const { data: submissionData } = await supabase
-                    .from('homework_submissions')
-                    .select('*')
-                    .eq('student_id', student.id)
-                    .order('created_at', { ascending: false });
-                setSubmissions(submissionData || []);
-
-                setIsLoading(false);
-            };
-
-            const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
-
-            const translateMathText = async (textToTranslate, targetLang) => {
-                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
-CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
-Text to translate:
-${textToTranslate}`;
-
-                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-                for (const model of models) {
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                        });
-                        const d = await res.json();
-                        if (res.ok && d.candidates?.[0]?.content?.parts) {
-                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
-                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
-                        }
-                    } catch (e) {
-                        console.warn(e);
-                    }
-                }
-                throw new Error('Translation failed');
-            };
-
-            const handleToggleTranslate = async (subId, originalContent) => {
-                if (loadingTransId) return;
-
-                const cached = transCache[subId] || {};
-                const currentDisplayed = cached.active || originalContent;
-                const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
-
-                if (isCurrentlyArabic && cached.en) {
-                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
-                    return;
-                }
-                if (!isCurrentlyArabic && cached.ar) {
-                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.ar } }));
-                    return;
-                }
-
-                setLoadingTransId(subId);
-                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
-
-                try {
-                    const translated = await translateMathText(currentDisplayed, targetLang);
-                    const newEntry = {
-                        ...cached,
-                        active: translated,
-                        [targetLang === 'English' ? 'en' : 'ar']: translated,
-                        [isCurrentlyArabic ? 'ar' : 'en']: currentDisplayed
-                    };
-                    setTransCache(prev => ({ ...prev, [subId]: newEntry }));
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    setLoadingTransId(null);
-                }
-            };
-
-            const totalDue = sessions.filter(s => !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
-            const totalHours = sessions.reduce((sum, s) => sum + (s.duration_hours || 0), 0);
-
-            const gradedSubmissions = submissions.filter(s => s.score != null);
-            const averageScore = gradedSubmissions.length > 0 
-                ? (gradedSubmissions.reduce((sum, s) => sum + parseFloat(s.score), 0) / gradedSubmissions.length).toFixed(1)
-                : null;
-
-            if (!selectedStudent && myKids.length <= 1) {
+            if (!studentData) {
                 return (
-                    <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                        <div className="absolute top-6 left-6 right-6 flex justify-between no-print">
-                            <a href="/" className="px-5 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition flex items-center gap-2">
-                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
+                        <div className="absolute top-6 left-6">
+                            <a href="index.html" className="px-5 py-2 glass-card rounded-full font-bold text-xs hover:bg-white/20 transition flex items-center gap-2">
+                                <span>🏠</span> الرئيسية
                             </a>
-                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
-                                {isArabic ? 'English' : 'العربية'}
-                            </button>
                         </div>
-                        
-                        <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-6xl mb-6">👨‍👩‍👦</div>
-                            <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}</h2>
-                            <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك أو رقم هاتف الطالب للدخول' : 'Enter parent or student phone to view reports'}</p>
-                            
-                            {errorMessage && (
-                                <p className="bg-red-500/20 border border-red-500/50 text-red-100 p-3 rounded-xl mb-4 text-sm font-bold">
-                                    {errorMessage}
-                                </p>
-                            )}
 
-                            <form onSubmit={handleSearchByPhone} className="space-y-4">
+                        <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
+                            <div className="text-6xl mb-4">👨‍👩‍👦</div>
+                            <h2 className="text-3xl font-black mb-2">بوابة ولي الأمر</h2>
+                            <p className="text-blue-200 text-xs mb-6">أدخل رقم هاتف ولي الأمر أو الطالب مع كلمة المرور</p>
+                            
+                            {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
+
+                            <form onSubmit={handleLogin} className="space-y-4">
                                 <input 
                                     type="tel" 
+                                    placeholder="رقم الهاتف (ولي الأمر أو الطالب)" 
                                     required 
-                                    placeholder={isArabic ? 'رقم الهاتف المسجل' : 'Registered phone number'} 
-                                    value={phone} 
-                                    onChange={(e) => setPhone(e.target.value)} 
-                                    className="w-full p-4 glass-input rounded-xl font-bold text-center text-lg outline-none focus:border-emerald-400"
+                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
+                                    value={phoneInput} 
+                                    onChange={e => setPhoneInput(e.target.value)} 
                                 />
-                                <button type="submit" disabled={isLoading || !phone} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg shadow-emerald-600/30 disabled:opacity-50">
-                                    {isLoading ? '...' : (isArabic ? 'دخول ومتابعة' : 'Access Dashboard')}
+                                <input 
+                                    type="password" 
+                                    placeholder="كلمة المرور" 
+                                    required 
+                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
+                                    value={password} 
+                                    onChange={e => setPassword(e.target.value)} 
+                                />
+                                <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
+                                    {loading ? 'جاري التحقق...' : 'دخول بوابة ولي الأمر'}
                                 </button>
                             </form>
                         </div>
@@ -279,248 +119,55 @@ ${textToTranslate}`;
                 );
             }
 
-            if (!selectedStudent && myKids.length > 1) {
-                return (
-                    <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                        <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-5xl mb-4">👥</div>
-                            <h2 className="text-2xl font-black mb-2">{isArabic ? 'اختر الطالب للمتابعة' : 'Select Student'}</h2>
-                            <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'تم العثور على أكثر من حساب مسجل' : 'Multiple students linked to this phone'}</p>
-                            
-                            <div className="space-y-3">
-                                {myKids.map(kid => (
-                                    <button 
-                                        key={kid.id} 
-                                        onClick={() => loadStudentData(kid)}
-                                        className="w-full p-4 glass-card hover:bg-white/20 rounded-xl font-bold flex justify-between items-center transition border border-white/20">
-                                        <span>{kid.student_name}</span>
-                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full">{kid.grade_level}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            <button onClick={() => { setMyKids([]); setSelectedStudent(null); }} className="mt-6 text-sm text-blue-300 underline">
-                                {isArabic ? 'استخدام رقم آخر' : 'Use different phone'}
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
+            const totalUnpaid = sessions.filter(s => !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
 
             return (
-                <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                    <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-emerald-600 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-emerald-600/50">📊</div>
-                            <div>
-                                <h1 className="text-2xl font-black text-white print-text-dark">{isArabic ? `تقرير متابعة: ${selectedStudent.student_name}` : `Report: ${selectedStudent.student_name}`}</h1>
-                                <p className="text-blue-200 font-bold text-sm print-text-dark">{selectedStudent.curriculum_system} • {selectedStudent.grade_level}</p>
-                            </div>
+                <div className="p-4 md:p-8 max-w-4xl mx-auto font-cairo" dir="rtl">
+                    <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black">متابعة ولي الأمر • {studentData.student_name} 📐</h1>
+                            <p className="text-blue-200 text-xs mt-1">{studentData.curriculum_system} • {studentData.grade_level}</p>
                         </div>
-                        <div className="flex flex-wrap gap-3 no-print">
-                            <button onClick={() => window.print()} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition flex items-center gap-2 shadow-lg">
-                                <span>🖨️</span> {isArabic ? 'طباعة / حفظ PDF' : 'Print / PDF'}
-                            </button>
-                            <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
-                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                        <div className="flex gap-2">
+                            <a href="index.html" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">
+                                🏠 الرئيسية
                             </a>
-                            <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
-                                {isArabic ? 'English' : 'العربية'}
-                            </button>
-                            <button onClick={() => { setSelectedStudent(null); setMyKids([]); }} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
-                                {isArabic ? 'خروج' : 'Logout'}
+                            <button onClick={() => setStudentData(null)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-xs transition">
+                                خروج
                             </button>
                         </div>
                     </header>
 
-                    {/* الإحصائيات العامة */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
-                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full print-text-dark">{isArabic ? 'المستحقات المعلقة' : 'Pending Dues'}</span>
-                            <h3 className="text-3xl font-black mt-4 text-white print-text-dark">{totalDue} <span className="text-lg text-blue-200 print-text-dark">EGP</span></h3>
-                            <a href="https://ipn.eg" target="_blank" className="block text-center py-2.5 mt-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition text-xs no-print">
-                                {isArabic ? 'سداد عبر InstaPay' : 'Pay via InstaPay'}
-                            </a>
-                        </div>
-
-                        <div className="glass-card p-6 rounded-3xl border-t-4 border-indigo-500">
-                            <span className="text-xs font-bold text-indigo-200 bg-indigo-500/20 px-3 py-1 rounded-full print-text-dark">{isArabic ? 'المعدل الأكاديمي' : 'Average Score'}</span>
-                            <h3 className="text-3xl font-black mt-4 text-white print-text-dark">
-                                {averageScore ? `${averageScore} ` : '-- '}
-                                <span className="text-lg text-indigo-300 print-text-dark">/ 10</span>
-                            </h3>
-                            <p className="text-xs text-blue-200 mt-2 font-bold print-text-dark">{isArabic ? `تقييم ${submissions.length} واجب` : `Based on ${submissions.length} tasks`}</p>
-                        </div>
-
-                        <div className="glass-card p-6 rounded-3xl border-t-4 border-blue-500">
-                            <span className="text-xs font-bold text-blue-200 bg-blue-500/20 px-3 py-1 rounded-full print-text-dark">{isArabic ? 'إجمالي الساعات والحصص' : 'Total Sessions & Hours'}</span>
-                            <h3 className="text-3xl font-black mt-4 text-white print-text-dark">{sessions.length} <span className="text-lg text-blue-200 print-text-dark">({totalHours} {isArabic ? 'ساعة' : 'Hrs'})</span></h3>
-                            <p className="text-xs text-blue-200 mt-2 font-bold print-text-dark">{isArabic ? 'حضور منتظم ومستمر' : 'Active attendance'}</p>
-                        </div>
+                    {/* الملخص المالي */}
+                    <div className="glass-card p-6 rounded-3xl mb-8 border-t-4 border-orange-500">
+                        <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">المستحقات المالية المعلقة</span>
+                        <h3 className="text-3xl font-black mt-3 text-white">{totalUnpaid} <span className="text-lg text-blue-200">EGP</span></h3>
+                        <p className="text-xs text-blue-200 mt-2">يمكنكم السداد بسهولة عبر InstaPay أو المحافظ الإلكترونية الخاصة بالأستاذ.</p>
                     </div>
 
-                    {/* سجل الحصص والمحتوى الأكاديمي */}
+                    {/* سجل حصص المتابعة */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white print-text-dark">{isArabic ? '🗓️ سجل الحصص والمحتوى الأكاديمي المشروح' : '🗓️️ Academic Sessions Log & Content'}</h3>
+                        <h3 className="text-lg font-black mb-4 flex items-center gap-2">
+                            <span>📋</span> سجل الحصص والمصاريف
+                        </h3>
                         {sessions.length === 0 ? (
-                            <p className="text-blue-200 text-center py-8 font-bold print-text-dark">{isArabic ? 'لا توجد حصص مسجلة حتى الآن.' : 'No sessions logged yet.'}</p>
+                            <p className="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة للطالب بعد.</p>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
-                                    <thead>
-                                        <tr className="border-b border-white/10 text-blue-200 text-sm">
-                                            <th className="pb-3 px-4">{isArabic ? 'التاريخ' : 'Date'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'الدرس والفرع الأكاديمي' : 'Topic & Strand'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'المهارات المغطاة' : 'Skills Covered'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'حالة السداد' : 'Payment'}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5 font-bold">
-                                        {sessions.map((session) => (
-                                            <tr key={session.id} className="hover:bg-white/5 transition">
-                                                <td className="py-4 px-4 text-sm">{new Date(session.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US')}</td>
-                                                <td className="py-4 px-4">
-                                                    <div className="text-white font-black print-text-dark">{session.lesson_topic || 'حصة عامة'}</div>
-                                                    <div className="text-xs text-blue-300 print-text-dark">{session.strand || 'General'}</div>
-                                                </td>
-                                                <td className="py-4 px-4 text-xs text-slate-200 print-text-dark">
-                                                    {session.skills_covered || '-'}
-                                                </td>
-                                                <td className="py-4 px-4">{session.duration_hours} {isArabic ? 'ساعة' : 'hrs'}</td>
-                                                <td className="py-4 px-4 text-orange-300 print-text-dark">{session.calculated_cost} EGP</td>
-                                                <td className="py-4 px-4">
-                                                    {session.is_paid ? (
-                                                        <span className="px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                                            {isArabic ? '✅ تم السداد' : '✅ Paid'}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-3 py-1 rounded-full text-xs bg-orange-500/20 text-orange-200 border border-orange-500/30">
-                                                            {isArabic ? '⏳ معلق' : '⏳ Unpaid'}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* تقرير الواجبات الأكاديمي الموجز لولي الأمر (الدرجة + نقاط القوة + نقاط الضعف + خطة العلاج) */}
-                    <div className="glass-card p-6 md:p-8 rounded-3xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-xl font-black text-white print-text-dark">{isArabic ? '📝 التقرير الموجز لأداء الواجبات والدرجات' : '📝 Executive Homework & Performance Reports'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1 print-text-dark">{isArabic ? 'ملخص درجات الطالب، نقاط إتقانه، الجوانب التي تحتاج معالجة، وتوجيهات المعلم' : 'Concise breakdown: Score, Strengths, Areas for Improvement, and Remediation Plan'}</p>
-                            </div>
-                            <span className="text-2xl no-print">📊</span>
-                        </div>
-
-                        {submissions.length === 0 ? (
-                            <p className="text-blue-200 text-center py-6 font-bold text-sm print-text-dark">{isArabic ? 'لم يقم الطالب برفع أي واجبات حتى الآن.' : 'No homework submitted yet.'}</p>
-                        ) : (
-                            <div className="space-y-6">
-                                {submissions.map((sub, idx) => {
-                                    const cached = transCache[sub.id];
-                                    const displayedText = cached ? cached.active : sub.ai_feedback;
-                                    const isSubArabic = hasArabicLetters(displayedText);
-                                    const summary = parseExecutiveSummary(displayedText, isArabic);
-
-                                    return (
-                                        <div key={sub.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl">
-                                            {/* شريط رأس التقرير: الموضوع + الدرجة + اعتماد المعلم + زر الترجمة */}
-                                            <div className="flex flex-wrap justify-between items-center mb-4 gap-2 border-b border-white/10 pb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm bg-indigo-500/20 text-indigo-300 px-3.5 py-1 rounded-full font-black print-text-dark">
-                                                        📖 {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
-                                                    </span>
-                                                    {sub.score != null && (
-                                                        <span className="text-sm bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black print-text-dark">
-                                                            🎯 {sub.score} / 10
-                                                        </span>
-                                                    )}
-                                                    {sub.is_reviewed && (
-                                                        <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2.5 py-0.5 rounded-full font-bold print-text-dark">
-                                                            ✅ {isArabic ? 'معتمد من المعلم' : 'Teacher Endorsed'}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex items-center gap-3 no-print">
-                                                    <span className="text-xs text-blue-200 font-bold">
-                                                        {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                    <button 
-                                                        onClick={() => handleToggleTranslate(sub.id, sub.ai_feedback)}
-                                                        disabled={loadingTransId === sub.id}
-                                                        className="px-3 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                                                    >
-                                                        <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* إظهار ملاحظة وتوجيه المعلم الخاص إن وُجدت */}
-                                            {sub.teacher_note && (
-                                                <div className="mb-4 p-4 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl print-text-dark">
-                                                    <span className="text-xs text-emerald-300 font-black block mb-1">👨‍🏫 {isArabic ? 'توجيه وملاحظة المعلم المعتمدة:' : "Teacher's Personal Endorsement:"}</span>
-                                                    <span className="text-sm text-white font-medium">{sub.teacher_note}</span>
-                                                </div>
-                                            )}
-
-                                            {/* إذا توفر التقرير المقسم إلى نقاط قوة وضعف وعلاج */}
-                                            {summary ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    {/* بطاقة نقاط القوة */}
-                                                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex flex-col justify-between">
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span className="text-base">💪</span>
-                                                                <h4 className="text-xs font-black text-emerald-300 uppercase tracking-wide">
-                                                                    {isArabic ? 'نقاط القوة والإتقان' : 'Strengths & Mastery'}
-                                                                </h4>
-                                                            </div>
-                                                            <MathView content={summary.strengths || (isArabic ? 'تمت الإجابة بصورة جيدة.' : 'Well executed.')} className="text-xs text-slate-200 print-text-dark" />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* بطاقة نقاط الضعف والملاحظات */}
-                                                    <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex flex-col justify-between">
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span className="text-base">⚠️</span>
-                                                                <h4 className="text-xs font-black text-amber-300 uppercase tracking-wide">
-                                                                    {isArabic ? 'نقاط الضعف والأخطاء' : 'Areas for Improvement'}
-                                                                </h4>
-                                                            </div>
-                                                            <MathView content={summary.weaknesses || (isArabic ? 'لا توجد أخطاء جوهرية.' : 'No major mistakes.')} className="text-xs text-slate-200 print-text-dark" />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* بطاقة خطة العلاج والتركيز */}
-                                                    <div className="p-4 bg-blue-500/10 border border-blue-500/25 rounded-2xl flex flex-col justify-between">
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <span className="text-base">🎯</span>
-                                                                <h4 className="text-xs font-black text-blue-300 uppercase tracking-wide">
-                                                                    {isArabic ? 'ما سيحتاج علاجه مع الطالب' : 'Remediation & Action Plan'}
-                                                                </h4>
-                                                            </div>
-                                                            <MathView content={summary.actionPlan || (isArabic ? 'الاستمرار في التدريب والممارسة.' : 'Continue practice for mastery.')} className="text-xs text-slate-200 print-text-dark" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                /* في حالة التقارير القديمة غير المقسمة تظهر في بطاقة نظيفة */
-                                                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
-                                                    <MathView content={displayedText} className="text-xs text-slate-200 print-text-dark" />
-                                                </div>
-                                            )}
+                            <div className="space-y-3">
+                                {sessions.map(s => (
+                                    <div key={s.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                                        <div>
+                                            <div className="font-black text-sm text-white">{s.lesson_topic}</div>
+                                            <div className="text-xs text-blue-300 mt-1 font-semibold">{s.strand} {s.skills_covered ? `• ${s.skills_covered}` : ''}</div>
                                         </div>
-                                    );
-                                })}
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-xs font-black text-orange-300">{s.calculated_cost} EGP</span>
+                                            <span className={`text-xs px-3 py-1 rounded-full font-bold ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-orange-500/20 text-orange-300'}`}>
+                                                {s.is_paid ? '✅ مسددة' : '⏳ معلقة'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
