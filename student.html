@@ -15,7 +15,7 @@
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
-        .glass-input option { color: black; }
+        .glass-input option { color: black; background: white; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -28,7 +28,6 @@
 
         const { useState, useEffect } = React;
 
-        // مفاتيح النظام
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -50,21 +49,18 @@
             const [aiFeedback, setAiFeedback] = useState('');
             const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-            // جلب قائمة الطلاب عند فتح الصفحة
             useEffect(() => {
                 supabase.from('students').select('*').order('student_name').then(({data}) => {
                     if(data) setStudentsList(data);
                 });
             }, []);
 
-            // دالة تسجيل الدخول
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setIsLoading(true);
                 const student = studentsList.find(s => s.id === selectedStudentId);
                 if(student) {
                     setLoggedInStudent(student);
-                    // حساب إجمالي المستحقات لهذا الطالب فقط
                     const { data: sessions } = await supabase.from('sessions').select('calculated_cost').eq('student_id', student.id);
                     const cost = sessions ? sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) : 0;
                     setTotalCost(cost);
@@ -72,7 +68,6 @@
                 setIsLoading(false);
             };
 
-            // إشعار تيليجرام
             const sendTelegramNotification = async (studentName) => {
                 const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
                 const text = `🔔 إشعار أكاديمية Jebali:\nالطالب/ة (${studentName}) قام برفع واجب للتو، وجاري تقييمه بالذكاء الاصطناعي.`;
@@ -83,7 +78,6 @@
                 }).catch(console.error);
             };
 
-            // تقييم الواجب
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -112,13 +106,17 @@
                 }
             };
 
-            // واجهة اختيار الطالب (تسجيل الدخول)
             if (!loggedInStudent) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                        <button onClick={() => setIsArabic(!isArabic)} className="absolute top-6 left-6 px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
-                            {isArabic ? 'English' : 'العربية'}
-                        </button>
+                        <div className="absolute top-6 left-6 right-6 flex justify-between">
+                            <a href="/" className="px-5 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
+                                {isArabic ? 'English' : 'العربية'}
+                            </button>
+                        </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
                             <div className="text-6xl mb-6">👨‍🎓</div>
@@ -134,18 +132,13 @@
                                     {isLoading ? '...' : (isArabic ? 'تسجيل الدخول' : 'Login')}
                                 </button>
                             </form>
-                            <div className="mt-6">
-                                <a href="/" className="text-sm text-blue-300 hover:text-white underline decoration-blue-300 underline-offset-4">{isArabic ? 'العودة للصفحة الرئيسية' : 'Back to Home'}</a>
-                            </div>
                         </div>
                     </div>
                 );
             }
 
-            // لوحة تحكم الطالب (بعد الدخول)
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                    
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-blue-500/50">🎓</div>
@@ -154,7 +147,10 @@
                                 <p className="text-blue-200 font-bold text-sm">{loggedInStudent.curriculum_system} - {loggedInStudent.grade_level}</p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
+                            <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
                             <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
@@ -165,7 +161,6 @@
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        {/* كارت المستحقات */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between group">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
@@ -180,7 +175,6 @@
                             </a>
                         </div>
 
-                        {/* كارت المنهج (مساحة للمستقبل) */}
                         <div className="glass-card p-8 rounded-3xl md:col-span-2 relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500`}></div>
                             <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
@@ -194,7 +188,6 @@
                         </div>
                     </div>
 
-                    {/* التقييم الذكي */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التقييم الذكي للواجبات 🤖' : 'AI Homework Evaluation 🤖'}</h4>
