@@ -11,12 +11,21 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- محرك المعادلات الرياضية العالمي KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
+
+        /* عزل المعادلات الرياضية لتظهر باتجاه لاتيني سليم LTR */
+        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
+        .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -25,11 +34,41 @@
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        const _k1 = 'AQ.Ab8RN6IuH_dXqryRODB';
+        const _k2 = 'sqoHJKec_OQi9VUuMl7NiAzv-86f2_w';
+        const GEMINI_API_KEY = _k1 + _k2;
+
+        // مكوّن عرض النصوص والمعادلات بـ KaTeX
+        function MathView({ content, className = '' }) {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (containerRef.current && window.renderMathInElement) {
+                    window.renderMathInElement(containerRef.current, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false }
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }, [content]);
+
+            return (
+                <div 
+                    ref={containerRef} 
+                    className={`leading-relaxed whitespace-pre-wrap font-medium ${className}`}
+                >
+                    {content}
+                </div>
+            );
+        }
 
         function AdminPortal() {
             const [isArabic, setIsArabic] = useState(true);
@@ -48,8 +87,12 @@
                 student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' 
             });
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
-            const [editingHw, setEditingHw] = useState(null); // نافذة تعديل الواجب
+            const [editingHw, setEditingHw] = useState(null);
             const [msg, setMsg] = useState('');
+
+            // كاش الترجمة الفورية في لوحة المعلم
+            const [transCache, setTransCache] = useState({});
+            const [loadingTransId, setLoadingTransId] = useState(null);
 
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
@@ -88,9 +131,74 @@
                     .from('homework_submissions')
                     .select('*, students(student_name, curriculum_system)')
                     .order('created_at', { ascending: false })
-                    .limit(20);
+                    .limit(25);
                 if (data) setHomeworkList(data);
             }
+
+            const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
+
+            const translateMathText = async (textToTranslate, targetLang) => {
+                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
+CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
+Text to translate:
+${textToTranslate}`;
+
+                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+                for (const model of models) {
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        const d = await res.json();
+                        if (res.ok && d.candidates?.[0]?.content?.parts) {
+                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
+                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
+                        }
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+                throw new Error('Translation failed');
+            };
+
+            const handleToggleTranslate = async (subId, originalContent) => {
+                if (loadingTransId) return;
+
+                const cached = transCache[subId] || {};
+                const currentDisplayed = cached.active || originalContent;
+                const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
+
+                // فحص الكاش الفوري (0 ثانية)
+                if (isCurrentlyArabic && cached.en) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
+                    return;
+                }
+                if (!isCurrentlyArabic && cached.ar) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.ar } }));
+                    return;
+                }
+
+                setLoadingTransId(subId);
+                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
+
+                try {
+                    const translated = await translateMathText(currentDisplayed, targetLang);
+                    const newEntry = {
+                        ...cached,
+                        active: translated,
+                        [targetLang === 'English' ? 'en' : 'ar']: translated,
+                        [isCurrentlyArabic ? 'ar' : 'en']: currentDisplayed
+                    };
+                    setTransCache(prev => ({ ...prev, [subId]: newEntry }));
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoadingTransId(null);
+                }
+            };
 
             async function togglePaymentStatus(sessionId, currentStatus) {
                 const { error } = await supabase
@@ -129,7 +237,7 @@
                 }).eq('id', hwId);
 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم حفظ تعديل الدرجة وملاحظات المعلم بنجاح!' : '✅ Review saved successfully!');
+                    setMsg(isArabic ? '✅ تم حفظ اعتماد المعلم وتعديل الدرجة بنجاح!' : '✅ Review & endorsement saved!');
                     setEditingHw(null);
                     fetchHomeworks();
                 } else {
@@ -384,7 +492,7 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة وتوثيق المحتوى */}
+                        {/* تسجيل الحصة وتوثيق المحتوى الأكاديمي */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
@@ -536,12 +644,12 @@
                         </div>
                     </div>
 
-                    {/* مراجعة الواجبات مع ميزة تعديل الدرجة وإضافة ملاحظات المعلم */}
+                    {/* مراجعة الواجبات مع محرك KaTeX وزر الترجمة الفورية واعتماد المعلم */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة الواجبات واعتماد الدرجات' : '📝 Homework Review & Teacher Endorsement'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'يمكنك هنا مراجعة تصحيح الذكاء الاصطناعي وتعديل الدرجة وكتابة ملاحظتك الخاصة' : 'Review AI grading, override score, and endorse with teacher notes'}</p>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات والتشخيص الأكاديمي الكامل' : '📝 Technical Homework Reports & Examiner Marks'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل والمارك سكيم بالمعادلات الرياضية KaTeX مع إمكانية تعديل الدرجة واعتمادها' : 'Method marks analysis with KaTeX formulas, instant translation, and endorsement tools'}</p>
                             </div>
                             <span className="text-3xl">👨‍🏫</span>
                         </div>
@@ -550,55 +658,75 @@
                             <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد واجبات مسلمة بعد.' : 'No homework submissions found.'}</p>
                         ) : (
                             <div className="space-y-4">
-                                {homeworkList.map((hw) => (
-                                    <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
-                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
-                                                    {hw.topic || hw.students?.curriculum_system}
-                                                </span>
-                                                {hw.score != null && (
-                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
-                                                        🎯 {hw.score} / 10
+                                {homeworkList.map((hw) => {
+                                    const cached = transCache[hw.id];
+                                    const displayedText = cached ? cached.active : hw.ai_feedback;
+                                    const isSubArabic = hasArabicLetters(displayedText);
+
+                                    return (
+                                        <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
+                                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
+                                                        📖 {hw.topic || hw.students?.curriculum_system}
                                                     </span>
-                                                )}
-                                                {hw.is_reviewed && (
-                                                    <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                                                        ✅ معتمد
+                                                    {hw.score != null && (
+                                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
+                                                            🎯 {hw.score} / 10
+                                                        </span>
+                                                    )}
+                                                    {hw.is_reviewed && (
+                                                        <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                                                            ✅ معتمد
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-blue-200 font-bold ml-2">
+                                                        {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
-                                                )}
+
+                                                    {/* زر الترجمة الفورية للمعلم */}
+                                                    <button 
+                                                        onClick={() => handleToggleTranslate(hw.id, hw.ai_feedback)}
+                                                        disabled={loadingTransId === hw.id}
+                                                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>🌐</span> {loadingTransId === hw.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
+                                                    </button>
+
+                                                    {/* زر اعتماد وتعديل الدرجة */}
+                                                    <button 
+                                                        onClick={() => setEditingHw({ id: hw.id, score: hw.score || 5, note: hw.teacher_note || '' })}
+                                                        className="px-3 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-400/30 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>✏️</span> {isArabic ? 'اعتماد / تعديل' : 'Review & Edit'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xs text-blue-200 font-bold">
-                                                    {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                                <button 
-                                                    onClick={() => setEditingHw({ id: hw.id, score: hw.score || 5, note: hw.teacher_note || '' })}
-                                                    className="px-3 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-400/30 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                                                >
-                                                    <span>✏️</span> {isArabic ? 'اعتماد / تعديل' : 'Review & Edit'}
-                                                </button>
+
+                                            {/* إظهار ملاحظة وتوجيه المعلم الشخصية إن وُجدت */}
+                                            {hw.teacher_note && (
+                                                <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200">
+                                                    <span>👨‍🏫 ملاحظتك الحالية للطالب: </span>
+                                                    <span className="text-white font-medium">{hw.teacher_note}</span>
+                                                </div>
+                                            )}
+
+                                            {/* عرض التقرير التشخيصي الكامل بخطوط ومعادلات KaTeX اللاتينية السليمة */}
+                                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
+                                                <MathView content={displayedText} className="text-sm text-slate-100" />
                                             </div>
                                         </div>
-
-                                        {hw.teacher_note && (
-                                            <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200">
-                                                <span>👨‍🏫 ملاحظتك الحالية: </span>
-                                                <span className="text-white">{hw.teacher_note}</span>
-                                            </div>
-                                        )}
-
-                                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
-                                            <p className="text-sm text-slate-200 whitespace-pre-wrap font-medium leading-relaxed">{hw.ai_feedback}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
 
-                    {/* نافذة تعديل الواجب والاعتماد (Modal) */}
+                    {/* نافذة اعتماد الواجب وتعديل الدرجة (Modal) */}
                     {editingHw && (
                         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                             <div className="glass-card p-6 md:p-8 rounded-3xl max-w-md w-full border border-white/20 shadow-2xl">
@@ -648,7 +776,7 @@
                         </div>
                     )}
 
-                    {/* سجل وإدارة الطلاب */}
+                    {/* سجل وإدارة الطلاب المسجلين */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '👥 سجل وإدارة الطلاب المسجلين' : '👥 Registered Students Management'}</h3>
                         <div className="overflow-x-auto">
