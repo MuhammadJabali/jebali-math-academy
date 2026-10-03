@@ -23,7 +23,6 @@
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
 
-        /* عزل المعادلات الرياضية لتظهر باتجاه لاتيني سليم LTR */
         .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
         .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
     </style>
@@ -40,11 +39,8 @@
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        const _k1 = 'AQ.Ab8RN6IuH_dXqryRODB';
-        const _k2 = 'sqoHJKec_OQi9VUuMl7NiAzv-86f2_w';
-        const GEMINI_API_KEY = _k1 + _k2;
+        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
-        // مكوّن عرض النصوص والمعادلات بـ KaTeX
         function MathView({ content, className = '' }) {
             const containerRef = useRef(null);
 
@@ -90,7 +86,11 @@
             const [editingHw, setEditingHw] = useState(null);
             const [msg, setMsg] = useState('');
 
-            // كاش الترجمة الفورية في لوحة المعلم
+            // حالة التمارين العلاجية المنبثقة
+            const [practiceModal, setPracticeModal] = useState(null);
+            const [isGeneratingPractice, setIsGeneratingPractice] = useState(false);
+            const [generatingHwId, setGeneratingHwId] = useState(null);
+
             const [transCache, setTransCache] = useState({});
             const [loadingTransId, setLoadingTransId] = useState(null);
 
@@ -129,7 +129,7 @@
             async function fetchHomeworks() {
                 const { data } = await supabase
                     .from('homework_submissions')
-                    .select('*, students(student_name, curriculum_system)')
+                    .select('*, students(student_name, curriculum_system, grade_level, student_phone, parent_phone)')
                     .order('created_at', { ascending: false })
                     .limit(25);
                 if (data) setHomeworkList(data);
@@ -137,31 +137,15 @@
 
             const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
 
-            const translateMathText = async (textToTranslate, targetLang) => {
-                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
-CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
-Text to translate:
-${textToTranslate}`;
-
-                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-                for (const model of models) {
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                        });
-                        const d = await res.json();
-                        if (res.ok && d.candidates?.[0]?.content?.parts) {
-                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
-                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
-                        }
-                    } catch (e) {
-                        console.warn(e);
-                    }
-                }
-                throw new Error('Translation failed');
+            const callWorkerTranslation = async (text, targetLang) => {
+                const res = await fetch(API_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'translate', text, targetLang })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Translation failed');
+                return data.translatedText;
             };
 
             const handleToggleTranslate = async (subId, originalContent) => {
@@ -171,7 +155,6 @@ ${textToTranslate}`;
                 const currentDisplayed = cached.active || originalContent;
                 const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
 
-                // فحص الكاش الفوري (0 ثانية)
                 if (isCurrentlyArabic && cached.en) {
                     setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
                     return;
@@ -185,7 +168,7 @@ ${textToTranslate}`;
                 const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
 
                 try {
-                    const translated = await translateMathText(currentDisplayed, targetLang);
+                    const translated = await callWorkerTranslation(currentDisplayed, targetLang);
                     const newEntry = {
                         ...cached,
                         active: translated,
@@ -194,10 +177,62 @@ ${textToTranslate}`;
                     };
                     setTransCache(prev => ({ ...prev, [subId]: newEntry }));
                 } catch (e) {
-                    console.error(e);
+                    alert(`❌ ${e.message}`);
                 } finally {
                     setLoadingTransId(null);
                 }
+            };
+
+            // دالة استدعاء توليد التمارين العلاجية المخصصة
+            const handleGenerateRemediation = async (hw) => {
+                setGeneratingHwId(hw.id);
+                setIsGeneratingPractice(true);
+
+                try {
+                    const res = await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'generate_practice',
+                            studentName: hw.students?.student_name || 'Student',
+                            curriculumSystem: hw.students?.curriculum_system || 'IGCSE',
+                            gradeLevel: hw.students?.grade_level || '',
+                            topic: hw.topic || 'Mathematics',
+                            feedback: hw.ai_feedback
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok || data.error) throw new Error(data.error || 'Failed to generate practice');
+
+                    setPracticeModal({
+                        student: hw.students,
+                        topic: hw.topic || 'Mathematics',
+                        content: data.practiceContent
+                    });
+                } catch (err) {
+                    alert(`❌ حدث خطأ أثناء توليد التمارين: ${err.message}`);
+                } finally {
+                    setIsGeneratingPractice(false);
+                    setGeneratingHwId(null);
+                }
+            };
+
+            const sendPracticeWhatsApp = () => {
+                if (!practiceModal || !practiceModal.student?.student_phone) {
+                    return alert(isArabic ? 'رقم هاتف الطالب غير متوفر!' : 'Student phone not found!');
+                }
+
+                let phone = practiceModal.student.student_phone.replace(/\D/g, '');
+                if (phone.startsWith('0')) phone = '2' + phone;
+
+                const cleanText = encodeURIComponent(
+                    `مرحباً ${practiceModal.student.student_name} 📐\nإليك تمارين علاجية مخصصة للتدريب على درس (${practiceModal.topic}) بناءً على تقييم واجبك الأخير:\n\n` +
+                    practiceModal.content + 
+                    `\n\nبالتوفيق! موعدنا في الحصة القادمة.`
+                );
+
+                window.open(`https://wa.me/${phone}?text=${cleanText}`, '_blank');
             };
 
             async function togglePaymentStatus(sessionId, currentStatus) {
@@ -405,7 +440,7 @@ ${textToTranslate}`;
                             <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
                                 <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
                             </a>
-                            <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
                             <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
@@ -644,12 +679,12 @@ ${textToTranslate}`;
                         </div>
                     </div>
 
-                    {/* مراجعة الواجبات مع محرك KaTeX وزر الترجمة الفورية واعتماد المعلم */}
+                    {/* مراجعة الواجبات وتوليد التمارين العلاجية المخصصة */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات والتشخيص الأكاديمي الكامل' : '📝 Technical Homework Reports & Examiner Marks'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل والمارك سكيم بالمعادلات الرياضية KaTeX مع إمكانية تعديل الدرجة واعتمادها' : 'Method marks analysis with KaTeX formulas, instant translation, and endorsement tools'}</p>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات وتوليد التمارين العلاجية' : '📝 Technical Homework Reports & Smart Remediation'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل ومعادلات KaTeX مع إمكانية تعديل الدرجة وتوليد مسائل امتحانية لعلاج نقاط الضعف' : 'Method marks analysis with KaTeX, score endorsement, and AI practice generator'}</p>
                             </div>
                             <span className="text-3xl">👨‍🏫</span>
                         </div>
@@ -683,12 +718,22 @@ ${textToTranslate}`;
                                                     )}
                                                 </div>
 
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
                                                     <span className="text-xs text-blue-200 font-bold ml-2">
                                                         {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
 
-                                                    {/* زر الترجمة الفورية للمعلم */}
+                                                    {/* زر توليد التمارين العلاجية المخصصة */}
+                                                    <button 
+                                                        onClick={() => handleGenerateRemediation(hw)}
+                                                        disabled={isGeneratingPractice && generatingHwId === hw.id}
+                                                        className="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-xs font-black transition flex items-center gap-1 shadow-md disabled:opacity-50"
+                                                    >
+                                                        <span>🎯</span> 
+                                                        {isGeneratingPractice && generatingHwId === hw.id ? (isArabic ? '⏳ جاري التوليد...' : 'Generating...') : (isArabic ? 'توليد تمارين علاجية' : 'Generate Practice')}
+                                                    </button>
+
+                                                    {/* زر الترجمة الفورية */}
                                                     <button 
                                                         onClick={() => handleToggleTranslate(hw.id, hw.ai_feedback)}
                                                         disabled={loadingTransId === hw.id}
@@ -697,7 +742,7 @@ ${textToTranslate}`;
                                                         <span>🌐</span> {loadingTransId === hw.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
                                                     </button>
 
-                                                    {/* زر اعتماد وتعديل الدرجة */}
+                                                    {/* زر الاعتماد وتعديل الدرجة */}
                                                     <button 
                                                         onClick={() => setEditingHw({ id: hw.id, score: hw.score || 5, note: hw.teacher_note || '' })}
                                                         className="px-3 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-400/30 rounded-lg text-xs font-bold transition flex items-center gap-1"
@@ -707,15 +752,13 @@ ${textToTranslate}`;
                                                 </div>
                                             </div>
 
-                                            {/* إظهار ملاحظة وتوجيه المعلم الشخصية إن وُجدت */}
                                             {hw.teacher_note && (
                                                 <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200">
-                                                    <span>👨‍🏫 ملاحظتك الحالية للطالب: </span>
+                                                    <span>👨‍‍🏫 ملاحظتك الحالية للطالب: </span>
                                                     <span className="text-white font-medium">{hw.teacher_note}</span>
                                                 </div>
                                             )}
 
-                                            {/* عرض التقرير التشخيصي الكامل بخطوط ومعادلات KaTeX اللاتينية السليمة */}
                                             <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
                                                 <MathView content={displayedText} className="text-sm text-slate-100" />
                                             </div>
@@ -725,6 +768,56 @@ ${textToTranslate}`;
                             </div>
                         )}
                     </div>
+
+                    {/* نافذة التمارين العلاجية المنبثقة (Modal) */}
+                    {practiceModal && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+                            <div className="glass-card p-6 md:p-8 rounded-3xl max-w-2xl w-full border border-white/20 shadow-2xl max-h-[90vh] flex flex-col justify-between">
+                                <div>
+                                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
+                                        <div>
+                                            <h3 className="text-xl font-black text-white">🎯 {isArabic ? 'التمارين العلاجية المخصصة' : 'Targeted Practice Questions'}</h3>
+                                            <p className="text-xs text-blue-300 font-bold mt-1">
+                                                {practiceModal.student?.student_name} • {practiceModal.topic}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => setPracticeModal(null)} className="text-slate-400 hover:text-white text-2xl font-bold">×</button>
+                                    </div>
+
+                                    {/* عرض التمارين ونموذج الإجابة بدعم KaTeX */}
+                                    <div className="overflow-y-auto max-h-[55vh] p-4 bg-slate-900/80 rounded-2xl border border-white/10 text-sm leading-relaxed mb-4">
+                                        <MathView content={practiceModal.content} className="text-slate-100" />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-3 pt-2 border-t border-white/10">
+                                    <button 
+                                        onClick={sendPracticeWhatsApp}
+                                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/30"
+                                    >
+                                        <span>📲</span> {isArabic ? 'إرسال التمارين للطالب عبر WhatsApp' : 'Send via WhatsApp'}
+                                    </button>
+
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(practiceModal.content);
+                                            alert(isArabic ? '✅ تم نسخ التمارين بنجاح!' : '✅ Practice copied!');
+                                        }}
+                                        className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition text-sm flex items-center gap-1"
+                                    >
+                                        <span>📋</span> {isArabic ? 'نسخ' : 'Copy'}
+                                    </button>
+
+                                    <button 
+                                        onClick={() => setPracticeModal(null)}
+                                        className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition text-sm"
+                                    >
+                                        {isArabic ? 'إغلاق' : 'Close'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* نافذة اعتماد الواجب وتعديل الدرجة (Modal) */}
                     {editingHw && (
