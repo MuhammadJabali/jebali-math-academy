@@ -80,7 +80,6 @@
                 const student = data[0];
                 setLoggedInStudent(student);
 
-                // حساب الحصص غير المدفوعة فقط
                 const { data: sessions } = await supabase
                     .from('sessions')
                     .select('calculated_cost')
@@ -95,7 +94,7 @@
 
             const sendTelegramNotification = async (studentName, score) => {
                 const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-                const text = `🔔 إشعار أكاديمية Jebali:\nقام الطالب/ة (${studentName}) برفع حل واجب رياضي.\nالدرجة المقدرة: ${score ? score + '/10' : 'جاري التقييم'}`;
+                const text = `🔔 إشعار أكاديمية Jebali:\nقام الطالب/ة (${studentName}) برفع واجب رياضيات.\nالدرجة المقدرة: ${score ? score + '/10' : 'جاري التقييم'}`;
                 fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -108,7 +107,7 @@
                 if (!file) return;
 
                 setIsAnalyzing(true);
-                setAiFeedback(isArabic ? '⏳ جاري تدقيق الخطوات الرياضية واحتساب الدرجة بدقة...' : '⏳ Evaluating mathematical steps and calculating score...');
+                setAiFeedback(isArabic ? '⏳ جاري فحص الخطوات وحساب الدرجة...' : '⏳ Evaluating mathematical steps...');
 
                 try {
                     const reader = new FileReader();
@@ -117,24 +116,22 @@
                         const base64Data = reader.result.split(',')[1];
                         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                         
-                        // برومبت التصحيح المتقدم للمناهج الدولية
                         const prompt = `You are a certified senior Mathematics examiner for international curricula (${loggedInStudent.curriculum_system} / ${loggedInStudent.grade_level}).
-Carefully examine this handwritten math solution image.
+Examine this handwritten math solution image carefully.
 
-You must follow this STRICT format in your answer:
-TOPIC: [Write topic name, e.g. Quadratic Equations, Calculus, Algebra]
-SCORE: [Write a numerical score between 0 and 10 based on method marks and final answer accuracy, e.g. 8.5]
+You must follow this STRICT format:
+TOPIC: [Topic name]
+SCORE: [Numerical score 0-10, e.g. 8.5]
 FEEDBACK:
-[Provide concise, constructive feedback in ${isArabic ? 'Arabic' : 'English'}:
-- Strengths in the solution steps.
-- Specific errors in calculations or logic.
-- Examiner tip for full marks.]`;
+[Feedback in ${isArabic ? 'Arabic' : 'English'}:
+- Strengths in steps.
+- Specific errors.
+- Examiner advice for full marks.]`;
 
                         const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
                         const result = await model.generateContent([prompt, imagePart]);
                         const responseText = (await result.response).text();
                         
-                        // استخراج الدرجة والموضوع من الإجابة
                         let extractedScore = null;
                         let extractedTopic = 'Mathematics';
                         let cleanFeedback = responseText;
@@ -151,7 +148,6 @@ FEEDBACK:
                         setCurrentScore(extractedScore);
                         setAiFeedback(cleanFeedback);
 
-                        // حفظ الواجب مع الدرجة والموضوع
                         await supabase.from('homework_submissions').insert([{
                             student_id: loggedInStudent.id,
                             ai_feedback: cleanFeedback,
@@ -169,7 +165,6 @@ FEEDBACK:
                 }
             };
 
-            // حساب متوسط درجات الطالب
             const averageScore = submissions.filter(s => s.score != null).length > 0 
                 ? (submissions.filter(s => s.score != null).reduce((sum, s) => sum + parseFloat(s.score), 0) / submissions.filter(s => s.score != null).length).toFixed(1)
                 : null;
@@ -187,7 +182,7 @@ FEEDBACK:
                         </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-6xl mb-6">👨‍🎓</div>
+                            <div className="text-6xl mb-6">👨‍‍🎓</div>
                             <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة الطلاب' : 'Student Portal'}</h2>
                             <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك المسجل للدخول لحسابك' : 'Enter registered phone number to access'}</p>
                             
@@ -215,6 +210,9 @@ FEEDBACK:
                 );
             }
 
+            const studentProg = loggedInStudent.progress_percentage || 25;
+            const studentUnit = loggedInStudent.current_unit || (isArabic ? 'المعادلات والدوال' : 'Algebra');
+
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
@@ -238,7 +236,7 @@ FEEDBACK:
                         </div>
                     </header>
 
-                    {/* كروت الإحصائيات مع متوسط الدرجات */}
+                    {/* كروت الإحصائيات مع شريط المنهج الديناميكي */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between group">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
@@ -271,21 +269,23 @@ FEEDBACK:
                             </div>
                         </div>
 
-                        {/* كارت المنهج */}
+                        {/* كارت المنهج الديناميكي الفعلي للطالب */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500`}></div>
                             <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
-                                {isArabic ? 'إنجاز المنهج' : 'Curriculum Progress'}
+                                {isArabic ? 'إنجاز المنهج الدراسي' : 'Curriculum Progress'}
                             </span>
                             <div className="flex justify-between items-end mt-6 mb-3">
-                                <span className="font-bold text-base">{isArabic ? 'المعادلات والدوال' : 'Equations & Functions'}</span>
-                                <span className="font-black text-emerald-400 text-lg">35%</span>
+                                <span className="font-bold text-base truncate max-w-[70%]">{studentUnit}</span>
+                                <span className="font-black text-emerald-400 text-lg">{studentProg}%</span>
                             </div>
-                            <div className="w-full bg-white/10 rounded-full h-3 border border-white/10"><div className="bg-emerald-500 h-full rounded-full w-[35%]"></div></div>
+                            <div className="w-full bg-white/10 rounded-full h-3.5 border border-white/10 overflow-hidden">
+                                <div className="bg-emerald-500 h-full rounded-full transition-all duration-700" style={{ width: `${studentProg}%` }}></div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* رفع الواجب وتقييم الذكاء الاصطناعي مع بطاقة الدرجة الفورية */}
+                    {/* رفع الواجب وتقييم الذكاء الاصطناعي */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التصحيح الذكي وفق معايير الاختبارات 🤖' : 'AI Homework Examiner 🤖'}</h4>
@@ -310,7 +310,7 @@ FEEDBACK:
                         )}
                     </div>
 
-                    {/* سجل الواجبات السابقة والدرجات */}
+                    {/* سجل الواجبات السابقة */}
                     <div className="glass-card p-8 rounded-3xl">
                         <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات والدرجات السابقة' : '📚 Graded Submissions History'}</h4>
                         {submissions.length === 0 ? (
