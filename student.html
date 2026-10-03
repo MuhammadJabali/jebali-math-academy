@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة الطالب الاحترافية | Jebali Math Academy</title>
+    <title>بوابة الطالب | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
             const [authSession, setAuthSession] = useState(null);
             const [studentData, setStudentData] = useState(null);
             
-            const [email, setEmail] = useState('');
+            const [loginInput, setLoginInput] = useState(''); // يقبل هاتف أو إيميل
             const [password, setPassword] = useState('');
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
@@ -44,7 +44,6 @@
 
             const [sessions, setSessions] = useState([]);
             const [selectedTopic, setSelectedTopic] = useState('');
-            const [hwImage, setHwImage] = useState(null);
             const [submittingHw, setSubmittingHw] = useState(false);
             const [submitSuccess, setSubmitSuccess] = useState('');
 
@@ -78,7 +77,7 @@
                     setStudentData(data);
                     fetchStudentSessions(data.id);
                 } else {
-                    setStudentData({ student_name: 'طالب جديد', curriculum_system: 'General', grade_level: 'N/A' });
+                    setStudentData({ student_name: 'الطالب', curriculum_system: 'General', grade_level: 'N/A' });
                 }
             }
 
@@ -91,12 +90,35 @@
                 if (sessData) setSessions(sessData);
             }
 
+            // تسجيل الدخول بالهاتف أو الإيميل
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoading(true);
                 setErrorMsg('');
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في البريد أو كلمة المرور.' : 'Invalid email or password.');
+
+                let targetEmail = loginInput.trim();
+
+                // إذا كان المُدخل رقماً (هاتف)، نبحث عن البريد الإلكتروني المرتبط به في جدول الطلاب
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord, error: stError } = await supabase
+                        .from('students')
+                        .select('email')
+                        .ilike('student_phone', `%${cleanPhone}%`)
+                        .single();
+
+                    if (stError || !stRecord || !stRecord.email) {
+                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد إلكتروني مسجل لهذا الهاتف.' : 'No email found for this phone.');
+                        setLoading(false);
+                        return;
+                    }
+                    targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                if (error) {
+                    setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول (رقم الهاتف/البريد أو كلمة المرور).' : 'Invalid credentials.');
+                }
                 setLoading(false);
             }
 
@@ -105,21 +127,29 @@
                 setLoading(true);
                 setErrorMsg('');
                 setSuccessMsg('');
-                const { error } = await supabase.auth.signUp({ email, password });
+                const { error } = await supabase.auth.signUp({ email: loginInput, password });
                 if (error) setErrorMsg('Error: ' + error.message);
-                else setSuccessMsg(lang === 'ar' ? '✅ تم إنشاء الحساب بنجاح!' : '✅ Account created successfully!');
+                else setSuccessMsg(lang === 'ar' ? '✅ تم إنشاء الحساب بنجاح!' : '✅ Account created!');
                 setLoading(false);
             }
 
             async function handleForgotPassword(e) {
                 e.preventDefault();
-                if (!email) return;
+                if (!loginInput) return;
                 setLoading(true);
                 setErrorMsg('');
                 setSuccessMsg('');
-                const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+
+                let targetEmail = loginInput.trim();
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord } = await supabase.from('students').select('email').ilike('student_phone', `%${cleanPhone}%`).single();
+                    if (stRecord && stRecord.email) targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
                 if (error) setErrorMsg('Error: ' + error.message);
-                else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك!' : '📬 Reset link sent!');
+                else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!' : '📬 Reset link sent!');
                 setLoading(false);
             }
 
@@ -132,22 +162,14 @@
                 if (!selectedTopic) return;
                 setSubmittingHw(true);
                 setSubmitSuccess('');
-
                 try {
-                    const res = await fetch(API_WORKER_URL, {
+                    await fetch(API_WORKER_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'submit_homework',
-                            studentId: studentData?.id || 0,
-                            topic: selectedTopic,
-                            feedback: `حل مقدم من الطالب.`
-                        })
+                        body: JSON.stringify({ action: 'submit_homework', studentId: studentData?.id || 0, topic: selectedTopic, feedback: 'حل مقدم من الطالب.' })
                     });
-                    if (!res.ok) throw new Error('Failed');
                     setSubmitSuccess(lang === 'ar' ? '✅ تم تسليم الواجب بنجاح!' : '✅ Homework submitted!');
                     setSelectedTopic('');
-                    setHwImage(null);
                 } catch (err) {
                     alert('Error: ' + err.message);
                 } finally {
@@ -170,14 +192,14 @@
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
                             <div className="text-6xl mb-4">🎓</div>
                             <h2 className="text-3xl font-black mb-2">{lang === 'ar' ? 'بوابة الطالب' : 'Student Portal'}</h2>
-                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'تسجيل الدخول الآمن عبر المصادقة' : 'Secure Auth Login'}</p>
+                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'الدخول برقم الهاتف أو البريد الإلكتروني' : 'Login via Phone or Email'}</p>
                             
                             {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
                             {successMsg && <p className="bg-emerald-500/20 text-emerald-100 p-3 rounded-xl mb-4 text-xs font-bold">{successMsg}</p>}
 
                             {authMode === 'login' && (
                                 <form onSubmit={handleLogin} className="space-y-4">
-                                    <input type="email" placeholder={lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={email} onChange={e => setEmail(e.target.value)} />
+                                    <input type="text" placeholder={lang === 'ar' ? 'رقم الهاتف أو البريد الإلكتروني' : 'Phone or Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
                                     <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
                                     <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
                                         {loading ? '...' : (lang === 'ar' ? 'تسجيل الدخول' : 'Login')}
@@ -191,7 +213,7 @@
 
                             {authMode === 'signup' && (
                                 <form onSubmit={handleSignUp} className="space-y-4">
-                                    <input type="email" placeholder="البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={email} onChange={e => setEmail(e.target.value)} />
+                                    <input type="text" placeholder="البريد الإلكتروني أو الهاتف" required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
                                     <input type="password" placeholder="كلمة المرور الجديدة" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
                                     <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
                                         {loading ? '...' : 'تسجيل حساب جديد'}
@@ -202,8 +224,8 @@
 
                             {authMode === 'forgot' && (
                                 <form onSubmit={handleForgotPassword} className="space-y-4">
-                                    <p className="text-xs text-blue-200">أدخل بريدك لاستلام رابط استعادة كلمة المرور:</p>
-                                    <input type="email" placeholder="البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={email} onChange={e => setEmail(e.target.value)} />
+                                    <p className="text-xs text-blue-200">أدخل رقم هاتفك أو بريدك لاستلام رابط الاستعادة:</p>
+                                    <input type="text" placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
                                     <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 rounded-xl transition text-sm">
                                         {loading ? '...' : 'إرسال رابط الاستعادة 📬'}
                                     </button>
@@ -230,7 +252,7 @@
                     </header>
 
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
-                        <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> {lang === 'ar' ? 'تسليم الواجب المنزلي للأستاذ' : 'Submit Homework'}</h3>
+                        <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> {lang === 'ar' ? 'تسليم الواجب المنزلي' : 'Submit Homework'}</h3>
                         {submitSuccess && <p className="mb-4 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{submitSuccess}</p>}
                         <form onSubmit={handleUploadHomework} className="space-y-4">
                             <div>
