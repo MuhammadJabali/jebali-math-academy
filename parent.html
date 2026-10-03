@@ -37,6 +37,7 @@
             const [myKids, setMyKids] = useState([]);
             const [selectedStudent, setSelectedStudent] = useState(null);
             const [sessions, setSessions] = useState([]);
+            const [submissions, setSubmissions] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
 
@@ -75,13 +76,22 @@
                 setIsLoading(true);
                 setSelectedStudent(student);
 
+                // جلب الحصص
                 const { data: sessionData } = await supabase
                     .from('sessions')
                     .select('*')
                     .eq('student_id', student.id)
                     .order('created_at', { ascending: false });
-
                 setSessions(sessionData || []);
+
+                // جلب أرشيف تقييمات الواجبات
+                const { data: submissionData } = await supabase
+                    .from('homework_submissions')
+                    .select('*')
+                    .eq('student_id', student.id)
+                    .order('created_at', { ascending: false });
+                setSubmissions(submissionData || []);
+
                 setIsLoading(false);
             };
 
@@ -130,7 +140,7 @@
                 );
             }
 
-            // 2. شاشة اختيار الابن في حال وجود أكثر من ابن بنفس الرقم
+            // 2. شاشة اختيار الابن في حال وجود أكثر من حساب مسجل بنفس الرقم
             if (!selectedStudent && myKids.length > 1) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -165,7 +175,7 @@
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-emerald-600 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-emerald-600/50">📊</div>
                             <div>
-                                <h1 className="text-2xl font-black text-white">{isArabic ? `تقرير: ${selectedStudent.student_name}` : `Report: ${selectedStudent.student_name}`}</h1>
+                                <h1 className="text-2xl font-black text-white">{isArabic ? `تقرير متابعة: ${selectedStudent.student_name}` : `Report: ${selectedStudent.student_name}`}</h1>
                                 <p className="text-blue-200 font-bold text-sm">{selectedStudent.curriculum_system} • {selectedStudent.grade_level}</p>
                             </div>
                         </div>
@@ -182,29 +192,68 @@
                         </div>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {/* الإحصائيات العامة */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                         <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
                             <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{isArabic ? 'المستحقات الحالية' : 'Current Dues'}</span>
-                            <h3 className="text-4xl font-black mt-4 text-white">{totalDue} <span className="text-xl text-blue-200">EGP</span></h3>
-                            <a href="https://ipn.eg" target="_blank" className="block text-center py-2.5 mt-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition text-sm">
-                                {isArabic ? 'سداد مباشر عبر InstaPay' : 'Pay via InstaPay'}
+                            <h3 className="text-3xl font-black mt-4 text-white">{totalDue} <span className="text-lg text-blue-200">EGP</span></h3>
+                            <a href="https://ipn.eg" target="_blank" className="block text-center py-2.5 mt-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition text-xs">
+                                {isArabic ? 'سداد عبر InstaPay' : 'Pay via InstaPay'}
                             </a>
                         </div>
 
                         <div className="glass-card p-6 rounded-3xl border-t-4 border-blue-500">
                             <span className="text-xs font-bold text-blue-200 bg-blue-500/20 px-3 py-1 rounded-full">{isArabic ? 'إجمالي الساعات' : 'Total Hours'}</span>
-                            <h3 className="text-4xl font-black mt-4 text-white">{totalHours} <span className="text-xl text-blue-200">{isArabic ? 'ساعة' : 'Hrs'}</span></h3>
-                            <p className="text-sm text-blue-200 mt-2 font-bold">{isArabic ? 'زمن الحصص المنجزة' : 'Completed lesson hours'}</p>
+                            <h3 className="text-3xl font-black mt-4 text-white">{totalHours} <span className="text-lg text-blue-200">{isArabic ? 'ساعة' : 'Hrs'}</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'زمن الحصص المنجزة' : 'Lesson duration'}</p>
                         </div>
 
                         <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
                             <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{isArabic ? 'عدد الحصص' : 'Total Sessions'}</span>
-                            <h3 className="text-4xl font-black mt-4 text-white">{sessions.length} <span className="text-xl text-blue-200">{isArabic ? 'حصة' : 'Sessions'}</span></h3>
-                            <p className="text-sm text-blue-200 mt-2 font-bold">{isArabic ? 'سجل الحضور' : 'Attendance record'}</p>
+                            <h3 className="text-3xl font-black mt-4 text-white">{sessions.length} <span className="text-lg text-blue-200">{isArabic ? 'حصة' : 'Sessions'}</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'سجل الحضور' : 'Attendance'}</p>
+                        </div>
+
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-indigo-500">
+                            <span className="text-xs font-bold text-indigo-200 bg-indigo-500/20 px-3 py-1 rounded-full">{isArabic ? 'الواجبات المقيمة' : 'Homeworks'}</span>
+                            <h3 className="text-3xl font-black mt-4 text-white">{submissions.length} <span className="text-lg text-blue-200">{isArabic ? 'واجب' : 'Tasks'}</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'تقييم الذكاء الاصطناعي' : 'AI Evaluated'}</p>
                         </div>
                     </div>
 
-                    <div className="glass-card p-6 rounded-3xl">
+                    {/* تقرير الواجبات الأكاديمي */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات وملاحظات الأداء (الذكاء الاصطناعي)' : '📝 Homework Reports & AI Feedback'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'تفاصيل كل واجب تم تسليمه وتصحيحه مع نقاط القوة والتصحيح' : 'Details of evaluated assignments with feedback and corrections'}</p>
+                            </div>
+                            <span className="text-2xl">🤖</span>
+                        </div>
+
+                        {submissions.length === 0 ? (
+                            <p className="text-blue-200 text-center py-6 font-bold text-sm">{isArabic ? 'لم يقم الطالب برفع أي واجبات حتى الآن.' : 'No homework submitted yet.'}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {submissions.map((sub, idx) => (
+                                    <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
+                                                {isArabic ? `تقييم واجب #${submissions.length - idx}` : `Assignment #${submissions.length - idx}`}
+                                            </span>
+                                            <span className="text-xs text-blue-200 font-bold">
+                                                {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-slate-100 whitespace-pre-wrap font-bold leading-relaxed">{sub.ai_feedback}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* تفاصيل الحصص والمحاسبة */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '🗓️ سجل الحصص والمحاسبة التفصيلي' : '🗓️ Session Breakdown'}</h3>
                         {sessions.length === 0 ? (
                             <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد حصص مسجلة حتى الآن.' : 'No sessions logged yet.'}</p>
