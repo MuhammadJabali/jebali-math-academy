@@ -71,7 +71,13 @@
                 const student = studentsList.find(s => s.id === selectedStudentId);
                 if(student) {
                     setLoggedInStudent(student);
-                    const { data: sessions } = await supabase.from('sessions').select('calculated_cost').eq('student_id', student.id);
+                    // جلب الحصص غير المدفوعة فقط لحساب المديونية
+                    const { data: sessions } = await supabase
+                        .from('sessions')
+                        .select('calculated_cost')
+                        .eq('student_id', student.id)
+                        .eq('is_paid', false);
+                    
                     const cost = sessions ? sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) : 0;
                     setTotalCost(cost);
                     fetchSubmissions(student.id);
@@ -112,7 +118,6 @@
                         
                         setAiFeedback(responseText);
 
-                        // حفظ التقييم في جدول الواجبات
                         await supabase.from('homework_submissions').insert([{
                             student_id: loggedInStudent.id,
                             ai_feedback: responseText
@@ -186,10 +191,10 @@
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
                                 <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full border border-orange-500/30">
-                                    {isArabic ? 'المستحقات المالية' : 'Total Dues'}
+                                    {isArabic ? 'المستحقات المعلقة' : 'Pending Dues'}
                                 </span>
                                 <h3 className="text-4xl font-black mt-6 text-white">{totalCost} <span className="text-xl text-blue-200">EGP</span></h3>
-                                <p className="text-sm text-blue-200 mt-2 font-bold">{isArabic ? 'إجمالي الحصص غير المدفوعة' : 'Total unpaid sessions'}</p>
+                                <p className="text-sm text-blue-200 mt-2 font-bold">{isArabic ? 'إجمالي الحصص غير المسددة' : 'Unpaid sessions only'}</p>
                             </div>
                             <a href="https://ipn.eg" target="_blank" className="text-center py-4 mt-8 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl w-full transition shadow-lg shadow-orange-500/30">
                                 {isArabic ? 'سداد عبر InstaPay' : 'Pay via InstaPay'}
@@ -209,7 +214,6 @@
                         </div>
                     </div>
 
-                    {/* رفع وتقييم الواجب */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التقييم الذكي للواجبات 🤖' : 'AI Homework Evaluation 🤖'}</h4>
@@ -228,7 +232,6 @@
                         )}
                     </div>
 
-                    {/* أرشيف الواجبات السابقة */}
                     <div className="glass-card p-8 rounded-3xl">
                         <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات السابقة والملاحظات' : '📚 Previous Submissions & Feedback'}</h4>
                         {submissions.length === 0 ? (
