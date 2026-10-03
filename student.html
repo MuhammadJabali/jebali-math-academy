@@ -17,7 +17,7 @@
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 12px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
+        .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 14px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
@@ -26,7 +26,7 @@
     <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
         <div class="absolute top-6 left-6 flex gap-2">
             <button onclick="toggleLang()" id="langToggleBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">🌐 English</button>
-            <a href="index.html" id="homeLinkText" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
+            <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
         </div>
 
         <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
@@ -58,7 +58,7 @@
             </div>
         </header>
 
-        <!-- تقويم ومواعيد حصص الطالب (Calendar) -->
+        <!-- تقويم ومواعيد حصص الطالب -->
         <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-blue-500/30">
             <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> جدول حصصي القادمة والمواعيد</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -85,17 +85,18 @@
             <p class="text-xs text-blue-200 mb-4">حل المسألة الرياضية التالية:</p>
 
             <div class="math-box mb-4">
-                <div class="text-white font-bold my-2" id="mathProblem">
-                    أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام: 
+                <p class="text-xs text-orange-300 font-bold mb-2">أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام:</p>
+                <!-- تم ضبط الحاوية باتجاه LTR لضمان عرض المعادلات الرياضية بشكل صحيح ودون انعكاس -->
+                <div dir="ltr" class="text-white font-bold my-2 text-center text-base md:text-lg" id="mathProblem">
                     $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
-                    التطبيق العملي: $2x^2 - 5x + 2 = 0$
+                    <div class="mt-2 text-amber-300">التطبيق العملي: $2x^2 + 5x + 2 = 0$</div>
                 </div>
             </div>
 
             <div id="testAlert" class="hidden mb-3 p-3 rounded-xl text-xs font-bold"></div>
             
             <form onsubmit="handleSelfTestSubmit(event)" class="space-y-3">
-                <input type="text" id="selfTestInput" required placeholder="اكتب الناتج النهائي (مثال: x = 2, x = 0.5)" class="w-full p-3 glass-input rounded-xl text-sm font-bold" />
+                <input type="text" id="selfTestInput" required placeholder="اكتب الناتج النهائي (مثال: x = -2, x = -0.5)" class="w-full p-3 glass-input rounded-xl text-sm font-bold text-center" />
                 <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg flex items-center justify-center gap-2">
                     <span>🚀</span> إرسال الحل للأستاذ
                 </button>
@@ -146,21 +147,19 @@
             currentLang = currentLang === 'ar' ? 'en' : 'ar';
             document.documentElement.lang = currentLang;
             document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-            
+
             if (currentLang === 'en') {
                 document.getElementById('loginTitle').innerText = 'Student Portal';
                 document.getElementById('loginSubtitle').innerText = 'Login with Phone & Password';
                 document.getElementById('phoneInput').placeholder = 'Phone Number';
                 document.getElementById('passwordInput').placeholder = 'Password';
                 document.getElementById('submitBtn').innerText = 'Login';
-                document.getElementById('langToggleBtn').innerText = '🌐 العربية';
             } else {
                 document.getElementById('loginTitle').innerText = 'بوابة الطالب';
                 document.getElementById('loginSubtitle').innerText = 'الدخول برقم الهاتف وكلمة المرور';
                 document.getElementById('phoneInput').placeholder = 'رقم الهاتف';
                 document.getElementById('passwordInput').placeholder = 'كلمة المرور';
                 document.getElementById('submitBtn').innerText = 'تسجيل الدخول';
-                document.getElementById('langToggleBtn').innerText = '🌐 English';
             }
         };
 
