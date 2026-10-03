@@ -77,11 +77,12 @@
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [msg, setMsg] = useState('');
 
+            // تم تصحيح الترجمة هنا لتصبح "الرئيسية (Home)" بدلاً من منزل الطالب
             const t = {
                 ar: {
                     title: "لوحة التحكم | Jebali Math Academy",
                     subtitle: "نظام الإدارة الشامل",
-                    home: "الرئيسية",
+                    home: "الرئيسية (Home)",
                     logout: "خروج",
                     collected: "المبالغ المحصلة",
                     pending: "المستحقات المعلقة",
@@ -99,11 +100,11 @@
                     endTime: "وقت الانتهاء",
                     location: "مكان انعقاد الحصة",
                     online: "أونلاين (Online)",
-                    home: "منزل الطالب (Home)",
+                    homeLoc: "منزل الطالب (Home)",
                     center: "سنتر تعليمي (Center)",
                     centerName: "اسم السنتر والعنوان",
                     centerFees: "تكلفة السنتر الإضافية (EGP)",
-                    saveSession: "وثّق الحصة (حساب آلي للتوقيت والتكلفة)",
+                    saveSession: "وثّق الحصة",
                     sessionsRecord: "سجل الحصص والمدفوعات",
                     studentsRecord: "سجل الطلاب المسجلين وملفاتهم",
                     paid: "مسددة",
@@ -132,7 +133,7 @@
                     endTime: "End Time",
                     location: "Session Location",
                     online: "Online",
-                    home: "Student's Home",
+                    homeLoc: "Student's Home",
                     center: "Educational Center",
                     centerName: "Center Name & Address",
                     centerFees: "Extra Center Fees (EGP)",
@@ -459,7 +460,7 @@
                             </a>
                         </div>
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
-                            <div className="text-6xl mb-4 text-center">👨‍‍🏫</div>
+                            <div className="text-6xl mb-4 text-center">👨‍🏫</div>
                             <h2 className="text-3xl font-black text-center mb-6">{lang === 'ar' ? 'لوحة الإدارة' : 'Admin Login'}</h2>
                             {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
                             <form onSubmit={handleLogin} className="space-y-4">
@@ -557,7 +558,6 @@
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* إضافة طالب */}
                         <div className="glass-card p-8 rounded-3xl relative">
                             <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                             <h3 className="text-2xl font-black mb-6">{t.addStudent}</h3>
@@ -605,7 +605,6 @@
                             </form>
                         </div>
 
-                        {/* توثيق الحصة */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
@@ -634,7 +633,7 @@
                                         <label className="text-xs font-bold text-blue-200 block">📍 {t.location}:</label>
                                         <select className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newSession.location_type} onChange={e => setNewSession({...newSession, location_type: e.target.value})}>
                                             <option value="Online">{t.online}</option>
-                                            <option value="Home">{t.home}</option>
+                                            <option value="Home">{t.homeLoc}</option>
                                             <option value="Center">{t.center}</option>
                                         </select>
                                         {newSession.location_type === 'Center' && (
