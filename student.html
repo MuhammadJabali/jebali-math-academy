@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة الطالب السريعة | Jebali Math Academy</title>
+    <title>بوابة الطالب | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- KaTeX لعرض المعادلات الرياضية باحترافية وسرعة فائقة -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
@@ -23,7 +22,7 @@
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
 
-    <!-- شاشة تسجيل الدخول -->
+    <!-- شاشة تسجيل الدخول برقم الهاتف وكلمة المرور -->
     <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
         <div class="absolute top-6 left-6 flex gap-2">
             <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
@@ -31,18 +30,15 @@
 
         <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
             <div class="text-6xl mb-4">🎓</div>
-            <h2 id="loginTitle" class="text-3xl font-black mb-2">بوابة الطالب</h2>
-            <p id="loginSubtitle" class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف أو البريد الإلكتروني</p>
+            <h2 class="text-3xl font-black mb-2">بوابة الطالب</h2>
+            <p class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف وكلمة المرور</p>
             
             <div id="alertBox" class="hidden p-3 rounded-xl mb-4 text-xs font-bold"></div>
 
-            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
-                <input type="text" id="loginInput" placeholder="رقم الهاتف أو البريد الإلكتروني" required class="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" />
+            <form onsubmit="handleLoginDirect(event)" class="space-y-4">
+                <input type="text" id="phoneInput" placeholder="رقم الهاتف" required class="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" />
                 <input type="password" id="passwordInput" placeholder="كلمة المرور" required class="w-full p-4 glass-input rounded-xl font-bold text-center" />
                 <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">تسجيل الدخول</button>
-                <div class="flex justify-between items-center text-xs mt-3 px-1 font-bold">
-                    <button type="button" onclick="handleForgotPassword()" class="text-orange-300 hover:underline w-full text-center">نسيت كلمة المرور؟</button>
-                </div>
             </form>
         </div>
     </div>
@@ -110,7 +106,6 @@
         </div>
     </div>
 
-    <!-- سكربت التشغيل السريع -->
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -121,17 +116,17 @@
 
         let currentStudent = null;
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session && session.user) {
-                await loadStudentData(session.user.email);
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedStudentId = localStorage.getItem('jebali_student_id');
+            if (savedStudentId) {
+                fetchStudentById(savedStudentId);
             }
         });
 
-        window.handleLogin = async function(e) {
+        window.handleLoginDirect = async function(e) {
             e.preventDefault();
-            const inputVal = document.getElementById('loginInput').value.trim();
-            const passwordVal = document.getElementById('passwordInput').value;
+            const phoneVal = document.getElementById('phoneInput').value.trim().replace(/\D/g, '');
+            const passwordVal = document.getElementById('passwordInput').value.trim();
             const btn = document.getElementById('submitBtn');
             const alertBox = document.getElementById('alertBox');
             
@@ -139,42 +134,32 @@
             alertBox.classList.add('hidden');
 
             try {
-                let targetEmail = inputVal;
-                
-                // إذا لم يكن المدخل إيميل (أي رقم هاتف)، نبحث عنه بمرونة في جدول الطلاب
-                if (!targetEmail.includes('@')) {
-                    const cleanPhone = targetEmail.replace(/\D/g, '');
-                    const { data: stRecords, error: qError } = await supabase
-                        .from('students')
-                        .select('email, student_phone, parent_phone');
+                // جلب بيانات الطلاب للتحقق من الهاتف وكلمة المرور مباشرة من جدول students
+                const { data: students, error } = await supabase.from('students').select('*');
 
-                    if (qError || !stRecords) {
-                        showAlert(alertBox, 'خطأ في الاتصال بقاعدة البيانات.', 'bg-red-500/20 text-red-100');
-                        btn.innerText = 'تسجيل الدخول';
-                        return;
-                    }
-
-                    // مطابقة مرنة لرقم الهاتف
-                    const matchedStudent = stRecords.find(st => {
-                        const p1 = (st.student_phone || '').replace(/\D/g, '');
-                        const p2 = (st.parent_phone || '').replace(/\D/g, '');
-                        return p1.includes(cleanPhone) || p2.includes(cleanPhone) || cleanPhone.includes(p1);
-                    });
-
-                    if (!matchedStudent || !matchedStudent.email) {
-                        showAlert(alertBox, 'لم يتم العثور على بريد مسجل لهذا الهاتف. حاول كتابة البريد الإلكتروني مباشرة.', 'bg-red-500/20 text-red-100');
-                        btn.innerText = 'تسجيل الدخول';
-                        return;
-                    }
-                    targetEmail = matchedStudent.email;
+                if (error || !students) {
+                    showAlert(alertBox, 'خطأ في الاتصال بقاعدة البيانات.', 'bg-red-500/20 text-red-100');
+                    btn.innerText = 'تسجيل الدخول';
+                    return;
                 }
 
-                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password: passwordVal });
-                if (error) {
-                    showAlert(alertBox, 'خطأ في كلمة المرور أو بيانات الدخول.', 'bg-red-500/20 text-red-100');
-                    btn.innerText = 'تسجيل الدخول';
+                const matched = students.find(st => {
+                    const stPhone = (st.student_phone || '').replace(/\D/g, '');
+                    const prPhone = (st.parent_phone || '').replace(/\D/g, '');
+                    const stPass = (st.password || '').trim();
+                    
+                    const phoneMatch = stPhone.includes(phoneVal) || prPhone.includes(phoneVal) || phoneVal.includes(stPhone);
+                    const passMatch = stPass === passwordVal;
+
+                    return phoneMatch && passMatch;
+                });
+
+                if (matched) {
+                    localStorage.setItem('jebali_student_id', matched.id);
+                    await setupDashboard(matched);
                 } else {
-                    await loadStudentData(targetEmail);
+                    showAlert(alertBox, 'رقم الهاتف أو كلمة المرور غير صحيحة.', 'bg-red-500/20 text-red-100');
+                    btn.innerText = 'تسجيل الدخول';
                 }
             } catch (err) {
                 showAlert(alertBox, 'حدث خطأ غير متوقع.', 'bg-red-500/20 text-red-100');
@@ -182,41 +167,24 @@
             }
         };
 
-        window.handleForgotPassword = async function() {
-            const inputVal = document.getElementById('loginInput').value.trim();
-            const alertBox = document.getElementById('alertBox');
-            if (!inputVal) {
-                showAlert(alertBox, 'أرجو إدخال رقم الهاتف أو البريد أولاً لاستعادة كلمة المرور.', 'bg-amber-500/20 text-amber-100');
-                return;
+        async function fetchStudentById(id) {
+            const { data } = await supabase.from('students').select('*').eq('id', id).single();
+            if (data) {
+                await setupDashboard(data);
+            } else {
+                localStorage.removeItem('jebali_student_id');
             }
-            let targetEmail = inputVal;
-            if (!targetEmail.includes('@')) {
-                const cleanPhone = targetEmail.replace(/\D/g, '');
-                const { data: stRecords } = await supabase.from('students').select('email, student_phone');
-                const matched = stRecords?.find(st => (st.student_phone || '').replace(/\D/g, '').includes(cleanPhone));
-                if (matched && matched.email) targetEmail = matched.email;
-            }
-            const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
-            if (error) showAlert(alertBox, 'Error: ' + error.message, 'bg-red-500/20 text-red-100');
-            else showAlert(alertBox, '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!', 'bg-emerald-500/20 text-emerald-100');
-        };
+        }
 
-        async function loadStudentData(email) {
-            try {
-                const { data } = await supabase.from('students').select('*').ilike('email', email).single();
-                if (data) {
-                    currentStudent = data;
-                    document.getElementById('authContainer').classList.add('hidden');
-                    document.getElementById('dashboardContainer').classList.remove('hidden');
-                    document.getElementById('welcomeText').innerText = `أهلاً بك، ${data.student_name} 📐`;
-                    document.getElementById('studentInfoText').innerText = `${data.curriculum_system || ''} • ${data.grade_level || ''}`;
-                    
-                    await loadSessions(data.id);
-                    renderMath();
-                }
-            } catch (e) {
-                console.error(e);
-            }
+        async function setupDashboard(student) {
+            currentStudent = student;
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('dashboardContainer').classList.remove('hidden');
+            document.getElementById('welcomeText').innerText = `أهلاً بك، ${student.student_name} 📐`;
+            document.getElementById('studentInfoText').innerText = `${student.curriculum_system || ''} • ${student.grade_level || ''}`;
+            
+            await loadSessions(student.id);
+            renderMath();
         }
 
         async function loadSessions(studentId) {
@@ -283,8 +251,8 @@
             }
         };
 
-        window.handleLogout = async function() {
-            await supabase.auth.signOut();
+        window.handleLogout = function() {
+            localStorage.removeItem('jebali_student_id');
             window.location.reload();
         };
 
