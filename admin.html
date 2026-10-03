@@ -1154,3 +1154,17 @@
     </script>
 </body>
 </html>
+async function fetchTaxonomy() {
+                const { data, error } = await supabase.from('curriculum_taxonomy').select('*');
+                if (data) {
+                    setTaxonomyList(data);
+                } else if (error) {
+                    console.error('Error fetching taxonomy:', error);
+                }
+            }
+
+            // تعديل مؤقت ليقوم بجلب كافة المهارات والمحاور المتاحة حتى لو لم يتم اختيار طالب بعد
+            const filteredTaxonomy = taxonomyList; 
+
+            const uniqueTopics = [...new Set(filteredTaxonomy.map(i => i.core_topic))];
+            const uniqueSkills = [...new Set(filteredTaxonomy.map(i => i.micro_skill))];
