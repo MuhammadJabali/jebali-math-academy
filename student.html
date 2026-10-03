@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة الطالب | Jebali Math Academy</title>
+    <title>بوابة الطالب المتقدمة | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -11,10 +11,16 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- KaTeX لعرض المعادلات الرياضية باحترافية -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
+        .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 12px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
@@ -35,7 +41,7 @@
             const [authSession, setAuthSession] = useState(null);
             const [studentData, setStudentData] = useState(null);
             
-            const [loginInput, setLoginInput] = useState(''); // يقبل هاتف أو إيميل
+            const [loginInput, setLoginInput] = useState('');
             const [password, setPassword] = useState('');
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
@@ -43,9 +49,15 @@
             const [authMode, setAuthMode] = useState('login');
 
             const [sessions, setSessions] = useState([]);
+            
+            // حالات مساعد الجبر الذكي والاختبار الذاتي
             const [selectedTopic, setSelectedTopic] = useState('');
             const [submittingHw, setSubmittingHw] = useState(false);
             const [submitSuccess, setSubmitSuccess] = useState('');
+
+            // مسألة اختبار ذاتي تجريبية تفاعلية
+            const [selfTestAnswer, setSelfTestAnswer] = useState('');
+            const [testResultMsg, setTestResultMsg] = useState('');
 
             useEffect(() => {
                 document.documentElement.lang = lang;
@@ -65,6 +77,20 @@
                     }
                 });
             }, [lang]);
+
+            // تفعيل KaTeX تلقائياً عند تحميل البيانات
+            useEffect(() => {
+                setTimeout(() => {
+                    if (window.renderMathInElement) {
+                        window.renderMathInElement(document.body, {
+                            delimiters: [
+                                {left: "$$", right: "$$", display: true},
+                                {left: "$", right: "$", display: false}
+                            ]
+                        });
+                    }
+                }, 500);
+            }, [studentData, sessions]);
 
             async function fetchStudentProfile(userEmail) {
                 const { data } = await supabase
@@ -90,25 +116,22 @@
                 if (sessData) setSessions(sessData);
             }
 
-            // تسجيل الدخول بالهاتف أو الإيميل
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoading(true);
                 setErrorMsg('');
 
                 let targetEmail = loginInput.trim();
-
-                // إذا كان المُدخل رقماً (هاتف)، نبحث عن البريد الإلكتروني المرتبط به في جدول الطلاب
                 if (!targetEmail.includes('@')) {
                     const cleanPhone = targetEmail.replace(/\D/g, '');
-                    const { data: stRecord, error: stError } = await supabase
+                    const { data: stRecord } = await supabase
                         .from('students')
                         .select('email')
                         .ilike('student_phone', `%${cleanPhone}%`)
                         .single();
 
-                    if (stError || !stRecord || !stRecord.email) {
-                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد إلكتروني مسجل لهذا الهاتف.' : 'No email found for this phone.');
+                    if (!stRecord || !stRecord.email) {
+                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد مسجل لهذا الهاتف.' : 'No email found.');
                         setLoading(false);
                         return;
                     }
@@ -116,20 +139,7 @@
                 }
 
                 const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
-                if (error) {
-                    setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول (رقم الهاتف/البريد أو كلمة المرور).' : 'Invalid credentials.');
-                }
-                setLoading(false);
-            }
-
-            async function handleSignUp(e) {
-                e.preventDefault();
-                setLoading(true);
-                setErrorMsg('');
-                setSuccessMsg('');
-                const { error } = await supabase.auth.signUp({ email: loginInput, password });
-                if (error) setErrorMsg('Error: ' + error.message);
-                else setSuccessMsg(lang === 'ar' ? '✅ تم إنشاء الحساب بنجاح!' : '✅ Account created!');
+                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول.' : 'Invalid credentials.');
                 setLoading(false);
             }
 
@@ -166,14 +176,38 @@
                     await fetch(API_WORKER_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'submit_homework', studentId: studentData?.id || 0, topic: selectedTopic, feedback: 'حل مقدم من الطالب.' })
+                        body: JSON.stringify({ action: 'submit_homework', studentId: studentData?.id || 0, topic: selectedTopic, feedback: 'حل واجب رياضي مقدم من الطالب.' })
                     });
-                    setSubmitSuccess(lang === 'ar' ? '✅ تم تسليم الواجب بنجاح!' : '✅ Homework submitted!');
+                    setSubmitSuccess(lang === 'ar' ? '✅ تم تسليم الواجب بنجاح للأستاذ!' : '✅ Homework submitted!');
                     setSelectedTopic('');
                 } catch (err) {
                     alert('Error: ' + err.message);
                 } finally {
                     setSubmittingHw(false);
+                }
+            }
+
+            // معالجة حل الاختبار الذاتي وإرساله للمعلم
+            async function handleSelfTestSubmit(e) {
+                e.preventDefault();
+                if (!selfTestAnswer) return;
+                setTestResultMsg(lang === 'ar' ? '⏳ جاري إرسال الحل للأستاذ للمراجعة...' : '⏳ Submitting answer...');
+                
+                try {
+                    await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'submit_homework',
+                            studentId: studentData?.id || 0,
+                            topic: 'اختبار ذاتي تفاعلي: حل المعادلة التربيعية',
+                            feedback: `إجابة الطالب في الاختبار الذاتي: ${selfTestAnswer}`
+                        })
+                    });
+                    setTestResultMsg(lang === 'ar' ? '🎉 تم إرسال الحل بنجاح وسيتم تقييمه من الأستاذ قريباً!' : '🎉 Answer submitted successfully!');
+                    setSelfTestAnswer('');
+                } catch (err) {
+                    setTestResultMsg('❌ Error submitting answer.');
                 }
             }
 
@@ -204,21 +238,9 @@
                                     <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
                                         {loading ? '...' : (lang === 'ar' ? 'تسجيل الدخول' : 'Login')}
                                     </button>
-                                    <div className="flex justify-between items-center text-xs mt-3 px-1 font-bold">
-                                        <button type="button" onClick={() => setAuthMode('signup')} className="text-blue-300 hover:underline">إنشاء حساب جديد؟</button>
-                                        <button type="button" onClick={() => setAuthMode('forgot')} className="text-orange-300 hover:underline">نسيت كلمة المرور؟</button>
-                                    </div>
-                                </form>
-                            )}
-
-                            {authMode === 'signup' && (
-                                <form onSubmit={handleSignUp} className="space-y-4">
-                                    <input type="text" placeholder="البريد الإلكتروني أو الهاتف" required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
-                                    <input type="password" placeholder="كلمة المرور الجديدة" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
-                                    <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
-                                        {loading ? '...' : 'تسجيل حساب جديد'}
+                                    <button type="button" onClick={() => setAuthMode('forgot')} className="text-xs text-orange-300 hover:underline block w-full mt-3 font-bold">
+                                        {lang === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
                                     </button>
-                                    <button type="button" onClick={() => setAuthMode('login')} className="text-xs text-slate-300 hover:underline block w-full mt-2 font-bold">العودة لتسجيل الدخول</button>
                                 </form>
                             )}
 
@@ -251,15 +273,50 @@
                         </div>
                     </header>
 
+                    {/* مساعد الجبر الذكي والاختبار الذاتي التفاعلي */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-blue-600/10">
+                        <h3 className="text-lg font-black mb-2 flex items-center gap-2">
+                            <span>⚡</span> {lang === 'ar' ? 'مساعد الجبر الذكي والاختبار الذاتي' : 'Smart Math Assistant & Self-Test'}
+                        </h3>
+                        <p className="text-xs text-blue-200 mb-4">
+                            {lang === 'ar' ? 'تدرب على حل المعادلات الرياضية المتقدمة بمعاملات KaTeX التفاعلية:' : 'Practice advanced math problems:'}
+                        </p>
+
+                        <div className="math-box mb-4">
+                            <p className="text-xs text-orange-300 font-bold mb-1">مسألة تحدي اليوم:</p>
+                            <div className="text-white font-bold my-2">
+                                أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام: 
+                                $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+                                التطبيق العملي: $2x^2 - 5x + 2 = 0$
+                            </div>
+                        </div>
+
+                        {testResultMsg && <p className="mb-3 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{testResultMsg}</p>}
+                        
+                        <form onSubmit={handleSelfTestSubmit} className="space-y-3">
+                            <input 
+                                type="text" 
+                                required 
+                                placeholder={lang === 'ar' ? 'اكتب خطوات الحل أو الناتج النهائي هنا (مثال: x = 2, x = 0.5)' : 'Enter your solution...'} 
+                                className="w-full p-3 glass-input rounded-xl text-sm font-bold" 
+                                value={selfTestAnswer} 
+                                onChange={e => setSelfTestAnswer(e.target.value)} 
+                            />
+                            <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg flex items-center justify-center gap-2">
+                                <span>🚀</span> {lang === 'ar' ? 'إرسال الإجابة للأستاذ للتقييم' : 'Submit Answer for Review'}
+                            </button>
+                        </form>
+                    </div>
+
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
                         <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> {lang === 'ar' ? 'تسليم الواجب المنزلي' : 'Submit Homework'}</h3>
                         {submitSuccess && <p className="mb-4 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{submitSuccess}</p>}
                         <form onSubmit={handleUploadHomework} className="space-y-4">
                             <div>
                                 <label className="text-xs text-blue-200 block mb-1">{lang === 'ar' ? 'اسم الدرس أو الموضوع:' : 'Topic:'}</label>
-                                <input type="text" required placeholder="مثال: الدوال التربيعية" className="w-full p-3 glass-input rounded-xl text-sm" value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} />
+                                <input type="text" required placeholder="مثال: الدوال التربيعية وتطبيقاتها" className="w-full p-3 glass-input rounded-xl text-sm" value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} />
                             </div>
-                            <button type="submit" disabled={submittingHw} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
+                            <button type="submit" disabled={submittingHw} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
                                 {submittingHw ? '...' : (lang === 'ar' ? 'تسليم الواجب للأستاذ 🚀' : 'Submit Homework 🚀')}
                             </button>
                         </form>
