@@ -48,6 +48,7 @@
                 student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' 
             });
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
+            const [editingHw, setEditingHw] = useState(null); // نافذة تعديل الواجب
             const [msg, setMsg] = useState('');
 
             useEffect(() => {
@@ -120,6 +121,23 @@
                 setTimeout(() => setMsg(''), 3000);
             }
 
+            async function saveTeacherReview(hwId, newScore, note) {
+                const { error } = await supabase.from('homework_submissions').update({
+                    score: parseFloat(newScore),
+                    teacher_note: note,
+                    is_reviewed: true
+                }).eq('id', hwId);
+
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم حفظ تعديل الدرجة وملاحظات المعلم بنجاح!' : '✅ Review saved successfully!');
+                    setEditingHw(null);
+                    fetchHomeworks();
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 3500);
+            }
+
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoginError('');
@@ -146,9 +164,7 @@
                 if (!error) {
                     setMsg(isArabic ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
                     fetchStudents();
-                    setNewStudent({ 
-                        name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: ''
-                    });
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' });
                 } else {
                     setMsg('❌ Error: ' + error.message);
                 }
@@ -311,7 +327,7 @@
                     )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* إضافة طالب جديد (بيانات تعريفية سليمة) */}
+                        {/* إضافة طالب جديد */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
                             <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب جديد' : '👤 Add Student'}</h3>
@@ -368,7 +384,7 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة وتوثيق المحتوى الأكاديمي (Strand & Skills) */}
+                        {/* تسجيل الحصة وتوثيق المحتوى */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
@@ -417,7 +433,7 @@
                                 </form>
                             </div>
 
-                            {/* بطاقة إرسال الواتساب للمسجل فقط متضمنة الدرس والمهارات */}
+                            {/* بطاقة إرسال الواتساب للمسجل فقط */}
                             <div className="mt-8 pt-6 border-t border-white/10">
                                 <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال تقرير ومطالبة عبر WhatsApp:' : '📲 Send WhatsApp Report & Invoice:'}</h4>
                                 
@@ -467,7 +483,7 @@
                         </div>
                     </div>
 
-                    {/* إدارة الحصص وتأكيد السداد مع إظهار الدرس والمهارات */}
+                    {/* إدارة الحصص وتأكيد السداد */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمحتوى المشروح' : '💳 Sessions & Syllabus Log'}</h3>
                         <div className="overflow-x-auto">
@@ -520,8 +536,120 @@
                         </div>
                     </div>
 
-                    {/* سجل وإدارة الطلاب */}
+                    {/* مراجعة الواجبات مع ميزة تعديل الدرجة وإضافة ملاحظات المعلم */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة الواجبات واعتماد الدرجات' : '📝 Homework Review & Teacher Endorsement'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'يمكنك هنا مراجعة تصحيح الذكاء الاصطناعي وتعديل الدرجة وكتابة ملاحظتك الخاصة' : 'Review AI grading, override score, and endorse with teacher notes'}</p>
+                            </div>
+                            <span className="text-3xl">👨‍🏫</span>
+                        </div>
+
+                        {homeworkList.length === 0 ? (
+                            <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد واجبات مسلمة بعد.' : 'No homework submissions found.'}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {homeworkList.map((hw) => (
+                                    <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
+                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
+                                                    {hw.topic || hw.students?.curriculum_system}
+                                                </span>
+                                                {hw.score != null && (
+                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
+                                                        🎯 {hw.score} / 10
+                                                    </span>
+                                                )}
+                                                {hw.is_reviewed && (
+                                                    <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                                                        ✅ معتمد
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs text-blue-200 font-bold">
+                                                    {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                                <button 
+                                                    onClick={() => setEditingHw({ id: hw.id, score: hw.score || 5, note: hw.teacher_note || '' })}
+                                                    className="px-3 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-400/30 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                >
+                                                    <span>✏️</span> {isArabic ? 'اعتماد / تعديل' : 'Review & Edit'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {hw.teacher_note && (
+                                            <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200">
+                                                <span>👨‍🏫 ملاحظتك الحالية: </span>
+                                                <span className="text-white">{hw.teacher_note}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
+                                            <p className="text-sm text-slate-200 whitespace-pre-wrap font-medium leading-relaxed">{hw.ai_feedback}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* نافذة تعديل الواجب والاعتماد (Modal) */}
+                    {editingHw && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="glass-card p-6 md:p-8 rounded-3xl max-w-md w-full border border-white/20 shadow-2xl">
+                                <h3 className="text-xl font-black mb-4 text-white">✏️ {isArabic ? 'اعتماد الواجب وتعديل الدرجة' : 'Endorse Homework & Override Score'}</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرجة المستحقة من 10:' : 'Grade out of 10:'}</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.5" 
+                                            min="0" 
+                                            max="10" 
+                                            value={editingHw.score} 
+                                            onChange={e => setEditingHw({ ...editingHw, score: e.target.value })} 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-emerald-400"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'ملاحظة المعلم للطالب (تظهر في حسابه):' : 'Teacher note for student:'}</label>
+                                        <textarea 
+                                            rows="3" 
+                                            placeholder={isArabic ? 'مثال: أحسنت! راجع معي المسألة الأخيرة في حصة الغد.' : 'e.g. Well done! Review part d with me next session.'}
+                                            value={editingHw.note} 
+                                            onChange={e => setEditingHw({ ...editingHw, note: e.target.value })} 
+                                            className="w-full p-3 glass-input rounded-xl font-medium outline-none focus:border-emerald-400 text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button 
+                                            onClick={() => saveTeacherReview(editingHw.id, editingHw.score, editingHw.note)}
+                                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow-lg shadow-emerald-600/30 text-sm"
+                                        >
+                                            {isArabic ? 'حفظ والاعتماد ✅' : 'Save & Endorse ✅'}
+                                        </button>
+                                        <button 
+                                            onClick={() => setEditingHw(null)}
+                                            className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition text-sm"
+                                        >
+                                            {isArabic ? 'إلغاء' : 'Cancel'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* سجل وإدارة الطلاب */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '👥 سجل وإدارة الطلاب المسجلين' : '👥 Registered Students Management'}</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
@@ -557,47 +685,6 @@
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-
-                    {/* مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي */}
-                    <div className="glass-card p-6 md:p-8 rounded-3xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة الواجبات والدرجات المعتمدة' : '📝 Recent Graded Homework Submissions'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'متابعة تقييمات الذكاء الاصطناعي مع الدرجة الرقمية وموضوع المسألة' : 'Monitor AI evaluations, numerical scores, and topic analysis'}</p>
-                            </div>
-                            <span className="text-3xl">🤖</span>
-                        </div>
-
-                        {homeworkList.length === 0 ? (
-                            <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد واجبات مسلمة بعد.' : 'No homework submissions found.'}</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {homeworkList.map((hw) => (
-                                    <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
-                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
-                                                    {hw.topic || hw.students?.curriculum_system}
-                                                </span>
-                                                {hw.score != null && (
-                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
-                                                        🎯 {hw.score} / 10
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-blue-200 font-bold">
-                                                {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                        <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
-                                            <p className="text-sm text-slate-200 whitespace-pre-wrap font-bold leading-relaxed">{hw.ai_feedback}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
 
                 </div>
