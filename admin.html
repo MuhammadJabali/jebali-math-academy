@@ -11,7 +11,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- KaTeX لعرض المعادلات الرياضية -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
@@ -23,7 +22,6 @@
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; text-overflow: ellipsis; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
-        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
         select[multiple] { height: 140px; }
         select[multiple] option { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         select[multiple] option:checked { background-color: #f97316 !important; color: white !important; font-weight: bold; }
@@ -34,14 +32,14 @@
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
         function AdminPortal() {
-            const [lang, setLang] = useState('ar'); // نظام اللغات (ar / en)
+            const [lang, setLang] = useState('ar');
             const [session, setSession] = useState(null);
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -56,8 +54,9 @@
             const [isEditingStudent, setIsEditingStudent] = useState(false);
             const [editStudentForm, setEditStudentForm] = useState({});
 
+            // الحقول اختيارية (غير مطلوبة إجبارياً)
             const [newStudent, setNewStudent] = useState({ 
-                name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '', teaching_type: 'Private'
+                name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
             });
             
             const [newSession, setNewSession] = useState({ 
@@ -76,7 +75,6 @@
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [msg, setMsg] = useState('');
 
-            // النصوص المترجمة للغتين العربية والإنجليزية
             const t = {
                 ar: {
                     title: "لوحة التحكم | Jebali Math Academy",
@@ -85,12 +83,12 @@
                     logout: "خروج",
                     collected: "المبالغ المحصلة",
                     pending: "المستحقات المعلقة",
-                    addStudent: "إضافة طالب جديد وبيانات الدخول",
+                    addStudent: "إضافة طالب جديد وبيانات الدخول (اختياري)",
                     studentName: "اسم الطالب بالكامل",
                     studentPhone: "هاتف الطالب",
                     parentPhone: "هاتف ولي الأمر",
-                    studentEmail: "البريد الإلكتروني للطالب",
-                    studentPass: "كلمة المرور الخاصة به",
+                    studentEmail: "البريد الإلكتروني (اختياري)",
+                    studentPass: "كلمة المرور (اختياري)",
                     rate: "سعر الساعة (EGP)",
                     saveStudent: "حفظ وتوليد بيانات الدخول",
                     docSession: "توثيق حصة (توقيت آلي بالأرباع ساعة)",
@@ -113,17 +111,17 @@
                 },
                 en: {
                     title: "Admin Dashboard | Jebali Math Academy",
-                    subtitle: "Comprehensive Management System (Curriculum, Auto-Time & Students)",
+                    subtitle: "Comprehensive Management System",
                     home: "Home",
                     logout: "Logout",
                     collected: "Collected Amount",
                     pending: "Pending Dues",
-                    addStudent: "Add New Student & Login Credentials",
+                    addStudent: "Add Student & Credentials (Optional)",
                     studentName: "Full Student Name",
                     studentPhone: "Student Phone",
                     parentPhone: "Parent Phone",
-                    studentEmail: "Student Email",
-                    studentPass: "Password",
+                    studentEmail: "Email (Optional)",
+                    studentPass: "Password (Optional)",
                     rate: "Hourly Rate (EGP)",
                     saveStudent: "Save & Generate Credentials",
                     docSession: "Document Session (Quarter-Hour Auto Time)",
@@ -153,7 +151,6 @@
                     setSession(session);
                     if (session) loadAllData();
                 });
-
                 supabase.auth.onAuthStateChange((_event, session) => {
                     setSession(session);
                     if (session) loadAllData();
@@ -258,8 +255,8 @@
                     student_name: newStudent.name.trim(),
                     student_phone: newStudent.student_phone.trim(),
                     parent_phone: newStudent.parent_phone.trim(),
-                    email: newStudent.student_email.trim(),
-                    password: newStudent.password.trim(),
+                    email: newStudent.student_email.trim() || null,
+                    password: newStudent.password.trim() || null,
                     curriculum_system: systemFullName,
                     grade_level: newStudent.grade,
                     hourly_rate: parseFloat(newStudent.rate)
@@ -271,7 +268,7 @@
                     setMsg(lang === 'ar' ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
                     setLastAddedStudent({ ...studentObjToInsert, id: data[0].id });
                     fetchStudents();
-                    setNewStudent({ name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '', teaching_type: 'Private' });
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
                 } else {
                     setMsg('❌ Error: ' + error.message);
                 }
@@ -281,7 +278,6 @@
             async function handleUpdateStudent(e) {
                 e.preventDefault();
                 setMsg(lang === 'ar' ? '⏳ جاري تحديث ملف الطالب...' : '⏳ Updating student profile...');
-                
                 const { error } = await supabase.from('students').update({
                     student_name: editStudentForm.student_name,
                     student_phone: editStudentForm.student_phone,
@@ -306,7 +302,7 @@
 
             async function handleAddSession(e) {
                 e.preventDefault();
-                setMsg(lang === 'ar' ? '⏳ جاري حساب التوقيت وتوثيق الحصة...' : '⏳ Calculating time and documenting session...');
+                setMsg(lang === 'ar' ? '⏳ جاري حساب التوقيت وتوثيق الحصة...' : '⏳ Documenting session...');
                 
                 const calculatedDuration = calculateRoundedHours(newSession.start_time, newSession.end_time);
                 if (calculatedDuration <= 0) {
@@ -369,7 +365,7 @@
                     await supabase.from('session_international_skills').insert(skillLinks);
                 }
                 
-                setMsg(lang === 'ar' ? `✅ تم توثيق الحصة (${calculatedDuration} ساعة) بنجاح!` : `✅ Session documented (${calculatedDuration} hours)!`);
+                setMsg(lang === 'ar' ? `✅ تم توثيق الحصة (${calculatedDuration} ساعة) بنجاح!` : `✅ Session documented!`);
                 setLastLoggedInfo({
                     student: selectedStudentObj,
                     duration: calculatedDuration,
@@ -398,7 +394,7 @@
                 const targetPhone = target === 'student' ? formatPhone(student_phone) : formatPhone(parent_phone);
                 if (!targetPhone) return alert('رقم الهاتف المطلوب غير متوفر!');
 
-                const welcomeMsg = `أهلاً بحضرتك/ك في أكاديمية Jebali للرياضيات 📐\n\nتم إنشاء حساب خاص للطالب/ة: *${student_name}*\n\nالروابط الخاصة بالبوابة:\n• بوابة الطالب: https://jebali-math-academy.pages.dev/student.html\n• بوابة ولي الأمر: https://jebali-math-academy.pages.dev/parent.html\n\nبيانات الدخول:\n• البريد/الهاتف: ${email || student_phone}\n• كلمة المرور: *${password}*\n\nبالتوفيق دائماً!`;
+                const welcomeMsg = `أهلاً بحضرتك/ك في أكاديمية Jebali للرياضيات 📐\n\nتم إنشاء حساب خاص للطالب/ة: *${student_name}*\n\nبوابات الدخول:\n• بوابة الطالب: https://jebali-math-academy.pages.dev/student.html\n• بوابة ولي الأمر: https://jebali-math-academy.pages.dev/parent.html\n\nيمكنك تسجيل الدخول برقم الهاتف أو البريد الإلكتروني وتعيين كلمة المرور الخاصة بك مباشرة.\n\nبالتوفيق دائماً!`;
                 window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(welcomeMsg)}`, '_blank');
             };
 
@@ -418,7 +414,7 @@
                     ? `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
                     : `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• Strand: ${strand}\n• Skills:\n- ${skill.replace(/ \| /g, '\n- ')}`;
 
-                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم توثيق حصة جديدة للطالب/ة: *${student.student_name}*` + academicDetails + `\n\n• التكلفة: ${cost} جنيه\n• المستحقات المعلقة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay ومتابعة الواجبات:\nhttps://jebali-math-academy.pages.dev/parent.html`;
+                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم توثيق حصة جديدة للطالب/ة: *${student.student_name}*` + academicDetails + `\n\n• التكلفة: ${cost} جنيه\n• المستحقات المعلقة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay:\nhttps://jebali-math-academy.pages.dev/parent.html`;
                 const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم:` + academicDetails + `\nتابع واجبك عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
 
                 if (target === 'parent') {
@@ -439,7 +435,7 @@
                 let phone = student.parent_phone.replace(/\D/g, '');
                 if (phone.startsWith('0')) phone = '2' + phone;
                 const studentUnpaid = sessionsList.filter(s => s.student_id === sessionItem.student_id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
-                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nيوجد مستحقات مالية معلقة خاصة بالطالب/ة *${student.student_name}*.\n• إجمالي المستحقات المعلقة: *${studentUnpaid} جنيه مصري*\n\nنرجو السداد عبر InstaPay. شكراً لتعاونكم!`;
+                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nيوجد مستحقات مالية معلقة للطالب/ة *${student.student_name}* بقيمة *${studentUnpaid} جنيه مصري*.\nنرجو السداد عبر InstaPay. شكراً لتعاونكم!`;
                 window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderMsg)}`, '_blank');
             };
 
@@ -531,7 +527,6 @@
                         </div>
                     )}
 
-                    {/* سجل الطلاب */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <h3 className="text-xl font-black mb-6 text-white">{t.studentsRecord}</h3>
                         <div className="overflow-x-auto">
@@ -553,8 +548,8 @@
                                                 <div className="font-semibold text-slate-300">{st.grade_level}</div>
                                             </td>
                                             <td className="py-4 px-4 text-xs">
-                                                <div>📧 {st.email || 'N/A'}</div>
-                                                <div className="text-orange-300 font-bold">🔑 {st.password || 'N/A'}</div>
+                                                <div>📧 {st.email || 'Not set'}</div>
+                                                <div className="text-orange-300 font-bold">🔑 {st.password || 'Not set'}</div>
                                             </td>
                                             <td className="py-4 px-4 text-center">
                                                 <button onClick={() => { setViewingStudentModal(st); setEditStudentForm(st); setIsEditingStudent(false); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition">📁 Profile</button>
@@ -567,7 +562,6 @@
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* إضافة طالب جديد */}
                         <div className="glass-card p-8 rounded-3xl relative">
                             <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                             <h3 className="text-2xl font-black mb-6">{t.addStudent}</h3>
@@ -579,7 +573,7 @@
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <input type="email" placeholder={t.studentEmail} className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_email} onChange={e => setNewStudent({...newStudent, student_email: e.target.value})} />
-                                    <input type="text" placeholder={t.studentPass} required className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
+                                    <input type="text" placeholder={t.studentPass} className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
@@ -615,7 +609,6 @@
                             </form>
                         </div>
 
-                        {/* توثيق الحصة */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
@@ -658,7 +651,7 @@
                                     {selectedStudentObj && isEgyptianMode && (
                                         <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
                                             <div className="flex justify-between items-center text-xs font-bold text-blue-200">
-                                                <span>🟢 منهج مصري (الصف المحدد تلقائياً):</span>
+                                                <span>🟢 منهج مصري:</span>
                                                 <span className="bg-blue-600/40 text-blue-100 px-2 py-0.5 rounded">{selectedStudentObj.grade_level}</span>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
@@ -717,7 +710,6 @@
                         </div>
                     </div>
 
-                    {/* سجل الحصص */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <h3 className="text-xl font-black mb-6 text-white">{t.sessionsRecord}</h3>
                         <div className="overflow-x-auto">
@@ -761,7 +753,6 @@
                         </div>
                     </div>
 
-                    {/* نافذة ملف الطالب والتعديل */}
                     {viewingStudentModal && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
                             <div className="glass-card p-8 rounded-3xl max-w-lg w-full border border-white/20 shadow-2xl relative">
@@ -776,8 +767,8 @@
                                         <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-sm">
                                             <div><span className="text-slate-400">Student Phone:</span> <strong className="text-white">{viewingStudentModal.student_phone || 'N/A'}</strong></div>
                                             <div><span className="text-slate-400">Parent Phone:</span> <strong className="text-emerald-300">{viewingStudentModal.parent_phone}</strong></div>
-                                            <div><span className="text-slate-400">Email:</span> <strong className="text-white">{viewingStudentModal.email || 'N/A'}</strong></div>
-                                            <div><span className="text-slate-400">Password:</span> <strong className="text-orange-300">{viewingStudentModal.password || 'N/A'}</strong></div>
+                                            <div><span className="text-slate-400">Email:</span> <strong className="text-white">{viewingStudentModal.email || 'Not set'}</strong></div>
+                                            <div><span className="text-slate-400">Password:</span> <strong className="text-orange-300">{viewingStudentModal.password || 'Not set'}</strong></div>
                                             <div><span className="text-slate-400">Hourly Rate:</span> <strong className="text-orange-300">{viewingStudentModal.hourly_rate} EGP</strong></div>
                                         </div>
                                         <div className="mt-6 pt-4 border-t border-white/10 flex gap-3">
@@ -809,7 +800,7 @@
                                             </div>
                                             <div>
                                                 <label className="text-xs text-blue-200 block mb-1">Password:</label>
-                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.password || ''} onChange={e => setEditStudentForm({...editStudentForm, password: e.target.value})} />
+                                                <input type="text" className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.password || ''} onChange={e => setEditStudentForm({...editStudentForm, password: e.target.value})} />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
