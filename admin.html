@@ -70,7 +70,6 @@
                 name: '', student_phone: '', parent_phone: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
             });
             
-            // تحديث حقول الحصة لتشمل التواريخ وأوقات البدء والانتهاء
             const [newSession, setNewSession] = useState({ 
                 student_id: '', 
                 session_date: new Date().toISOString().split('T')[0],
@@ -79,7 +78,7 @@
                 location_type: 'Online', 
                 center_name: '',
                 center_fees: '',
-                eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '',
+                eg_term: '', eg_branch: '', eg_lesson: '',
                 int_strand: '', int_skills: []
             });
 
@@ -155,8 +154,9 @@
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
             const isEgyptianMode = selectedStudentObj && (selectedStudentObj.curriculum_system.toLowerCase().includes('national') || selectedStudentObj.curriculum_system.toLowerCase().includes('مصري') || selectedStudentObj.curriculum_system.toLowerCase().includes('عربي') || selectedStudentObj.curriculum_system.toLowerCase().includes('لغات'));
 
-            const egGrades = [...new Set(egyptianLessons.map(i => i.grade))];
-            const filteredEgByGrade = egyptianLessons.filter(i => i.grade === newSession.eg_grade);
+            // استخراج صف الطالب تلقائياً للفلترة المباشرة للمنهج المصري
+            const studentGradeLevel = selectedStudentObj ? selectedStudentObj.grade_level : '';
+            const filteredEgByGrade = egyptianLessons.filter(i => i.grade === studentGradeLevel);
             const egTerms = [...new Set(filteredEgByGrade.map(i => i.term))];
             const filteredEgByTerm = filteredEgByGrade.filter(i => i.term === newSession.eg_term);
             const egBranches = [...new Set(filteredEgByTerm.map(i => i.branch))];
@@ -172,7 +172,6 @@
             const intStrands = [...new Set(filteredInt.map(i => i.strand || i.strands))].filter(Boolean);
             const availableIntSkills = filteredInt.filter(i => (i.strand || i.strands) === newSession.int_strand);
 
-            // دالة حساب المدة بالتقريب لأرباع الساعة
             function calculateRoundedHours(start, end) {
                 const [startH, startM] = start.split(':').map(Number);
                 const [endH, endM] = end.split(':').map(Number);
@@ -180,12 +179,10 @@
                 let startTotalMins = startH * 60 + startM;
                 let endTotalMins = endH * 60 + endM;
                 
-                if (endTotalMins < startTotalMins) endTotalMins += 24 * 60; // في حال تعدي منتصف الليل
+                if (endTotalMins < startTotalMins) endTotalMins += 24 * 60;
                 
                 const diffMins = endTotalMins - startTotalMins;
                 const diffHours = diffMins / 60;
-                
-                // التقريب لأقرب ربع ساعة (0.25)
                 return Math.round(diffHours * 4) / 4;
             }
 
@@ -229,7 +226,6 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            // حفظ التعديلات على ملف الطالب
             async function handleUpdateStudent(e) {
                 e.preventDefault();
                 setMsg('⏳ جاري تحديث ملف الطالب...');
@@ -291,7 +287,6 @@
                     ? `سنتر: ${newSession.center_name} (+${centerFee} EGP)` 
                     : (newSession.location_type === 'Home' ? 'منزل الطالب' : 'Online');
 
-                // تنسيق التاريخ واليوم والتوقيت
                 const dateObj = new Date(newSession.session_date);
                 const dayName = dateObj.toLocaleDateString('ar-EG', { weekday: 'long' });
                 const formattedDateText = `${newSession.session_date} (${dayName}) من ${newSession.start_time} إلى ${newSession.end_time}`;
@@ -334,7 +329,7 @@
                     isEgyptian: isEgyptianMode
                 });
                 
-                setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
+                setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
                 fetchSessions();
                 setTimeout(() => setMsg(''), 4000);
             }
@@ -402,7 +397,7 @@
                     <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍‍🏫</div>
+                                <div className="text-6xl mb-4">👨‍‍‍🏫</div>
                                 <h2 className="text-3xl font-black">لوحة الإدارة</h2>
                             </div>
                             {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
@@ -426,7 +421,7 @@
                             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">📐</div>
                             <div>
                                 <h1 className="text-2xl font-black">Jebali Math Academy | لوحة التحكم</h1>
-                                <p className="text-blue-200 font-bold text-sm">نظام الإدارة المطور (توقيتات آلية وتعديل الطلاب)</p>
+                                <p className="text-blue-200 font-bold text-sm">نظام الإدارة المطور (التعرف التلقائي على صف الطالب)</p>
                             </div>
                         </div>
                         <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold transition">خروج</button>
@@ -536,14 +531,14 @@
                             </form>
                         </div>
 
-                        {/* 2. توثيق الحصة مع تحديد المواعيد والحساب الآلي */}
+                        {/* 2. توثيق الحصة مع التعرف التلقائي على صف الطالب */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
                                 <h3 className="text-2xl font-black mb-6">⏱️ توثيق حصة (توقيت آلي بالأرباع ساعة)</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
                                             <option value="" disabled>1. اختر الطالب</option>
                                             {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
                                         </select>
@@ -577,30 +572,27 @@
                                         )}
                                     </div>
 
-                                    {/* المنهج المصري */}
+                                    {/* المنهج المصري (تم إخفاء اختيار الصف لأنه يتحدد تلقائياً من ملف الطالب) */}
                                     {selectedStudentObj && isEgyptianMode && (
                                         <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
-                                            <p className="text-xs font-bold text-blue-200">🟢 منهج مصري:</p>
+                                            <div className="flex justify-between items-center text-xs font-bold text-blue-200">
+                                                <span>🟢 منهج مصري (تم تحديد الصف تلقائياً):</span>
+                                                <span className="bg-blue-600/40 text-blue-100 px-2 py-0.5 rounded">{selectedStudentObj.grade_level}</span>
+                                            </div>
                                             <div className="grid grid-cols-2 gap-3">
-                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_grade} onChange={e => setNewSession({...newSession, eg_grade: e.target.value, eg_term: '', eg_branch: '', eg_lesson: ''})}>
-                                                    <option value="" disabled>-- الصف --</option>
-                                                    {egGrades.map(g => <option key={g} value={g}>{g}</option>)}
-                                                </select>
-                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_grade} value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
                                                     <option value="" disabled>-- الترم --</option>
                                                     {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
                                                 </select>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
                                                 <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
                                                     <option value="" disabled>-- الفرع --</option>
                                                     {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
                                                 </select>
-                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
-                                                    <option value="" disabled>-- الدرس المحدد --</option>
-                                                    {egLessons.map(l => <option key={l.id} value={l.id}>[الوحدة: {l.unit_title}] {l.lesson_title}</option>)}
-                                                </select>
                                             </div>
+                                            <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
+                                                <option value="" disabled>-- الدرس المحدد --</option>
+                                                {egLessons.map(l => <option key={l.id} value={l.id}>[الوحدة: {l.unit_title}] {l.lesson_title}</option>)}
+                                            </select>
                                         </div>
                                     )}
 
@@ -692,7 +684,7 @@
                         </div>
                     </div>
 
-                    {/* نافذة ملف الطالب الشخصي (مع زر التعديل الشامل) */}
+                    {/* نافذة ملف الطالب الشخصي */}
                     {viewingStudentModal && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
                             <div className="glass-card p-8 rounded-3xl max-w-lg w-full border border-white/20 shadow-2xl relative">
