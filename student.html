@@ -11,17 +11,10 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- KaTeX لعرض المعادلات الرياضية -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
-
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
-        .glass-input option { color: black; background: white; }
-        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -29,13 +22,11 @@
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState, useEffect } = React;
+        const { useState } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
         function StudentPortal() {
             const [studentPhone, setStudentPhone] = useState('');
@@ -44,11 +35,8 @@
             const [sessions, setSessions] = useState([]);
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
-
-            const [selectedTopic, setSelectedTopic] = useState('');
-            const [hwImage, setHwImage] = useState(null);
-            const [submittingHw, setSubmittingHw] = useState(false);
-            const [submitSuccess, setSubmitSuccess] = useState('');
+            const [isForgotMode, setIsForgotMode] = useState(false);
+            const [forgotMsg, setForgotMsg] = useState('');
 
             async function handleLogin(e) {
                 e.preventDefault();
@@ -63,12 +51,11 @@
                     .single();
 
                 if (error || !data) {
-                    setErrorMsg('رقم هاتف الطالب غير مسجل في النظام.');
+                    setErrorMsg('رقم هاتف الطالب غير مسجل.');
                     setLoading(false);
                     return;
                 }
 
-                // التحقق من كلمة المرور (افتراض وجود حقل password أو السماح مؤقتاً)
                 if (data.password && data.password !== password) {
                     setErrorMsg('كلمة المرور غير صحيحة!');
                     setLoading(false);
@@ -80,6 +67,29 @@
                 setLoading(false);
             }
 
+            async function handleForgotPassword(e) {
+                e.preventDefault();
+                let cleanPhone = studentPhone.replace(/\D/g, '');
+                if (!cleanPhone) return alert('يرجى كتابة رقم الهاتف أولاً!');
+
+                const { data, error } = await supabase
+                    .from('students')
+                    .select('student_name, password')
+                    .ilike('student_phone', `%${cleanPhone}%`)
+                    .single();
+
+                if (error || !data) {
+                    setForgotMsg('❌ لم يتم العثور على طالب بهذا الرقم.');
+                    return;
+                }
+
+                // فتح واتساب الأستاذ أو تزويده بكلمة المرور مباشرة
+                const teacherPhone = '201069338883';
+                const msg = `مرحباً أستاذي، لقد نسيت كلمة المرور الخاصة بحسابي (${data.student_name}). أرجو تزويدي بها.`;
+                window.open(`https://wa.me/${teacherPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                setForgotMsg('✅ تم توجيهك عبر الواتساب لطلب كلمة المرور من الأستاذ.');
+            }
+
             async function fetchStudentData(studentId) {
                 const { data: sessData } = await supabase
                     .from('sessions')
@@ -87,39 +97,6 @@
                     .eq('student_id', studentId)
                     .order('created_at', { ascending: false });
                 if (sessData) setSessions(sessData);
-            }
-
-            async function handleUploadHomework(e) {
-                e.preventDefault();
-                if (!selectedTopic) return alert('يرجى كتابة اسم الدرس أو الموضوع!');
-
-                setSubmittingHw(true);
-                setSubmitSuccess('');
-
-                try {
-                    const res = await fetch(API_WORKER_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'submit_homework',
-                            studentId: studentData.id,
-                            topic: selectedTopic,
-                            feedback: `حل مقدم من الطالب عن درس: ${selectedTopic}. (بحاجة لمراجعة المعلم)`
-                        })
-                    });
-
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Failed to submit');
-
-                    setSubmitSuccess('✅ تم تسليم الواجب بنجاح وسيتم تصحيحه قريباً!');
-                    setSelectedTopic('');
-                    setHwImage(null);
-                    fetchStudentData(studentData.id);
-                } catch (err) {
-                    alert('خطأ أثناء التسليم: ' + err.message);
-                } finally {
-                    setSubmittingHw(false);
-                }
             }
 
             if (!studentData) {
@@ -134,31 +111,34 @@
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
                             <div className="text-6xl mb-4">🎓</div>
                             <h2 className="text-3xl font-black mb-2">بوابة الطالب</h2>
-                            <p className="text-blue-200 text-xs mb-6">أدخل رقم الهاتف وكلمة المرور الخاصة بك</p>
+                            <p className="text-blue-200 text-xs mb-6">أدخل رقم الهاتف وكلمة المرور لتسجيل الدخول</p>
                             
                             {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
+                            {forgotMsg && <p className="bg-emerald-500/20 text-emerald-100 p-3 rounded-xl mb-4 text-xs font-bold">{forgotMsg}</p>}
 
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <input 
-                                    type="tel" 
-                                    placeholder="رقم هاتف الطالب (010xxxxxxxx)" 
-                                    required 
-                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
-                                    value={studentPhone} 
-                                    onChange={e => setStudentPhone(e.target.value)} 
-                                />
-                                <input 
-                                    type="password" 
-                                    placeholder="كلمة المرور" 
-                                    required 
-                                    className="w-full p-4 glass-input rounded-xl font-bold text-center" 
-                                    value={password} 
-                                    onChange={e => setPassword(e.target.value)} 
-                                />
-                                <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
-                                    {loading ? 'جاري التحقق...' : 'دخول البوابة'}
-                                </button>
-                            </form>
+                            {!isForgotMode ? (
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <input type="tel" placeholder="رقم هاتف الطالب" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={studentPhone} onChange={e => setStudentPhone(e.target.value)} />
+                                    <input type="password" placeholder="كلمة المرور" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
+                                    <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
+                                        {loading ? 'جاري التحقق...' : 'دخول البوابة'}
+                                    </button>
+                                    <button type="button" onClick={() => setIsForgotMode(true)} className="text-xs text-blue-300 hover:underline block w-full mt-2 font-bold">
+                                        هل نسيت كلمة المرور؟
+                                    </button>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleForgotPassword} className="space-y-4">
+                                    <p className="text-xs text-blue-200">أدخل رقم هاتفك المسجل لنرسل لك كلمة المرور عبر واتساب الأستاذ:</p>
+                                    <input type="tel" placeholder="رقم هاتف الطالب المسجل" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={studentPhone} onChange={e => setStudentPhone(e.target.value)} />
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-sm">
+                                        استعادة كلمة المرور عبر WhatsApp 💬
+                                    </button>
+                                    <button type="button" onClick={() => setIsForgotMode(false)} className="text-xs text-slate-300 hover:underline block w-full mt-2 font-bold">
+                                        العودة لتسجيل الدخول
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     </div>
                 );
@@ -171,66 +151,22 @@
                             <h1 className="text-xl md:text-2xl font-black">أهلاً بك، {studentData.student_name} 📐</h1>
                             <p className="text-blue-200 text-xs mt-1">{studentData.curriculum_system} • {studentData.grade_level}</p>
                         </div>
-                        <div className="flex gap-2">
-                            <a href="index.html" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">
-                                🏠 الرئيسية
-                            </a>
-                            <button onClick={() => setStudentData(null)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-xs transition">
-                                خروج
-                            </button>
-                        </div>
+                        <button onClick={() => setStudentData(null)} className="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs">خروج</button>
                     </header>
 
-                    {/* تسليم الواجب المنزلي */}
-                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
-                        <h3 className="text-lg font-black mb-4 flex items-center gap-2">
-                            <span>📝</span> تسليم الواجب المنزلي للأستاذ
-                        </h3>
-                        {submitSuccess && <p className="mb-4 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{submitSuccess}</p>}
-                        
-                        <form onSubmit={handleUploadHomework} className="space-y-4">
-                            <div>
-                                <label className="text-xs text-blue-200 block mb-1">اسم الدرس أو الموضوع:</label>
-                                <input type="text" required placeholder="مثال: الدوال التربيعية" className="w-full p-3 glass-input rounded-xl text-sm" value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="text-xs text-blue-200 block mb-1">صورة الحل أو التفاصيل:</label>
-                                <div className="flex items-center gap-3 bg-white/5 border border-white/20 rounded-xl p-2">
-                                    <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-black transition shadow">
-                                        📁 اختر ملف الحل
-                                        <input type="file" accept="image/*" onChange={e => setHwImage(e.target.files[0])} className="hidden" />
-                                    </label>
-                                    <span className="text-xs text-blue-200 font-bold">
-                                        {hwImage ? hwImage.name : 'لم يتم اختيار ملف بعد'}
-                                    </span>
-                                </div>
-                            </div>
-                            <button type="submit" disabled={submittingHw} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
-                                {submittingHw ? 'جاري الرفع والتسليم...' : 'تسليم الواجب للأستاذ 🚀'}
-                            </button>
-                        </form>
-                    </div>
-
-                    {/* سجل الحصص والمواعيد */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-lg font-black mb-4 flex items-center gap-2">
-                            <span>📅</span> سجل حصصي والمواعيد
-                        </h3>
+                        <h3 className="text-lg font-black mb-4">📅 سجل حصصي والمواعيد</h3>
                         {sessions.length === 0 ? (
-                            <p className="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة بعد. ستظهر حصعك ومواعيدك هنا فور توثيقها من الأستاذ.</p>
+                            <p className="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة بعد.</p>
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map(s => (
-                                    <div key={s.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                                    <div key={s.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
                                         <div>
                                             <div className="font-black text-sm text-white">{s.lesson_topic}</div>
-                                            <div className="text-xs text-blue-300 mt-1 font-semibold">{s.strand} {s.skills_covered ? `• ${s.skills_covered}` : ''}</div>
+                                            <div className="text-xs text-blue-300 mt-1">{s.strand}</div>
                                         </div>
-                                        <div className="text-left">
-                                            <span className="text-xs bg-orange-500/20 text-orange-300 border border-orange-500/40 px-3 py-1.5 rounded-xl font-black">
-                                                ⏱️ {s.duration_hours} ساعة
-                                            </span>
-                                        </div>
+                                        <span className="text-xs bg-orange-500/20 text-orange-300 px-3 py-1.5 rounded-xl font-black">⏱️ {s.duration_hours} ساعة</span>
                                     </div>
                                 ))}
                             </div>
