@@ -1,13 +1,680 @@
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة الإدارة | أكاديمية Jebali</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- محرك المعادلات الرياضية العالمي KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        .font-cairo { font-family: 'Cairo', sans-serif; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+        .glass-input option { color: black; background: white; }
+
+        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
+        .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-align: left; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
+    
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        const { useState, useEffect, useRef } = React;
+
+        const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
+
+        function MathView({ content, className = '' }) {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (containerRef.current && window.renderMathInElement) {
+                    window.renderMathInElement(containerRef.current, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false }
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }, [content]);
+
+            return (
+                <div 
+                    ref={containerRef} 
+                    className={`leading-relaxed whitespace-pre-wrap font-medium ${className}`}
+                >
+                    {content}
+                </div>
+            );
+        }
+
+        // مكوّن عرض ورقة الامتحان والمارك سكيم في نافذة المعاينة
+        function ExamPaperView({ rawContent, studentInfo, topic }) {
+            const [showAnswers, setShowAnswers] = useState(false);
+            const containerRef = useRef(null);
+
+            // فصل الأسئلة عن نموذج الإجابة وتنظيف العناوين المكررة
+            const splitSections = (text) => {
+                if (!text) return { questionsText: '', markSchemeText: '' };
+                const parts = text.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
+                
+                let qText = parts[0] || '';
+                // إزالة أي عنوان تكراري مولّد في أول السطور
+                qText = qText.replace(/^[#\s]*.*(?:Targeted Remediation Practice|تمارين علاجية|Worksheet).*$/im, '').trim();
+
+                let msText = parts.length > 1 ? parts.slice(1).join('\n').trim() : '';
+                return { questionsText: qText, markSchemeText: msText };
+            };
+
+            const { questionsText, markSchemeText } = splitSections(rawContent);
+
+            const cleanMarkdown = (txt) => {
+                return (txt || '')
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/\*(.*?)\*/g, '$1')
+                    .replace(/---/g, '')
+                    .trim();
+            };
+
+            useEffect(() => {
+                if (containerRef.current && window.renderMathInElement) {
+                    window.renderMathInElement(containerRef.current, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false }
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }, [rawContent, showAnswers]);
+
+            return (
+                <div ref={containerRef} className="space-y-6">
+                    {/* ورقة الأسئلة بستايل أوراق امتحانات كامبريدج */}
+                    <div id="printable-exam-content" className="bg-white text-slate-900 p-8 rounded-2xl shadow-xl font-inter border border-slate-200" dir="ltr">
+                        {/* ترويسة ورقة الامتحان الرسمية */}
+                        <div className="border-b-2 border-slate-900 pb-4 mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-xl font-black tracking-tight text-slate-950 uppercase">Jebali Mathematics Academy</h1>
+                                    <p className="text-xs font-bold text-blue-700 tracking-wider uppercase mt-0.5">International Assessment & Remediation Series</p>
+                                </div>
+                                <div className="text-right text-xs">
+                                    <span className="inline-block bg-slate-100 border border-slate-300 font-bold px-2.5 py-1 rounded text-slate-800">
+                                        Time: 25 Mins
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* جدول بيانات الطالب المعتمد */}
+                            <div className="mt-4 grid grid-cols-2 gap-2 text-xs border border-slate-300 rounded-lg p-3 bg-slate-50">
+                                <div><span className="text-slate-500 font-medium">Candidate Name:</span> <strong className="text-slate-900">{studentInfo?.student_name}</strong></div>
+                                <div><span className="text-slate-500 font-medium">Curriculum:</span> <strong className="text-slate-900">{studentInfo?.curriculum_system} ({studentInfo?.grade_level})</strong></div>
+                                <div><span className="text-slate-500 font-medium">Topic Syllabus:</span> <strong className="text-slate-900">{topic}</strong></div>
+                                <div><span className="text-slate-500 font-medium">Date:</span> <strong className="text-slate-900">{new Date().toLocaleDateString('en-GB')}</strong></div>
+                            </div>
+                        </div>
+
+                        {/* صندوق تعليمات الاختبار */}
+                        <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-3 mb-6 text-xs text-blue-950 leading-relaxed">
+                            <strong>Instructions:</strong> Answer all questions. You must show all necessary working clearly in the spaces provided. Give your answers in the simplest index/standard form requested.
+                        </div>
+
+                        {/* نص الأسئلة */}
+                        <div className="text-sm leading-loose text-slate-900 font-normal whitespace-pre-wrap">
+                            {cleanMarkdown(questionsText)}
+                        </div>
+                    </div>
+
+                    {/* قسم نموذج الإجابة للمعلم فقط (مخفي عن الطباعة) */}
+                    {markSchemeText && (
+                        <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/90 overflow-hidden" dir="ltr">
+                            <button 
+                                onClick={() => setShowAnswers(!showAnswers)}
+                                className="w-full p-4 flex justify-between items-center bg-indigo-950/40 hover:bg-indigo-900/40 transition text-left"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">🔑</span>
+                                    <span className="font-black text-indigo-300 text-sm">Official Mark Scheme (Tutor Reference Only)</span>
+                                </div>
+                                <span className="text-xs bg-indigo-500/20 text-indigo-200 px-3 py-1 rounded-full font-bold">
+                                    {showAnswers ? 'Hide Mark Scheme ▲' : 'Show Mark Scheme ▼'}
+                                </span>
+                            </button>
+
+                            {showAnswers && (
+                                <div className="p-5 border-t border-indigo-500/20 bg-slate-950/60 text-xs text-indigo-100 whitespace-pre-wrap font-mono leading-relaxed">
+                                    {cleanMarkdown(markSchemeText)}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function AdminPortal() {
+            const [isArabic, setIsArabic] = useState(true);
+            const [session, setSession] = useState(null);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
+            
+            const [students, setStudents] = useState([]);
+            const [sessionsList, setSessionsList] = useState([]);
+            const [homeworkList, setHomeworkList] = useState([]);
+            const [newStudent, setNewStudent] = useState({ 
+                name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: ''
+            });
+            const [newSession, setNewSession] = useState({ 
+                student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' 
+            });
+            const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
+            const [editingHw, setEditingHw] = useState(null);
+            const [msg, setMsg] = useState('');
+
+            const [practiceModal, setPracticeModal] = useState(null);
+            const [isGeneratingPractice, setIsGeneratingPractice] = useState(false);
+            const [generatingHwId, setGeneratingHwId] = useState(null);
+
+            const [transCache, setTransCache] = useState({});
+            const [loadingTransId, setLoadingTransId] = useState(null);
+
+            useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    if (session) loadAllData();
+                });
+
+                supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                    if (session) loadAllData();
+                });
+            }, []);
+
+            async function loadAllData() {
+                fetchStudents();
+                fetchSessions();
+                fetchHomeworks();
+            }
+
+            async function fetchStudents() {
+                const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+                if (data) setStudents(data);
+            }
+
+            async function fetchSessions() {
+                const { data } = await supabase
+                    .from('sessions')
+                    .select('*, students(student_name, parent_phone, student_phone)')
+                    .order('created_at', { ascending: false })
+                    .limit(30);
+                if (data) setSessionsList(data);
+            }
+
+            async function fetchHomeworks() {
+                const { data } = await supabase
+                    .from('homework_submissions')
+                    .select('*, students(student_name, curriculum_system, grade_level, student_phone, parent_phone)')
+                    .order('created_at', { ascending: false })
+                    .limit(25);
+                if (data) setHomeworkList(data);
+            }
+
+            const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
+
+            const callWorkerTranslation = async (text, targetLang) => {
+                const res = await fetch(API_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'translate', text, targetLang })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Translation failed');
+                return data.translatedText;
+            };
+
+            const handleToggleTranslate = async (subId, originalContent) => {
+                if (loadingTransId) return;
+
+                const cached = transCache[subId] || {};
+                const currentDisplayed = cached.active || originalContent;
+                const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
+
+                if (isCurrentlyArabic && cached.en) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
+                    return;
+                }
+                if (!isCurrentlyArabic && cached.ar) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.ar } }));
+                    return;
+                }
+
+                setLoadingTransId(subId);
+                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
+
+                try {
+                    const translated = await callWorkerTranslation(currentDisplayed, targetLang);
+                    const newEntry = {
+                        ...cached,
+                        active: translated,
+                        [targetLang === 'English' ? 'en' : 'ar']: translated,
+                        [isCurrentlyArabic ? 'ar' : 'en']: currentDisplayed
+                    };
+                    setTransCache(prev => ({ ...prev, [subId]: newEntry }));
+                } catch (e) {
+                    alert(`❌ ${e.message}`);
+                } finally {
+                    setLoadingTransId(null);
+                }
+            };
+
+            const handleGenerateRemediation = async (hw) => {
+                setGeneratingHwId(hw.id);
+                setIsGeneratingPractice(true);
+
+                try {
+                    const res = await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'generate_practice',
+                            studentName: hw.students?.student_name || 'Student',
+                            curriculumSystem: hw.students?.curriculum_system || 'IGCSE',
+                            gradeLevel: hw.students?.grade_level || '',
+                            topic: hw.topic || 'Mathematics',
+                            feedback: hw.ai_feedback
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok || data.error) throw new Error(data.error || 'Failed to generate practice');
+
+                    setPracticeModal({
+                        student: hw.students,
+                        topic: hw.topic || 'Mathematics',
+                        content: data.practiceContent
+                    });
+                } catch (err) {
+                    alert(`❌ حدث خطأ أثناء توليد التمارين: ${err.message}`);
+                } finally {
+                    setIsGeneratingPractice(false);
+                    setGeneratingHwId(null);
+                }
+            };
+
+            // دالة الطباعة المعزولة تماماً لمنع التكرار وضبط مقاس A4
+            const handlePrintIsolatedExam = () => {
+                const examEl = document.getElementById('printable-exam-content');
+                if (!examEl) return;
+
+                let iframe = document.getElementById('isolated-print-frame');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'isolated-print-frame';
+                    iframe.style.position = 'fixed';
+                    iframe.style.right = '0';
+                    iframe.style.bottom = '0';
+                    iframe.style.width = '0';
+                    iframe.style.height = '0';
+                    iframe.style.border = '0';
+                    document.body.appendChild(iframe);
+                }
+
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(`
+                    <!DOCTYPE html>
+                    <html lang="en" dir="ltr">
+                    <head>
+                        <title>${practiceModal.topic} - ${practiceModal.student?.student_name}</title>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+                        <style>
+                            @page {
+                                size: A4 portrait;
+                                margin: 15mm 15mm 15mm 15mm;
+                            }
+                            body {
+                                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                                color: #0f172a;
+                                background: #ffffff;
+                                margin: 0;
+                                padding: 0;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                            .border-b-2 { border-bottom: 2px solid #0f172a; }
+                            .border { border: 1px solid #cbd5e1; }
+                            .rounded-lg { border-radius: 8px; }
+                            .p-3 { padding: 10px 14px; }
+                            .mb-6 { margin-bottom: 20px; }
+                            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                            .bg-slate-50 { background-color: #f8fafc; }
+                            .bg-blue-50\\/60 { background-color: #eff6ff; }
+                            .text-xs { font-size: 11px; line-height: 1.5; }
+                            .text-sm { font-size: 13.5px; line-height: 1.8; }
+                            .text-xl { font-size: 18px; margin: 0; }
+                            .font-black { font-weight: 900; }
+                            .font-bold { font-weight: 700; }
+                            .uppercase { text-transform: uppercase; }
+                            .whitespace-pre-wrap { white-space: pre-wrap; }
+                            .katex { font-size: 1.15em !important; color: #000000 !important; }
+                            .katex-display { margin: 14px 0 !important; }
+                        </style>
+                    </head>
+                    <body>
+                        ${examEl.innerHTML}
+                    </body>
+                    </html>
+                `);
+                doc.close();
+
+                setTimeout(() => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                }, 350);
+            };
+
+            const sendPracticeWhatsApp = () => {
+                if (!practiceModal || !practiceModal.student?.student_phone) {
+                    return alert(isArabic ? 'رقم هاتف الطالب غير متوفر!' : 'Student phone not found!');
+                }
+
+                let phone = practiceModal.student.student_phone.replace(/\D/g, '');
+                if (phone.startsWith('0')) phone = '2' + phone;
+
+                const parts = practiceModal.content.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
+                let qText = parts[0].replace(/^[#\s]*.*(?:Targeted Remediation Practice|تمارين علاجية|Worksheet).*$/im, '').trim();
+
+                const cleanText = encodeURIComponent(
+                    `مرحباً ${practiceModal.student.student_name} 📐\nإليك ورقة تمارين علاجية للتدريب على درس (${practiceModal.topic}):\n\n` +
+                    qText + 
+                    `\n\nقم بحل المسائل بخط يدك وتسليمها قبل موعد الحصة القادمة!`
+                );
+
+                window.open(`https://wa.me/${phone}?text=${cleanText}`, '_blank');
+            };
+
+            async function togglePaymentStatus(sessionId, currentStatus) {
+                const { error } = await supabase
+                    .from('sessions')
+                    .update({ is_paid: !currentStatus })
+                    .eq('id', sessionId);
+
+                if (!error) fetchSessions();
+            }
+
+            async function deleteSession(sessionId) {
+                if (!window.confirm(isArabic ? 'هل أنت متأكد من حذف هذه الحصة؟' : 'Are you sure you want to delete this session?')) return;
+                const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم حذف الحصة بنجاح.' : '✅ Session deleted successfully.');
+                    fetchSessions();
+                }
+                setTimeout(() => setMsg(''), 3000);
+            }
+
+            async function deleteStudent(studentId) {
+                if (!window.confirm(isArabic ? 'تحذير: سيتم حذف الطالب وجميع حصصه وواجباته. هل تود المتابعة؟' : 'Warning: This will delete student and all linked records. Continue?')) return;
+                const { error } = await supabase.from('students').delete().eq('id', studentId);
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم حذف ملف الطالب بنجاح.' : '✅ Student profile deleted.');
+                    loadAllData();
+                }
+                setTimeout(() => setMsg(''), 3000);
+            }
+
+            async function saveTeacherReview(hwId, newScore, note) {
+                const { error } = await supabase.from('homework_submissions').update({
+                    score: parseFloat(newScore),
+                    teacher_note: note,
+                    is_reviewed: true
+                }).eq('id', hwId);
+
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم حفظ اعتماد المعلم وتعديل الدرجة بنجاح!' : '✅ Review & endorsement saved!');
+                    setEditingHw(null);
+                    fetchHomeworks();
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 3500);
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                setLoginError('');
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) setLoginError(isArabic ? 'بيانات الدخول غير صحيحة.' : 'Invalid credentials.');
+            }
+
+            async function handleLogout() {
+                await supabase.auth.signOut();
+            }
+
+            async function handleAddStudent(e) {
+                e.preventDefault();
+                setMsg(isArabic ? '⏳ جاري الإضافة...' : '⏳ Adding...');
+                const { error } = await supabase.from('students').insert([{
+                    student_name: newStudent.name,
+                    student_phone: newStudent.student_phone.trim(),
+                    parent_phone: newStudent.parent_phone.trim(),
+                    curriculum_system: newStudent.system,
+                    grade_level: newStudent.grade,
+                    hourly_rate: parseFloat(newStudent.rate)
+                }]);
+                
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
+                    fetchStudents();
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' });
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 4000);
+            }
+
+            async function handleAddSession(e) {
+                e.preventDefault();
+                setMsg(isArabic ? '⏳ جاري التسجيل الأكاديمي للحصة...' : '⏳ Logging session...');
+                
+                const selectedStudent = students.find(s => s.id === newSession.student_id);
+                const duration = parseFloat(newSession.duration);
+
+                const { error } = await supabase.from('sessions').insert([{
+                    student_id: newSession.student_id,
+                    duration_hours: duration,
+                    strand: newSession.strand,
+                    lesson_topic: newSession.lesson_topic.trim(),
+                    skills_covered: newSession.skills_covered.trim(),
+                    is_paid: false
+                }]);
+                
+                if (!error) {
+                    setMsg(isArabic ? '✅ تم تسجيل الحصة والمحتوى الأكاديمي بنجاح!' : '✅ Session and skills logged successfully!');
+                    setLastLoggedInfo({
+                        student: selectedStudent,
+                        duration: duration,
+                        cost: duration * (selectedStudent.hourly_rate || 0),
+                        strand: newSession.strand,
+                        topic: newSession.lesson_topic.trim(),
+                        skills: newSession.skills_covered.trim()
+                    });
+                    setNewSession({ student_id: '', duration: '', strand: 'Algebra', lesson_topic: '', skills_covered: '' });
+                    fetchSessions();
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 4000);
+            }
+
+            const sendWhatsApp = (target) => {
+                if (!lastLoggedInfo) return;
+                const { student, duration, cost, strand, topic, skills } = lastLoggedInfo;
+
+                const formatPhone = (p) => {
+                    if (!p) return '';
+                    let clean = p.replace(/\D/g, '');
+                    if (clean.startsWith('0')) clean = '2' + clean;
+                    return clean;
+                };
+
+                const parentPhone = formatPhone(student.parent_phone);
+                const studentPhone = formatPhone(student.student_phone);
+
+                const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
+                const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
+
+                const academicDetails = topic ? `%0A📚 *المحتوى التعليمي للحصة:*%0A• الفرع: ${strand}%0A• الدرس: ${topic}${skills ? `%0A• المهارات المكتسبة: ${skills}` : ''}` : '';
+
+                const parentMsg = isArabic 
+                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة (${cost} EGP)${academicDetails}%0A%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0Aيمكنكم متابعة تقرير الحصص والواجبات عبر الرابط:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
+                    : `Hello from Jebali Math Academy 📐%0A%0ASession logged for: *${student.student_name}*%0A• Duration: ${duration} hrs (${cost} EGP)%0A• Strand: ${strand}%0A• Topic: ${topic || 'N/A'}%0A• Skills: ${skills || 'N/A'}%0A%0A• Total Due: *${totalUnpaid} EGP*%0AParent portal:%0Ahttps://jebali-math-academy.pages.dev/parent.html`;
+
+                const studentMsg = isArabic
+                    ? `مرحباً ${student.student_name} 📐%0Aتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}%0Aتأكد من مراجعة الدرس وتسليم الواجب لتصحيحه فوراً بالذكاء الاصطناعي عبر بوابتك:%0Ahttps://jebali-math-academy.pages.dev/student.html`
+                    : `Hello ${student.student_name} 📐%0AYour session (${duration} hrs) is logged.%0A• Topic: ${topic || 'N/A'}%0ASubmit your homework on the portal:%0Ahttps://jebali-math-academy.pages.dev/student.html`;
+
+                if (target === 'parent') {
+                    if (!parentPhone) return alert(isArabic ? 'رقم ولي الأمر غير مسجل!' : 'Parent phone not found!');
+                    window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                } else if (target === 'student') {
+                    if (!studentPhone) return alert(isArabic ? 'رقم الطالب غير مسجل!' : 'Student phone not found!');
+                    window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank');
+                } else if (target === 'both') {
+                    if (!parentPhone && !studentPhone) return alert(isArabic ? 'لا توجد أرقام مسجلة!' : 'No phone numbers registered!');
+                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                    if (studentPhone) {
+                        setTimeout(() => window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank'), 500);
+                    }
+                }
+            };
+
+            const totalCollected = sessionsList.filter(s => s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
+            const totalPending = sessionsList.filter(s => !s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
+
+            if (!session) {
+                return (
+                    <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+                        <div className="absolute top-6 left-6 right-6 flex justify-between">
+                            <a href="/" className="px-5 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
+                                {isArabic ? 'English' : 'العربية'}
+                            </button>
+                        </div>
+                        
+                        <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
+                            <div className="text-center mb-8">
+                                <div className="text-6xl mb-4">👨‍🏫</div>
+                                <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة' : 'Admin Portal'}</h2>
+                                <p className="text-blue-200 font-bold mt-2 text-sm">{isArabic ? 'أدخل بيانات الاعتماد للمتابعة' : 'Enter credentials to proceed'}</p>
+                            </div>
+                            
+                            {loginError && <p className="bg-red-500/20 border border-red-500/50 text-red-100 p-3 rounded-xl mb-4 text-sm font-bold text-center">{loginError}</p>}
+                            
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input type="email" placeholder={isArabic ? 'البريد الإلكتروني' : 'Email'} required className="w-full p-4 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={email} onChange={e => setEmail(e.target.value)} />
+                                <input type="password" placeholder={isArabic ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={password} onChange={e => setPassword(e.target.value)} />
+                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30">
+                                    {isArabic ? 'تسجيل الدخول' : 'Login'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+                    <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-orange-500/50">🛡️</div>
+                            <div>
+                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة والمتابعة' : 'Management & Finance'}</h1>
+                                <p className="text-blue-200 font-bold text-sm">mr.gebally@gmail.com</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
+                                {isArabic ? 'English' : 'العربية'}
+                            </button>
+                            <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
+                                {isArabic ? 'خروج' : 'Logout'}
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* الإحصائيات المالية */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
+                            <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{isArabic ? 'المبالغ المحصلة' : 'Collected Revenue'}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalCollected} <span className="text-xl text-blue-200">EGP</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'تم تأكيد استلامها' : 'Payment confirmed'}</p>
+                        </div>
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
+                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{isArabic ? 'المستحقات المعلقة' : 'Pending Receivables'}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalPending} <span className="text-xl text-blue-200">EGP</span></h3>
+                            <p className="text-xs text-blue-200 mt-2 font-bold">{isArabic ? 'بانتظار السداد من أولياء الأمور' : 'Awaiting parent settlement'}</p>
+                        </div>
+                    </div>
+
+                    {msg && (
+                        <div className={`mb-8 p-4 font-black rounded-xl border ${msg.includes('✅') ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-100' : 'bg-blue-500/20 border-blue-500/50 text-blue-100'} backdrop-blur-md`}>
+                            {msg}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        {/* إضافة طالب جديد */}
+                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
+                            <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
+                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب جديد' : '👤 Add Student'}</h3>
+                            <form onSubmit={handleAddStudent} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اسم الطالب بالكامل' : 'Full Name'}</label>
+                                    <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'هاتف الطالب' : 'Student Phone'}</label>
+                                        <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'هاتف ولي الأمر' : 'Parent Phone'}</label>
+                                        <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'النظام الدراسي' : 'Curriculum'}</label>
-                                        <select 
-                                            required 
-                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" 
-                                            value={newStudent.system} 
-                                            /* عند تغيير النظام، يتم مسح المرحلة القديمة تلقائياً */
-                                            onChange={e => setNewStudent({...newStudent, system: e.target.value, grade: ''})}
-                                        >
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})}>
                                             <option value="" disabled>{isArabic ? '-- اختر النظام --' : '-- Select System --'}</option>
                                             <option value="IGCSE">IGCSE (British)</option>
                                             <option value="IB">IB (International Baccalaureate)</option>
@@ -17,43 +684,413 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade / Year'}</label>
-                                        <select 
-                                            required 
-                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed" 
-                                            value={newStudent.grade} 
-                                            onChange={e => setNewStudent({...newStudent, grade: e.target.value})}
-                                            disabled={!newStudent.system} /* إيقاف التفعيل حتى يتم اختيار النظام */
-                                        >
-                                            <option value="" disabled>
-                                                {isArabic 
-                                                    ? (newStudent.system ? '-- اختر المرحلة --' : '-- اختر النظام أولاً --') 
-                                                    : (newStudent.system ? '-- Select Grade --' : '-- Select System First --')}
-                                            </option>
-                                            
-                                            {/* عرض المراحل البريطانية فقط إذا تم اختيار IGCSE */}
-                                            {newStudent.system === 'IGCSE' && (
-                                                <>
-                                                    <option value="Year 8">Year 8 (Pre-IG)</option>
-                                                    <option value="Year 9">Year 9 (Pre-IG)</option>
-                                                    <option value="Year 10">Year 10 (IGCSE / O-Level)</option>
-                                                    <option value="Year 11">Year 11 (IGCSE / O-Level)</option>
-                                                    <option value="Year 12">Year 12 (AS-Level)</option>
-                                                    <option value="Year 13">Year 13 (A2-Level)</option>
-                                                </>
-                                            )}
-                                            
-                                            {/* عرض المراحل الأمريكية والوطنية لباقي الأنظمة */}
-                                            {newStudent.system && newStudent.system !== 'IGCSE' && (
-                                                <>
-                                                    <option value="Grade 7">Grade 7</option>
-                                                    <option value="Grade 8">Grade 8</option>
-                                                    <option value="Grade 9">Grade 9</option>
-                                                    <option value="Grade 10">Grade 10</option>
-                                                    <option value="Grade 11">Grade 11</option>
-                                                    <option value="Grade 12">Grade 12</option>
-                                                </>
-                                            )}
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade'}</label>
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                            <option value="" disabled>{isArabic ? '-- اختر المرحلة --' : '-- Select Grade --'}</option>
+                                            <option value="Grade 7 / Year 8">Grade 7 / Year 8</option>
+                                            <option value="Grade 8 / Year 9">Grade 8 / Year 9</option>
+                                            <option value="Grade 9 / Year 10">Grade 9 / Year 10</option>
+                                            <option value="Grade 10 / Year 11">Grade 10 / Year 11</option>
+                                            <option value="Grade 11 / Year 12">Grade 11 / Year 12</option>
+                                            <option value="Grade 12 / Year 13">Grade 12 / Year 13</option>
                                         </select>
                                     </div>
                                 </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'سعر الساعة (EGP)' : 'Hourly Rate (EGP)'}</label>
+                                    <input type="number" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
+                                </div>
+                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-blue-500/30 mt-4">
+                                    {isArabic ? 'حفظ ملف الطالب' : 'Save Student'}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* تسجيل الحصة وتوثيق المحتوى الأكاديمي */}
+                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
+                            <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
+                            <div>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة والمحتوى الأكاديمي' : '⏱️ Log Session & Academic Content'}</h3>
+                                <form onSubmit={handleAddSession} className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب' : 'Select Student'}</label>
+                                            <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
+                                                <option value="" disabled>{isArabic ? '-- اضغط للاختيار --' : '-- Select Student --'}</option>
+                                                {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات' : 'Duration in hours'}</label>
+                                            <input type="number" step="0.25" required placeholder="مثال: 1.5" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المجال الرياضي (Strand)' : 'Strand'}</label>
+                                            <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value})}>
+                                                <option value="Algebra">Algebra (الجبر)</option>
+                                                <option value="Geometry & Trigonometry">Geometry & Trigonometry (الهندسة وحساب المثلثات)</option>
+                                                <option value="Calculus">Calculus (التفاضل والتكامل)</option>
+                                                <option value="Statistics & Probability">Statistics & Probability (الإحصاء والاحتمالات)</option>
+                                                <option value="Number & Arithmetic">Number & Arithmetic (الأعداد والحساب)</option>
+                                                <option value="Mechanics / Applied">Mechanics / Applied (الميكانيكا والتطبيقية)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس المشروح (Lesson / Topic)' : 'Lesson / Topic'}</label>
+                                            <input type="text" required placeholder="مثال: Quadratic Formula" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.lesson_topic} onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارات المغطاة (Skills Covered)' : 'Skills Covered'}</label>
+                                        <input type="text" placeholder="مثال: Completing square, discriminant analysis" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.skills_covered} onChange={e => setNewSession({...newSession, skills_covered: e.target.value})} />
+                                    </div>
+
+                                    <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
+                                        {isArabic ? 'تسجيل الحصة واعتماد التكلفة والمحتوى' : 'Log Session & Academic Content'}
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="mt-8 pt-6 border-t border-white/10">
+                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال تقرير ومطالبة عبر WhatsApp:' : '📲 Send WhatsApp Report & Invoice:'}</h4>
+                                
+                                {lastLoggedInfo ? (
+                                    <div className="p-4 bg-white/10 rounded-2xl border border-white/15">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <span className="text-xs text-emerald-300 font-bold block">✨ {isArabic ? 'تم التسجيل الأكاديمي لـ:' : 'Academic Log for:'}</span>
+                                                <h5 className="text-base font-black text-white">{lastLoggedInfo.student.student_name} ({lastLoggedInfo.duration} {isArabic ? 'ساعة' : 'hrs'})</h5>
+                                                <p className="text-xs text-blue-200 font-bold mt-1">📖 {lastLoggedInfo.strand} - {lastLoggedInfo.topic}</p>
+                                            </div>
+                                            <span className="text-sm font-black text-orange-300">{lastLoggedInfo.cost} EGP</span>
+                                        </div>
+
+                                        <p className="text-xs text-blue-200 font-bold mb-3">{isArabic ? 'اختر الجهة المراد إرسال الرسالة إليها:' : 'Select recipient:'}</p>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            <button 
+                                                onClick={() => sendWhatsApp('parent')}
+                                                className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👨‍👩‍👦</span> {isArabic ? 'ولي الأمر' : 'Parent'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => sendWhatsApp('student')}
+                                                className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👨‍🎓</span> {isArabic ? 'الطالب' : 'Student'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => sendWhatsApp('both')}
+                                                className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👥</span> {isArabic ? 'الاثنين معاً' : 'Both'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center">
+                                        <p className="text-xs text-blue-200 font-bold">
+                                            {isArabic 
+                                                ? '💡 سجّل الحصة ومحتواها الأكاديمي لتظهر لك هنا خيارات الإرسال المخصصة.' 
+                                                : '💡 Log a session with its topic to reveal customized WhatsApp options.'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* إدارة الحصص وتأكيد السداد */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمحتوى المشروح' : '💳 Sessions & Syllabus Log'}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">{isArabic ? 'الطالب' : 'Student'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'الدرس والفرع (Topic & Strand)' : 'Topic & Strand'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'حالة السداد' : 'Payment Status'}</th>
+                                        <th className="pb-3 px-4 text-center">{isArabic ? 'حذف' : 'Delete'}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-bold">
+                                    {sessionsList.map(s => (
+                                        <tr key={s.id} className="hover:bg-white/5 transition">
+                                            <td className="py-4 px-4">{s.students?.student_name || 'طالب'}</td>
+                                            <td className="py-4 px-4 text-sm">
+                                                <div className="text-white font-bold">{s.lesson_topic || 'حصة عامة'}</div>
+                                                <div className="text-xs text-blue-200">{s.strand || 'General'} {s.skills_covered ? `• ${s.skills_covered}` : ''}</div>
+                                            </td>
+                                            <td className="py-4 px-4">{s.duration_hours} {isArabic ? 'ساعة' : 'hrs'}</td>
+                                            <td className="py-4 px-4 text-orange-300">{s.calculated_cost} EGP</td>
+                                            <td className="py-4 px-4">
+                                                <button 
+                                                    onClick={() => togglePaymentStatus(s.id, s.is_paid)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition ${
+                                                        s.is_paid 
+                                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-red-500/20 hover:text-red-300' 
+                                                            : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'
+                                                    }`}
+                                                >
+                                                    {s.is_paid ? (isArabic ? '✅ مسددة' : '✅ Paid') : (isArabic ? 'تأكيد السداد 💵' : 'Mark Paid 💵')}
+                                                </button>
+                                            </td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button 
+                                                    onClick={() => deleteSession(s.id)}
+                                                    title={isArabic ? 'حذف الحصة' : 'Delete Session'}
+                                                    className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition"
+                                                >
+                                                    🗑
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* تقارير الواجبات وتوليد التمارين العلاجية */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات وتوليد التمارين العلاجية' : '📝 Technical Homework Reports & Smart Remediation'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل ومعادلات KaTeX مع إمكانية تعديل الدرجة وتوليد أوراق عمل امتحانية' : 'Method marks analysis with KaTeX, score endorsement, and AI practice generator'}</p>
+                            </div>
+                            <span className="text-3xl">👨‍🏫</span>
+                        </div>
+
+                        {homeworkList.length === 0 ? (
+                            <p className="text-blue-200 text-center py-8 font-bold">{isArabic ? 'لا توجد واجبات مسلمة بعد.' : 'No homework submissions found.'}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {homeworkList.map((hw) => {
+                                    const cached = transCache[hw.id];
+                                    const displayedText = cached ? cached.active : hw.ai_feedback;
+                                    const isSubArabic = hasArabicLetters(displayedText);
+
+                                    return (
+                                        <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
+                                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
+                                                        📖 {hw.topic || hw.students?.curriculum_system}
+                                                    </span>
+                                                    {hw.score != null && (
+                                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
+                                                            🎯 {hw.score} / 10
+                                                        </span>
+                                                    )}
+                                                    {hw.is_reviewed && (
+                                                        <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                                                            ✅ معتمد
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="text-xs text-blue-200 font-bold ml-2">
+                                                        {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+
+                                                    <button 
+                                                        onClick={() => handleGenerateRemediation(hw)}
+                                                        disabled={isGeneratingPractice && generatingHwId === hw.id}
+                                                        className="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-xs font-black transition flex items-center gap-1 shadow-md disabled:opacity-50"
+                                                    >
+                                                        <span>🎯</span> 
+                                                        {isGeneratingPractice && generatingHwId === hw.id ? (isArabic ? '⏳ جاري التوليد...' : 'Generating...') : (isArabic ? 'توليد تمارين علاجية' : 'Generate Practice')}
+                                                    </button>
+
+                                                    <button 
+                                                        onClick={() => handleToggleTranslate(hw.id, hw.ai_feedback)}
+                                                        disabled={loadingTransId === hw.id}
+                                                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>🌐</span> {loadingTransId === hw.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
+                                                    </button>
+
+                                                    <button 
+                                                        onClick={() => setEditingHw({ id: hw.id, score: hw.score || 5, note: hw.teacher_note || '' })}
+                                                        className="px-3 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-400/30 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>✏️</span> {isArabic ? 'اعتماد / تعديل' : 'Review & Edit'}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {hw.teacher_note && (
+                                                <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200">
+                                                    <span>👨‍🏫 ملاحظتك الحالية للطالب: </span>
+                                                    <span className="text-white font-medium">{hw.teacher_note}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5">
+                                                <MathView content={displayedText} className="text-sm text-slate-100" />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* نافذة ورقة الامتحان التفاعلية المخصصة */}
+                    {practiceModal && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-50">
+                            <div className="glass-card p-6 md:p-8 rounded-3xl max-w-3xl w-full border border-white/20 shadow-2xl max-h-[92vh] flex flex-col justify-between">
+                                <div>
+                                    <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
+                                        <div>
+                                            <h3 className="text-xl font-black text-white">📝 ورقة التمارين الامتحانية المخصصة</h3>
+                                            <p className="text-xs text-blue-300 font-bold mt-1">
+                                                {practiceModal.student?.student_name} • {practiceModal.topic}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => setPracticeModal(null)} className="text-slate-400 hover:text-white text-2xl font-bold">×</button>
+                                    </div>
+
+                                    {/* عرض ورقة الأسئلة بستايل الاختبارات والمارك سكيم المنفصل */}
+                                    <div className="overflow-y-auto max-h-[62vh] pr-1">
+                                        <ExamPaperView 
+                                            rawContent={practiceModal.content} 
+                                            studentInfo={practiceModal.student}
+                                            topic={practiceModal.topic}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10 mt-2">
+                                    <button 
+                                        onClick={sendPracticeWhatsApp}
+                                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/30"
+                                    >
+                                        <span>📲</span> {isArabic ? 'إرسال ورقة الأسئلة عبر WhatsApp' : 'Send Exam Sheet'}
+                                    </button>
+
+                                    <button 
+                                        onClick={handlePrintIsolatedExam}
+                                        className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition text-sm flex items-center gap-1.5 shadow-md"
+                                    >
+                                        <span>🖨️</span> {isArabic ? 'طباعة ورقة الامتحان (A4)' : 'Print Exam (A4)'}
+                                    </button>
+
+                                    <button 
+                                        onClick={() => setPracticeModal(null)}
+                                        className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition text-sm"
+                                    >
+                                        {isArabic ? 'إغلاق' : 'Close'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* نافذة اعتماد الواجب وتعديل الدرجة */}
+                    {editingHw && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="glass-card p-6 md:p-8 rounded-3xl max-w-md w-full border border-white/20 shadow-2xl">
+                                <h3 className="text-xl font-black mb-4 text-white">✏️ {isArabic ? 'اعتماد الواجب وتعديل الدرجة' : 'Endorse Homework & Override Score'}</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرجة المستحقة من 10:' : 'Grade out of 10:'}</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.5" 
+                                            min="0" 
+                                            max="10" 
+                                            value={editingHw.score} 
+                                            onChange={e => setEditingHw({ ...editingHw, score: e.target.value })} 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-emerald-400"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'ملاحظة المعلم للطالب (تظهر في حسابه):' : 'Teacher note for student:'}</label>
+                                        <textarea 
+                                            rows="3" 
+                                            placeholder={isArabic ? 'مثال: أحسنت! راجع معي المسألة الأخيرة في حصة الغد.' : 'e.g. Well done! Review part d with me next session.'}
+                                            value={editingHw.note} 
+                                            onChange={e => setEditingHw({ ...editingHw, note: e.target.value })} 
+                                            className="w-full p-3 glass-input rounded-xl font-medium outline-none focus:border-emerald-400 text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button 
+                                            onClick={() => saveTeacherReview(editingHw.id, editingHw.score, editingHw.note)}
+                                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow-lg shadow-emerald-600/30 text-sm"
+                                        >
+                                            {isArabic ? 'حفظ والاعتماد ✅' : 'Save & Endorse ✅'}
+                                        </button>
+                                        <button 
+                                            onClick={() => setEditingHw(null)}
+                                            className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition text-sm"
+                                        >
+                                            {isArabic ? 'إلغاء' : 'Cancel'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* إدارة الطلاب المسجلين */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl">
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '👥 سجل وإدارة الطلاب المسجلين' : '👥 Registered Students Management'}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">{isArabic ? 'اسم الطالب' : 'Student Name'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'النظام والمرحلة' : 'System & Grade'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'سعر الساعة' : 'Hourly Rate'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'هاتف الطالب' : 'Student Phone'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'هاتف ولي الأمر' : 'Parent Phone'}</th>
+                                        <th className="pb-3 px-4 text-center">{isArabic ? 'إجراء' : 'Action'}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-bold">
+                                    {students.map(st => (
+                                        <tr key={st.id} className="hover:bg-white/5 transition">
+                                            <td className="py-4 px-4">{st.student_name}</td>
+                                            <td className="py-4 px-4 text-sm text-blue-200">{st.curriculum_system} - {st.grade_level}</td>
+                                            <td className="py-4 px-4 text-emerald-300">{st.hourly_rate} EGP</td>
+                                            <td className="py-4 px-4 text-sm">{st.student_phone || '-'}</td>
+                                            <td className="py-4 px-4 text-sm">{st.parent_phone || '-'}</td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button 
+                                                    onClick={() => deleteStudent(st.id)}
+                                                    title={isArabic ? 'حذف ملف الطالب' : 'Delete Student'}
+                                                    className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition"
+                                                >
+                                                    🗑️️
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AdminPortal />);
+    </script>
+</body>
+</html>
