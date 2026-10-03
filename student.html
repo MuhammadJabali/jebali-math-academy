@@ -22,7 +22,7 @@
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
 
-        /* ضبط المعادلات الرياضية لتظهر بخطوط لاتينية صحيحة من اليسار لليمين */
+        /* عزل المعادلات الرياضية لتظهر باتجاه لاتيني سليم LTR */
         .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.15em; }
         .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
     </style>
@@ -47,7 +47,7 @@
         const TELEGRAM_TOKEN = '8821809584:AAHaFFqJTnd1j9K4Y3-_hZdyseLRnEDsE_I';
         const TELEGRAM_CHAT_ID = '8544954637';
 
-        // مكوّن عرض النصوص الرياضية وتفعيل KaTeX تلقائياً
+        // مكوّن عرض المعادلات الرياضية بـ KaTeX
         function MathView({ content, className = '' }) {
             const containerRef = useRef(null);
 
@@ -86,6 +86,8 @@
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [isTranslating, setIsTranslating] = useState(false);
             const [submissions, setSubmissions] = useState([]);
+            const [historyTranslations, setHistoryTranslations] = useState({});
+            const [loadingTransId, setLoadingTransId] = useState(null);
 
             const fetchSubmissions = async (studentId) => {
                 const { data } = await supabase
@@ -142,7 +144,7 @@
                 }
             };
 
-            // ضغط وتصغير الصورة في المتصفح لضمان سرعة الاستجابة ومنع الأخطاء
+            // ضغط وتعديل أبعاد الصورة لضمان استجابة سريعة
             const compressImage = (file) => {
                 return new Promise((resolve) => {
                     const reader = new FileReader();
@@ -150,7 +152,7 @@
                         const img = new Image();
                         img.onload = () => {
                             const canvas = document.createElement('canvas');
-                            const maxDim = 1280;
+                            const maxDim = 1200;
                             let width = img.width;
                             let height = img.height;
 
@@ -167,7 +169,7 @@
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, width, height);
 
-                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
                             resolve(compressedBase64);
                         };
                         img.src = event.target.result;
@@ -176,8 +178,9 @@
                 });
             };
 
+            // استدعاء النموذج الحديث وفق التحديث الرسمي (gemini-3.8-flash)
             const callGeminiModel = async (prompt, base64Data) => {
-                const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+                const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
                 let lastError = null;
 
                 for (const model of models) {
@@ -213,6 +216,36 @@
                 throw lastError || new Error('تعذر إكمال التصحيح حالياً، يرجى المحاولة بعد لحظات');
             };
 
+            // دالة ترجمة النصوص الرياضية مع الحفاظ الصارم على KaTeX
+            const translateMathText = async (textToTranslate, targetLang) => {
+                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
+CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
+Text to translate:
+${textToTranslate}`;
+
+                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+                for (const model of models) {
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        const d = await res.json();
+                        if (res.ok && d.candidates?.[0]?.content?.parts) {
+                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
+                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
+                        }
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+                throw new Error('Translation failed');
+            };
+
+            const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
+
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -225,45 +258,49 @@
                     const base64Data = await compressImage(file);
                     setAiFeedback(isArabic ? '⏳ جاري تدقيق الخطوات الرياضية واحتساب الدرجة بالذكاء الاصطناعي...' : '⏳ Evaluating mathematical steps with AI...');
 
-                    // بناء البرومبت بحسب اللغة المختارة في الواجهة بدقة
-                    const prompt = isArabic 
-                        ? `أنت مصحح امتحانات رياضيات أول معتمد للمناهج الدولية (${loggedInStudent.curriculum_system} / ${loggedInStudent.grade_level}).
+                    // تحديد لغة التقرير: عربي فقط إذا كان تعليم مصري عربي، وغير ذلك بالإنجليزية تلقائياً
+                    const curSystem = loggedInStudent.curriculum_system || '';
+                    const isEgyptianArabic = curSystem.includes('Arabic') || curSystem.includes('عربي');
+                    const targetLang = isEgyptianArabic ? 'Arabic' : 'English';
+
+                    const prompt = isEgyptianArabic
+                        ? `أنت مصحح امتحانات رياضيات أول معتمد للمناهج المصرية (${curSystem} / ${loggedInStudent.grade_level}).
 قم بفحص صورة الحل المكتوبة بخط اليد بدقة متناهية.
 
 قواعد تنسيق الرموز الرياضية الإلزامية:
 - أي صيغة رياضية أو أس أو متغير يجب كتابتها حصراً بين علامات الدولار $ مثل: $3 \\times 10^{-5}$ أو $50.5 \\times 10^{-5}$ أو $A \\times 10^n$.
-- لا تكتب كلمات عربية إطلاقاً داخل علامات الدولار $.
+- لا تضع كلمات عربية داخل علامات الدولار $.
 
-يجب أن يكون الرد بهذا التنسيق الصارم:
-TOPIC: [اسم الموضوع، مثال: Standard Form / Scientific Notation]
-SCORE: [درجة رقمية من 10، مثال: 5]
+التنسيق الإلزامي للإجابة:
+TOPIC: [اسم الموضوع]
+SCORE: [درجة رقمية من 10]
 FEEDBACK:
 **نقاط القوة:**
-[اذكر ما أصاب فيه الطالب مع كتابة كل الصيغ بالرموز الرياضية $...$]
+[التفاصيل بالرموز $...$]
 
 **الأخطاء والملاحظات:**
-[حلل كل فقرة (a, b, c, d) وحدد الخطأ بالرمز الرياضي والحل السليم]
+[تحليل الفقرات بالتفصيل]
 
 **نصيحة المصحح للحصول على الدرجة الكاملة:**
-[نصيحة الامتحان وقواعد الحل الكامل]`
-                        : `You are an expert senior Mathematics examiner for international curricula (${loggedInStudent.curriculum_system} / ${loggedInStudent.grade_level}).
+[نصيحة الامتحان]`
+                        : `You are an expert senior Mathematics examiner for international curricula (${curSystem} / ${loggedInStudent.grade_level}).
 Carefully examine this handwritten math solution image.
 
 Mandatory Math Formatting Rules:
 - Write EVERY formula, variable, or power of 10 inside dollar signs using standard LaTeX, e.g. $3 \\times 10^{-5}$ or $50.5 \\times 10^{-5}$ or $A \\times 10^n$.
 
-You must output strictly in this format in English:
+Strict Output Format in English:
 TOPIC: [Topic name, e.g. Standard Form / Scientific Notation]
 SCORE: [Numerical score out of 10, e.g. 5]
 FEEDBACK:
 **Strengths:**
-[Details of correct answers with math formatted inside $...$]
+[Breakdown of correct parts with math in $...$]
 
 **Errors & Corrections:**
-[Breakdown of each part with specific corrections]
+[Detailed corrections for each part]
 
 **Examiner Tips for Full Marks:**
-[Crucial exam advice for accuracy marks]`;
+[Direct exam guidance for accuracy marks]`;
 
                     const responseText = await callGeminiModel(prompt, base64Data);
 
@@ -292,7 +329,7 @@ FEEDBACK:
 
                     sendTelegramNotification(
                         loggedInStudent.student_name, 
-                        `🎯 اكتمل التقييم!\n• الموضوع: ${extractedTopic}\n• الدرجة المستحقة: ${extractedScore != null ? extractedScore + '/10' : 'تم التدقيق'}`
+                        `🎯 اكتمل التقييم!\n• الموضوع: ${extractedTopic}\n• الدرجة: ${extractedScore != null ? extractedScore + '/10' : 'تم التدقيق'}`
                     );
 
                     fetchSubmissions(loggedInStudent.id);
@@ -304,32 +341,36 @@ FEEDBACK:
                 }
             };
 
-            // ترجمة التقرير فوراً للغة الأخرى مع الحفاظ على المعادلات
-            const translateCurrentFeedback = async () => {
+            // ترجمة التقرير الحالي النشط
+            const handleTranslateCurrent = async () => {
                 if (!aiFeedback || isTranslating) return;
                 setIsTranslating(true);
-                const targetLang = isArabic ? 'English' : 'Arabic';
-
+                const targetLang = hasArabicLetters(aiFeedback) ? 'English' : 'Arabic';
                 try {
-                    const prompt = `Translate the following mathematics examiner report into ${targetLang}. 
-Keep all mathematical expressions and LaTeX formatting inside $...$ exactly untouched and intact.
-Report to translate:
-${aiFeedback}`;
-
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                    });
-                    const d = await res.json();
-                    if (d.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        setAiFeedback(d.candidates[0].content.parts[0].text);
-                    }
+                    const translated = await translateMathText(aiFeedback, targetLang);
+                    setAiFeedback(translated);
                 } catch (e) {
-                    console.error('Translation error:', e);
+                    console.error(e);
                 } finally {
                     setIsTranslating(false);
+                }
+            };
+
+            // ترجمة أي تقرير من السجل القديم
+            const handleTranslateHistoryItem = async (subId, originalContent) => {
+                if (loadingTransId) return;
+                setLoadingTransId(subId);
+
+                const currentText = historyTranslations[subId] || originalContent;
+                const targetLang = hasArabicLetters(currentText) ? 'English' : 'Arabic';
+
+                try {
+                    const translated = await translateMathText(currentText, targetLang);
+                    setHistoryTranslations(prev => ({ ...prev, [subId]: translated }));
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoadingTransId(null);
                 }
             };
 
@@ -350,7 +391,7 @@ ${aiFeedback}`;
                         </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-6xl mb-6">👨‍‍🎓</div>
+                            <div className="text-6xl mb-6">👨‍🎓</div>
                             <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة الطلاب' : 'Student Portal'}</h2>
                             <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك المسجل للدخول لحسابك' : 'Enter registered phone number to access'}</p>
                             
@@ -392,7 +433,7 @@ ${aiFeedback}`;
                             <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
                                 <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
                             </a>
-                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
                             <button onClick={() => { setLoggedInStudent(null); setStudentPhone(''); }} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
@@ -434,7 +475,7 @@ ${aiFeedback}`;
                         </div>
                     </div>
 
-                    {/* بطاقة التقييم الذكي مع دعم KaTeX وترجمة فورية */}
+                    {/* التقييم الذكي مع زر الترجمة التفاعلي الدائم */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التصحيح الذكي وفق معايير الاختبارات 🤖' : 'AI Homework Examiner 🤖'}</h4>
@@ -454,50 +495,70 @@ ${aiFeedback}`;
                                             <span>{currentScore} / 10</span>
                                         </div>
                                     )}
+
+                                    {/* زر الترجمة يحدد اللغة التلقائية ويترجم للغة المقابلة فوراً */}
                                     <button 
-                                        onClick={translateCurrentFeedback} 
+                                        onClick={handleTranslateCurrent} 
                                         disabled={isTranslating}
-                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-blue-200 border border-white/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                                        className="px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-400/30 rounded-xl text-xs font-bold transition flex items-center gap-2"
                                     >
-                                        <span>🌐</span> {isTranslating ? '...' : (isArabic ? 'ترجمة التقرير للإنجليزية' : 'Translate to Arabic')}
+                                        <span>🌐</span> 
+                                        {isTranslating ? '...' : (hasArabicLetters(aiFeedback) ? 'Translate to English' : 'ترجمة إلى العربية')}
                                     </button>
                                 </div>
 
                                 <h5 className="font-black text-indigo-300 mb-3 text-lg">✨ {isArabic ? 'تقرير وتوصيات المصحح:' : 'Examiner Report:'}</h5>
                                 
-                                {/* عرض التقرير مع دعم KaTeX للأسس والمعادلات */}
                                 <MathView content={aiFeedback} className="text-slate-100 text-base" />
                             </div>
                         )}
                     </div>
 
-                    {/* سجل الواجبات السابقة */}
+                    {/* سجل الواجبات السابقة مع زر ترجمة لكل واجب */}
                     <div className="glass-card p-8 rounded-3xl">
                         <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات والدرجات السابقة' : '📚 Graded Submissions History'}</h4>
                         {submissions.length === 0 ? (
                             <p className="text-blue-200 text-center py-6 font-bold">{isArabic ? 'لا توجد واجبات مسجلة حتى الآن.' : 'No previous submissions found.'}</p>
                         ) : (
                             <div className="space-y-4">
-                                {submissions.map((sub, idx) => (
-                                    <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
-                                                    {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
-                                                </span>
-                                                {sub.score != null && (
-                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black">
-                                                        🎯 {sub.score} / 10
+                                {submissions.map((sub, idx) => {
+                                    const displayedText = historyTranslations[sub.id] || sub.ai_feedback;
+                                    const isSubArabic = hasArabicLetters(displayedText);
+                                    
+                                    return (
+                                        <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
+                                                        {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
                                                     </span>
-                                                )}
+                                                    {sub.score != null && (
+                                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black">
+                                                            🎯 {sub.score} / 10
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-blue-200 font-bold">
+                                                        {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    
+                                                    {/* زر الترجمة لكل عنصر بالسجل */}
+                                                    <button 
+                                                        onClick={() => handleTranslateHistoryItem(sub.id, sub.ai_feedback)}
+                                                        disabled={loadingTransId === sub.id}
+                                                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English' : 'عربي')}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <span className="text-xs text-blue-200 font-bold">
-                                                {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+                                            
+                                            <MathView content={displayedText} className="text-sm text-slate-200" />
                                         </div>
-                                        <MathView content={sub.ai_feedback} className="text-sm text-slate-200" />
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
