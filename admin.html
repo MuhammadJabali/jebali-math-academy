@@ -78,7 +78,6 @@
                 const parts = text.split(/(?:🔑|\*\*Mark Scheme|\*\*نموذج الإجابة|Mark Scheme & Answers)/i);
                 
                 let qText = parts[0] || '';
-                // إزالة أي عنوان تكراري مولّد في أول السطور
                 qText = qText.replace(/^[#\s]*.*(?:Targeted Remediation Practice|تمارين علاجية|Worksheet).*$/im, '').trim();
 
                 let msText = parts.length > 1 ? parts.slice(1).join('\n').trim() : '';
@@ -109,9 +108,7 @@
 
             return (
                 <div ref={containerRef} className="space-y-6">
-                    {/* ورقة الأسئلة بستايل أوراق امتحانات كامبريدج */}
                     <div id="printable-exam-content" className="bg-white text-slate-900 p-8 rounded-2xl shadow-xl font-inter border border-slate-200" dir="ltr">
-                        {/* ترويسة ورقة الامتحان الرسمية */}
                         <div className="border-b-2 border-slate-900 pb-4 mb-6">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -125,7 +122,6 @@
                                 </div>
                             </div>
 
-                            {/* جدول بيانات الطالب المعتمد */}
                             <div className="mt-4 grid grid-cols-2 gap-2 text-xs border border-slate-300 rounded-lg p-3 bg-slate-50">
                                 <div><span className="text-slate-500 font-medium">Candidate Name:</span> <strong className="text-slate-900">{studentInfo?.student_name}</strong></div>
                                 <div><span className="text-slate-500 font-medium">Curriculum:</span> <strong className="text-slate-900">{studentInfo?.curriculum_system} ({studentInfo?.grade_level})</strong></div>
@@ -134,18 +130,15 @@
                             </div>
                         </div>
 
-                        {/* صندوق تعليمات الاختبار */}
                         <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-3 mb-6 text-xs text-blue-950 leading-relaxed">
                             <strong>Instructions:</strong> Answer all questions. You must show all necessary working clearly in the spaces provided. Give your answers in the simplest index/standard form requested.
                         </div>
 
-                        {/* نص الأسئلة */}
                         <div className="text-sm leading-loose text-slate-900 font-normal whitespace-pre-wrap">
                             {cleanMarkdown(questionsText)}
                         </div>
                     </div>
 
-                    {/* قسم نموذج الإجابة للمعلم فقط (مخفي عن الطباعة) */}
                     {markSchemeText && (
                         <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/90 overflow-hidden" dir="ltr">
                             <button 
@@ -322,7 +315,6 @@
                 }
             };
 
-            // دالة الطباعة المعزولة تماماً لمنع التكرار وضبط مقاس A4
             const handlePrintIsolatedExam = () => {
                 const examEl = document.getElementById('printable-exam-content');
                 if (!examEl) return;
@@ -587,7 +579,7 @@
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍🏫</div>
+                                <div className="text-6xl mb-4">👨‍‍🏫</div>
                                 <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة' : 'Admin Portal'}</h2>
                                 <p className="text-blue-200 font-bold mt-2 text-sm">{isArabic ? 'أدخل بيانات الاعتماد للمتابعة' : 'Enter credentials to proceed'}</p>
                             </div>
@@ -678,7 +670,6 @@
                                             required 
                                             className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" 
                                             value={newStudent.system} 
-                                            /* عند تغيير النظام، يتم مسح المرحلة القديمة تلقائياً */
                                             onChange={e => setNewStudent({...newStudent, system: e.target.value, grade: ''})}
                                         >
                                             <option value="" disabled>{isArabic ? '-- اختر النظام --' : '-- Select System --'}</option>
@@ -696,7 +687,7 @@
                                             className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed" 
                                             value={newStudent.grade} 
                                             onChange={e => setNewStudent({...newStudent, grade: e.target.value})}
-                                            disabled={!newStudent.system} /* إيقاف التفعيل حتى يتم اختيار النظام */
+                                            disabled={!newStudent.system}
                                         >
                                             <option value="" disabled>
                                                 {isArabic 
@@ -704,9 +695,16 @@
                                                     : (newStudent.system ? '-- Select Grade --' : '-- Select System First --')}
                                             </option>
                                             
-                                            {/* عرض المراحل البريطانية فقط إذا تم اختيار IGCSE */}
+                                            {/* المراحل البريطانية من Year 1 إلى Year 13 */}
                                             {newStudent.system === 'IGCSE' && (
                                                 <>
+                                                    <option value="Year 1">Year 1</option>
+                                                    <option value="Year 2">Year 2</option>
+                                                    <option value="Year 3">Year 3</option>
+                                                    <option value="Year 4">Year 4</option>
+                                                    <option value="Year 5">Year 5</option>
+                                                    <option value="Year 6">Year 6</option>
+                                                    <option value="Year 7">Year 7</option>
                                                     <option value="Year 8">Year 8 (Pre-IG)</option>
                                                     <option value="Year 9">Year 9 (Pre-IG)</option>
                                                     <option value="Year 10">Year 10 (IGCSE / O-Level)</option>
@@ -716,9 +714,15 @@
                                                 </>
                                             )}
                                             
-                                            {/* عرض المراحل الأمريكية والوطنية لباقي الأنظمة */}
+                                            {/* المراحل الأمريكية والوطنية من Grade 1 إلى Grade 12 */}
                                             {newStudent.system && newStudent.system !== 'IGCSE' && (
                                                 <>
+                                                    <option value="Grade 1">Grade 1</option>
+                                                    <option value="Grade 2">Grade 2</option>
+                                                    <option value="Grade 3">Grade 3</option>
+                                                    <option value="Grade 4">Grade 4</option>
+                                                    <option value="Grade 5">Grade 5</option>
+                                                    <option value="Grade 6">Grade 6</option>
                                                     <option value="Grade 7">Grade 7</option>
                                                     <option value="Grade 8">Grade 8</option>
                                                     <option value="Grade 9">Grade 9</option>
@@ -994,7 +998,6 @@
                                         <button onClick={() => setPracticeModal(null)} className="text-slate-400 hover:text-white text-2xl font-bold">×</button>
                                     </div>
 
-                                    {/* عرض ورقة الأسئلة بستايل الاختبارات والمارك سكيم المنفصل */}
                                     <div className="overflow-y-auto max-h-[62vh] pr-1">
                                         <ExamPaperView 
                                             rawContent={practiceModal.content} 
