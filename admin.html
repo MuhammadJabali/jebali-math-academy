@@ -52,6 +52,10 @@
             const [igcseSkillsList, setIgcseSkillsList] = useState([]);
             const [americanSkillsList, setAmericanSkillsList] = useState([]);
             const [ibSkillsList, setIbSkillsList] = useState([]);
+            
+            const [viewingStudentModal, setViewingStudentModal] = useState(null);
+            const [isEditingStudent, setIsEditingStudent] = useState(false);
+            const [editStudentForm, setEditStudentForm] = useState({});
 
             const [newStudent, setNewStudent] = useState({ 
                 name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
@@ -69,20 +73,43 @@
                 int_strand: '', int_skills: []
             });
 
+            const [lastAddedStudent, setLastAddedStudent] = useState(null);
+            const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [msg, setMsg] = useState('');
 
             const t = {
                 ar: {
                     title: "لوحة التحكم | Jebali Math Academy",
-                    subtitle: "نظام الإدارة الشامل للجداول المستقلة",
+                    subtitle: "نظام الإدارة الشامل",
                     home: "الرئيسية",
                     logout: "خروج",
                     collected: "المبالغ المحصلة",
                     pending: "المستحقات المعلقة",
-                    addStudent: "إضافة طالب جديد",
+                    addStudent: "إضافة طالب جديد وبيانات الدخول",
+                    studentName: "اسم الطالب بالكامل",
+                    studentPhone: "هاتف الطالب",
+                    parentPhone: "هاتف ولي الأمر",
+                    studentEmail: "البريد الإلكتروني",
+                    studentPass: "كلمة المرور",
+                    rate: "سعر الساعة (EGP)",
+                    saveStudent: "حفظ وتوليد بيانات الدخول",
                     docSession: "توثيق حصة",
+                    selectStudent: "اختر الطالب",
+                    startTime: "وقت البدء",
+                    endTime: "وقت الانتهاء",
+                    location: "مكان انعقاد الحصة",
+                    online: "أونلاين (Online)",
+                    home: "منزل الطالب (Home)",
+                    center: "سنتر تعليمي (Center)",
+                    centerName: "اسم السنتر والعنوان",
+                    centerFees: "تكلفة السنتر الإضافية (EGP)",
+                    saveSession: "وثّق الحصة (حساب آلي للتوقيت والتكلفة)",
                     sessionsRecord: "سجل الحصص والمدفوعات",
-                    studentsRecord: "سجل الطلاب المسجلين"
+                    studentsRecord: "سجل الطلاب المسجلين وملفاتهم",
+                    paid: "مسددة",
+                    confirmPay: "تأكيد السداد",
+                    reminder: "تذكير",
+                    delete: "حذف"
                 },
                 en: {
                     title: "Admin Dashboard | Jebali Math Academy",
@@ -91,10 +118,31 @@
                     logout: "Logout",
                     collected: "Collected Amount",
                     pending: "Pending Dues",
-                    addStudent: "Add New Student",
+                    addStudent: "Add Student & Credentials",
+                    studentName: "Full Student Name",
+                    studentPhone: "Student Phone",
+                    parentPhone: "Parent Phone",
+                    studentEmail: "Email",
+                    studentPass: "Password",
+                    rate: "Hourly Rate (EGP)",
+                    saveStudent: "Save & Generate Credentials",
                     docSession: "Document Session",
-                    sessionsRecord: "Sessions Record",
-                    studentsRecord: "Students Directory"
+                    selectStudent: "Select Student",
+                    startTime: "Start Time",
+                    endTime: "End Time",
+                    location: "Session Location",
+                    online: "Online",
+                    home: "Student's Home",
+                    center: "Educational Center",
+                    centerName: "Center Name & Address",
+                    centerFees: "Extra Center Fees (EGP)",
+                    saveSession: "Document Session",
+                    sessionsRecord: "Sessions & Payments Record",
+                    studentsRecord: "Registered Students Directory",
+                    paid: "Paid",
+                    confirmPay: "Confirm Payment",
+                    reminder: "Remind",
+                    delete: "Delete"
                 }
             }[lang];
 
@@ -144,6 +192,21 @@
                 if (ibData) setIbSkillsList(ibData);
             }
 
+            const getEgyptianGradesList = () => {
+                const isLang = newStudent.systemType === 'egyptian_languages';
+                const stage = newStudent.schoolStage;
+                if (stage === 'primary') {
+                    return isLang ? ['Primary 1 (Languages)', 'Primary 2 (Languages)', 'Primary 3 (Languages)', 'Primary 4 (Languages)', 'Primary 5 (Languages)', 'Primary 6 (Languages)'] 
+                                  : ['الصف الأول الابتدائي (عربي)', 'الصف الثاني الابتدائي (عربي)', 'الصف الثالث الابتدائي (عربي)', 'الصف الرابع الابتدائي (عربي)', 'الصف الخامس الابتدائي (عربي)', 'الصف السادس الابتدائي (عربي)'];
+                } else if (stage === 'prep') {
+                    return isLang ? ['Prep 1 (Languages)', 'Prep 2 (Languages)', 'Prep 3 (Languages)'] 
+                                  : ['الصف الأول الإعدادي (عربي)', 'الصف الثاني الإعدادي (عربي)', 'الصف الثالث الإعدادي (عربي)'];
+                } else {
+                    return isLang ? ['Secondary 1 (Languages)', 'Secondary 2 (Languages)', 'Secondary 3 (Languages)'] 
+                                  : ['الصف الأول الثانوي (عربي)', 'الصف الثاني الثانوي (عربي)', 'الصف الثالث الثانوي (عربي)'];
+                }
+            };
+
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
             const studentSysText = selectedStudentObj ? selectedStudentObj.curriculum_system.toLowerCase() : '';
             const isArabicMode = studentSysText.includes('عربي') || studentSysText.includes('مصري عربي');
@@ -177,7 +240,7 @@
                 e.preventDefault();
                 setLoginError('');
                 const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) setLoginError('Invalid login credentials.');
+                if (error) setLoginError(lang === 'ar' ? 'بيانات الدخول غير صحيحة.' : 'Invalid login credentials.');
             }
 
             async function handleLogout() {
@@ -186,7 +249,7 @@
 
             async function handleAddStudent(e) {
                 e.preventDefault();
-                setMsg('⏳ Adding student...');
+                setMsg(lang === 'ar' ? '⏳ جاري إضافة الطالب...' : '⏳ Adding student...');
                 let systemFullName = '';
                 if (newStudent.systemType === 'egyptian_arabic') systemFullName = `تعليم مصري عربي (${newStudent.grade})`;
                 else if (newStudent.systemType === 'egyptian_languages') systemFullName = `تعليم مصري لغات (${newStudent.grade})`;
@@ -206,8 +269,10 @@
                 };
 
                 const { data, error } = await supabase.from('students').insert([studentObjToInsert]).select();
+                
                 if (!error) {
-                    setMsg('✅ Student added successfully!');
+                    setMsg(lang === 'ar' ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
+                    setLastAddedStudent({ ...studentObjToInsert, id: data[0].id });
                     fetchStudents();
                     setNewStudent({ name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
                 } else {
@@ -216,15 +281,46 @@
                 setTimeout(() => setMsg(''), 5000);
             }
 
+            async function handleUpdateStudent(e) {
+                e.preventDefault();
+                setMsg(lang === 'ar' ? '⏳ جاري تحديث ملف الطالب...' : '⏳ Updating student profile...');
+                const { error } = await supabase.from('students').update({
+                    student_name: editStudentForm.student_name,
+                    student_phone: editStudentForm.student_phone,
+                    parent_phone: editStudentForm.parent_phone,
+                    email: editStudentForm.email,
+                    password: editStudentForm.password,
+                    curriculum_system: editStudentForm.curriculum_system,
+                    grade_level: editStudentForm.grade_level,
+                    hourly_rate: parseFloat(editStudentForm.hourly_rate)
+                }).eq('id', viewingStudentModal.id);
+
+                if (!error) {
+                    setMsg(lang === 'ar' ? '✅ تم تحديث ملف الطالب بنجاح!' : '✅ Student profile updated!');
+                    fetchStudents();
+                    setIsEditingStudent(false);
+                    setViewingStudentModal(null);
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 4000);
+            }
+
             async function handleAddSession(e) {
                 e.preventDefault();
-                setMsg('⏳ Documenting session...');
+                setMsg(lang === 'ar' ? '⏳ جاري حساب التوقيت وتوثيق الحصة...' : '⏳ Documenting session...');
+                
                 const calculatedDuration = calculateRoundedHours(newSession.start_time, newSession.end_time);
-                if (calculatedDuration <= 0) return alert('End time must be after start time!');
+                if (calculatedDuration <= 0) {
+                    alert(lang === 'ar' ? 'خطأ: وقت الانتهاء يجب أن يكون بعد وقت البدء!' : 'Error: End time must be after start time!');
+                    setMsg('');
+                    return;
+                }
 
                 let lessonTopic = '';
                 let strandName = '';
                 let skillsCovered = '';
+
                 const baseCost = calculatedDuration * (selectedStudentObj.hourly_rate || 0);
                 const centerFee = newSession.location_type === 'Center' ? parseFloat(newSession.center_fees || 0) : 0;
                 const totalCalculatedCost = baseCost + centerFee;
@@ -232,21 +328,26 @@
                 if (isArabicMode || isLanguagesMode) {
                     const selectedLessonObj = activeLessonsTable.find(l => l.id.toString() === newSession.eg_lesson);
                     strandName = newSession.eg_branch;
-                    lessonTopic = selectedLessonObj ? selectedLessonObj.unit_title : 'الوحدة';
+                    lessonTopic = selectedLessonObj ? selectedLessonObj.unit_title : 'الوحدة الدراسية';
                     skillsCovered = selectedLessonObj ? selectedLessonObj.lesson_title : 'الدرس';
                 } else {
                     strandName = newSession.int_strand;
-                    lessonTopic = 'Core Topic';
+                    lessonTopic = 'International Core Topic';
                     const selectedSkillNames = availableIntSkills
                         .filter(s => newSession.int_skills.includes(s.id.toString()))
                         .map(s => s.skill_name);
                     skillsCovered = selectedSkillNames.join(' | ');
                 }
 
-                const locationDetails = newSession.location_type === 'Center' ? `سنتر: ${newSession.center_name}` : newSession.location_type;
-                const formattedDateText = `${newSession.session_date} | ${newSession.start_time} - ${newSession.end_time}`;
+                const locationDetails = newSession.location_type === 'Center' 
+                    ? `سنتر: ${newSession.center_name} (+${centerFee} EGP)` 
+                    : (newSession.location_type === 'Home' ? 'منزل الطالب' : 'Online');
 
-                const { error } = await supabase.from('sessions').insert([{
+                const dateObj = new Date(newSession.session_date);
+                const dayName = dateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long' });
+                const formattedDateText = `${newSession.session_date} (${dayName}) | ${newSession.start_time} - ${newSession.end_time}`;
+
+                const { data: sessionData, error: sessionError } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
                     duration_hours: calculatedDuration,
                     strand: strandName,
@@ -254,116 +355,474 @@
                     skills_covered: skillsCovered,
                     calculated_cost: totalCalculatedCost,
                     is_paid: false
-                }]);
-
-                if (error) {
-                    setMsg('❌ Error: ' + error.message);
-                    return;
+                }]).select();
+                
+                if (sessionError) {
+                    setMsg('❌ Error: ' + sessionError.message);
+                    return setTimeout(() => setMsg(''), 4000);
                 }
-
-                setMsg(`✅ Session documented successfully!`);
+                
+                setMsg(lang === 'ar' ? `✅ تم توثيق الحصة (${calculatedDuration} ساعة) بنجاح!` : `✅ Session documented!`);
+                setLastLoggedInfo({
+                    student: selectedStudentObj,
+                    duration: calculatedDuration,
+                    timeText: formattedDateText,
+                    cost: totalCalculatedCost,
+                    strand: strandName,
+                    topic: lessonTopic,
+                    skill: skillsCovered,
+                    location: locationDetails,
+                    isEgyptian: (isArabicMode || isLanguagesMode)
+                });
+                
                 setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
                 fetchSessions();
                 setTimeout(() => setMsg(''), 4000);
             }
 
+            const sendWelcomeWhatsApp = (target) => {
+                if (!lastAddedStudent) return;
+                const { student_name, student_phone, parent_phone } = lastAddedStudent;
+                const formatPhone = (p) => {
+                    let clean = (p || '').replace(/\D/g, '');
+                    if (clean.startsWith('0')) clean = '2' + clean;
+                    return clean;
+                };
+                const targetPhone = target === 'student' ? formatPhone(student_phone) : formatPhone(parent_phone);
+                if (!targetPhone) return alert('رقم الهاتف المطلوب غير متوفر!');
+
+                const welcomeMsg = `أهلاً بحضرتك/ك في أكاديمية Jebali للرياضيات 📐\n\nتم إنشاء حساب خاص للطالب/ة: *${student_name}*\n\nبوابات الدخول:\n• بوابة الطالب: https://jebali-math-academy.pages.dev/student.html\n• بوابة ولي الأمر: https://jebali-math-academy.pages.dev/parent.html\n\nيمكنك تسجيل الدخول برقم الهاتف أو البريد الإلكتروني وتعيين كلمة المرور الخاصة بك مباشرة.\n\nبالتوفيق دائماً!`;
+                window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(welcomeMsg)}`, '_blank');
+            };
+
+            const sendWhatsApp = (target) => {
+                if (!lastLoggedInfo) return;
+                const { student, duration, timeText, cost, strand, topic, skill, location, isEgyptian } = lastLoggedInfo;
+                const formatPhone = (p) => {
+                    let clean = (p || '').replace(/\D/g, '');
+                    if (clean.startsWith('0')) clean = '2' + clean;
+                    return clean;
+                };
+                const parentPhone = formatPhone(student.parent_phone);
+                const studentPhone = formatPhone(student.student_phone);
+                const totalUnpaid = sessionsList.filter(s => s.student_id === student.id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
+
+                let academicDetails = isEgyptian 
+                    ? `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
+                    : `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• Strand: ${strand}\n• Skills:\n- ${skill.replace(/ \| /g, '\n- ')}`;
+
+                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم توثيق حصة جديدة للطالب/ة: *${student.student_name}*` + academicDetails + `\n\n• التكلفة: ${cost} جنيه\n• المستحقات المعلقة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay:\nhttps://jebali-math-academy.pages.dev/parent.html`;
+                const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم:` + academicDetails + `\nتابع واجبك عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
+
+                if (target === 'parent') {
+                    if (!parentPhone) return alert('رقم ولي الأمر غير مسجل!');
+                    window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
+                } else if (target === 'student') {
+                    if (!studentPhone) return alert('رقم الطالب غير مسجل!');
+                    window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank');
+                } else if (target === 'both') {
+                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
+                    if (studentPhone) setTimeout(() => window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank'), 600);
+                }
+            };
+
+            const sendPaymentReminder = (sessionItem) => {
+                const student = sessionItem.students;
+                if (!student || !student.parent_phone) return alert('رقم ولي الأمر غير متوفر!');
+                let phone = student.parent_phone.replace(/\D/g, '');
+                if (phone.startsWith('0')) phone = '2' + phone;
+                const studentUnpaid = sessionsList.filter(s => s.student_id === sessionItem.student_id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
+                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nيوجد مستحقات مالية معلقة للطالب/ة *${student.student_name}* بقيمة *${studentUnpaid} جنيه مصري*.\nنرجو السداد عبر InstaPay. شكراً لتعاونكم!`;
+                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderMsg)}`, '_blank');
+            };
+
+            async function togglePaymentStatus(sessionId, currentStatus) {
+                await supabase.from('sessions').update({ is_paid: !currentStatus }).eq('id', sessionId);
+                fetchSessions();
+            }
+
+            async function deleteSession(sessionId) {
+                if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه الحصة؟' : 'Are you sure to delete this session?')) return;
+                await supabase.from('sessions').delete().eq('id', sessionId);
+                fetchSessions();
+            }
+
             if (!session) {
                 return (
-                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                        <div className="absolute top-6 left-6 flex gap-2">
+                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">
+                                🌐 {lang === 'ar' ? 'English' : 'العربية'}
+                            </button>
+                            <a href="index.html" className="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">
+                                🏠 {t.home}
+                            </a>
+                        </div>
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
-                            <h2 className="text-3xl font-black text-center mb-6">Admin Login</h2>
-                            {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold">{loginError}</p>}
+                            <div className="text-6xl mb-4 text-center">👨‍‍🏫</div>
+                            <h2 className="text-3xl font-black text-center mb-6">{lang === 'ar' ? 'لوحة الإدارة' : 'Admin Login'}</h2>
+                            {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
                             <form onSubmit={handleLogin} className="space-y-4">
-                                <input type="email" placeholder="Email" required className="w-full p-4 glass-input rounded-xl" value={email} onChange={e => setEmail(e.target.value)} />
-                                <input type="password" placeholder="Password" required className="w-full p-4 glass-input rounded-xl" value={password} onChange={e => setPassword(e.target.value)} />
-                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">Login</button>
+                                <input type="email" placeholder={lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} required className="w-full p-4 glass-input rounded-xl font-bold" value={email} onChange={e => setEmail(e.target.value)} />
+                                <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold" value={password} onChange={e => setPassword(e.target.value)} />
+                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">{lang === 'ar' ? 'تسجيل الدخول' : 'Login'}</button>
                             </form>
                         </div>
                     </div>
                 );
             }
 
+            const totalCollected = sessionsList.filter(s => s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
+            const totalPending = sessionsList.filter(s => !s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
+
             return (
-                <div className="p-4 md:p-8 max-w-6xl mx-auto font-cairo" dir="rtl">
+                <div className="p-4 md:p-8 max-w-6xl mx-auto font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
-                        <h1 className="text-xl font-black">{t.title}</h1>
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">📐</div>
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-black">{t.title}</h1>
+                                <p className="text-blue-200 font-bold text-xs md:text-sm">{t.subtitle}</p>
+                            </div>
+                        </div>
                         <div className="flex gap-2">
-                            <a href="index.html" className="px-4 py-2 glass-card rounded-xl font-bold text-xs">🏠 {t.home}</a>
-                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs">{t.logout}</button>
+                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-xs transition">
+                                🌐 {lang === 'ar' ? 'English' : 'العربية'}
+                            </button>
+                            <a href="index.html" className="px-4 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">
+                                🏠 {t.home}
+                            </a>
+                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-xs transition">{t.logout}</button>
                         </div>
                     </header>
 
-                    {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 text-emerald-100">{msg}</div>}
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <div className="glass-card p-8 rounded-3xl">
-                            <h3 className="text-xl font-black mb-6">{t.addStudent}</h3>
-                            <form onSubmit={handleAddStudent} className="space-y-4">
-                                <input type="text" placeholder="Full Name" required className="w-full p-3 glass-input rounded-xl" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input type="tel" placeholder="Student Phone" className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
-                                    <input type="tel" placeholder="Parent Phone" required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
-                                </div>
-                                <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
-                                    <option value="egyptian_arabic">🇪🇬 مصري (عربي)</option>
-                                    <option value="egyptian_languages">🌐 مصري (لغات)</option>
-                                    <option value="igcse">🇬🇧 IGCSE</option>
-                                    <option value="american">🇺🇸 American</option>
-                                    <option value="ib">🌍 IB</option>
-                                </select>
-                                <input type="number" placeholder="Hourly Rate (EGP)" required className="w-full p-3 glass-input rounded-xl" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
-                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl">Save Student</button>
-                            </form>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
+                            <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{t.collected}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalCollected} <span className="text-xl text-blue-200">EGP</span></h3>
                         </div>
-
-                        <div className="glass-card p-8 rounded-3xl">
-                            <h3 className="text-xl font-black mb-6">{t.docSession}</h3>
-                            <form onSubmit={handleAddSession} className="space-y-4">
-                                <select required className="w-full p-3 glass-input rounded-xl" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
-                                    <option value="" disabled>-- Select Student --</option>
-                                    {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
-                                </select>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input type="time" required className="w-full p-3 glass-input rounded-xl" value={newSession.start_time} onChange={e => setNewSession({...newSession, start_time: e.target.value})} />
-                                    <input type="time" required className="w-full p-3 glass-input rounded-xl" value={newSession.end_time} onChange={e => setNewSession({...newSession, end_time: e.target.value})} />
-                                </div>
-
-                                {(isArabicMode || isLanguagesMode) && (
-                                    <div className="space-y-3 p-4 bg-blue-500/10 rounded-xl">
-                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
-                                            <option value="" disabled>-- Term --</option>
-                                            {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
-                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
-                                            <option value="" disabled>-- Branch --</option>
-                                            {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                                        </select>
-                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
-                                            <option value="" disabled>-- Lesson --</option>
-                                            {egLessons.map(l => <option key={l.id} value={l.id}>{l.unit_title} - {l.lesson_title}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {(isIgcseMode || isAmericanMode || isIbMode) && (
-                                    <div className="space-y-3 p-4 bg-emerald-500/10 rounded-xl">
-                                        <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
-                                            <option value="" disabled>-- Select Strand --</option>
-                                            {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        <select multiple required disabled={!newSession.int_strand} className="w-full glass-input rounded-xl text-sm" value={newSession.int_skills} onChange={e => {
-                                            const values = Array.from(e.target.selectedOptions, option => option.value);
-                                            setNewSession({...newSession, int_skills: values});
-                                        }}>
-                                            {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skill_name}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-
-                                <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl">Document Session</button>
-                            </form>
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
+                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{t.pending}</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalPending} <span className="text-xl text-blue-200">EGP</span></h3>
                         </div>
                     </div>
+
+                    {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-100">{msg}</div>}
+
+                    {lastAddedStudent && (
+                        <div className="glass-card p-6 rounded-3xl mb-8 border border-emerald-500/50 bg-emerald-500/10 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                                <h4 className="font-black text-white text-base">✨ Student ({lastAddedStudent.student_name}) saved!</h4>
+                                <p className="text-xs text-emerald-200 mt-1">Send credentials via WhatsApp:</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => sendWelcomeWhatsApp('parent')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition">💬 Parent WhatsApp</button>
+                                <button onClick={() => sendWelcomeWhatsApp('student')} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition">💬 Student WhatsApp</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <h3 className="text-xl font-black mb-6 text-white">{t.studentsRecord}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right">
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">Student Name</th>
+                                        <th className="pb-3 px-4">System & Grade</th>
+                                        <th className="pb-3 px-4">Credentials</th>
+                                        <th className="pb-3 px-4 text-center">Profile</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {students.map(st => (
+                                        <tr key={st.id} className="border-b border-white/5 hover:bg-white/5 transition">
+                                            <td className="py-4 px-4 font-bold text-white">{st.student_name}</td>
+                                            <td className="py-4 px-4 text-xs text-blue-200">
+                                                <div>{st.curriculum_system}</div>
+                                                <div className="font-semibold text-slate-300">{st.grade_level}</div>
+                                            </td>
+                                            <td className="py-4 px-4 text-xs">
+                                                <div>📧 {st.email || 'Not set'}</div>
+                                                <div className="text-orange-300 font-bold">🔑 {st.password || 'Not set'}</div>
+                                            </td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button onClick={() => { setViewingStudentModal(st); setEditStudentForm(st); setIsEditingStudent(false); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition">📁 Profile</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        {/* إضافة طالب */}
+                        <div className="glass-card p-8 rounded-3xl relative">
+                            <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
+                            <h3 className="text-2xl font-black mb-6">{t.addStudent}</h3>
+                            <form onSubmit={handleAddStudent} className="space-y-4">
+                                <input type="text" placeholder={t.studentName} required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="tel" placeholder={t.studentPhone} className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
+                                    <input type="tel" placeholder={t.parentPhone} required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="email" placeholder={t.studentEmail} className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_email} onChange={e => setNewStudent({...newStudent, student_email: e.target.value})} />
+                                    <input type="text" placeholder={t.studentPass} className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
+                                        <option value="egyptian_arabic">🇪🇬 مصري (عربي)</option>
+                                        <option value="egyptian_languages">🌐 مصري (لغات)</option>
+                                        <option value="igcse">🇬🇧 IGCSE</option>
+                                        <option value="american">🇺🇸 American</option>
+                                        <option value="ib">🌍 IB</option>
+                                    </select>
+                                    {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') ? (
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.schoolStage} onChange={e => setNewStudent({...newStudent, schoolStage: e.target.value})}>
+                                            <option value="primary">الابتدائية</option>
+                                            <option value="prep">الإعدادية</option>
+                                            <option value="secondary">الثانوية</option>
+                                        </select>
+                                    ) : (
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                            <option value="" disabled>-- Grade --</option>
+                                            <option value="Grade 10">Grade 10</option>
+                                            <option value="Grade 11">Grade 11</option>
+                                            <option value="Grade 12">Grade 12</option>
+                                        </select>
+                                    )}
+                                </div>
+                                {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') && (
+                                    <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                        <option value="" disabled>-- حدد الصف بدقة --</option>
+                                        {getEgyptianGradesList().map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                )}
+                                <input type="number" placeholder={t.rate} required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
+                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition">{t.saveStudent}</button>
+                            </form>
+                        </div>
+
+                        {/* توثيق الحصة */}
+                        <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
+                            <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
+                            <div>
+                                <h3 className="text-2xl font-black mb-6">{t.docSession}</h3>
+                                <form onSubmit={handleAddSession} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
+                                            <option value="" disabled>1. {t.selectStudent}</option>
+                                            {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                        </select>
+                                        <input type="date" required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.session_date} onChange={e => setNewSession({...newSession, session_date: e.target.value})} />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                                        <div>
+                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">⏰ {t.startTime}:</label>
+                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.start_time} onChange={e => setNewSession({...newSession, start_time: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">🏁 {t.endTime}:</label>
+                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.end_time} onChange={e => setNewSession({...newSession, end_time: e.target.value})} />
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 border border-white/10 bg-white/5 rounded-xl space-y-3">
+                                        <label className="text-xs font-bold text-blue-200 block">📍 {t.location}:</label>
+                                        <select className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newSession.location_type} onChange={e => setNewSession({...newSession, location_type: e.target.value})}>
+                                            <option value="Online">{t.online}</option>
+                                            <option value="Home">{t.home}</option>
+                                            <option value="Center">{t.center}</option>
+                                        </select>
+                                        {newSession.location_type === 'Center' && (
+                                            <div className="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-white/10">
+                                                <input type="text" placeholder={t.centerName} required className="w-full p-2.5 glass-input rounded-xl text-xs font-bold" value={newSession.center_name} onChange={e => setNewSession({...newSession, center_name: e.target.value})} />
+                                                <input type="number" placeholder={t.centerFees} required className="w-full p-2.5 glass-input rounded-xl text-xs font-bold" value={newSession.center_fees} onChange={e => setNewSession({...newSession, center_fees: e.target.value})} />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {(isArabicMode || isLanguagesMode) && (
+                                        <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
+                                            <div className="flex justify-between items-center text-xs font-bold text-blue-200">
+                                                <span>🟢 منهج مصري:</span>
+                                                <span className="bg-blue-600/40 text-blue-100 px-2 py-0.5 rounded">{selectedStudentObj?.grade_level}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
+                                                    <option value="" disabled>-- الترم --</option>
+                                                    {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
+                                                </select>
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
+                                                    <option value="" disabled>-- الفرع --</option>
+                                                    {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                                                </select>
+                                            </div>
+                                            <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
+                                                <option value="" disabled>-- الدرس المحدد --</option>
+                                                {egLessons.map(l => <option key={l.id} value={l.id}>[الوحدة: {l.unit_title}] {l.lesson_title}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {(isIgcseMode || isAmericanMode || isIbMode) && (
+                                        <div className="space-y-3 p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl">
+                                            <p className="text-xs font-bold text-emerald-200">🟣 المهارات الدولية:</p>
+                                            <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
+                                                <option value="" disabled>-- اختر المجال --</option>
+                                                {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <div>
+                                                <select multiple required disabled={!newSession.int_strand} className="w-full glass-input rounded-xl font-bold text-sm" value={newSession.int_skills} onChange={e => {
+                                                    const values = Array.from(e.target.selectedOptions, option => option.value);
+                                                    setNewSession({...newSession, int_skills: values});
+                                                }}>
+                                                    {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skill_name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition mt-4 disabled:opacity-50 shadow-lg">{t.saveSession}</button>
+                                </form>
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-white/10">
+                                {lastLoggedInfo ? (
+                                    <div>
+                                        <h4 className="text-sm font-black text-blue-200 mb-2">إرسال التقرير والفاتورة عبر WhatsApp:</h4>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => sendWhatsApp('parent')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black transition">👨‍👩‍👦 ولي الأمر</button>
+                                            <button onClick={() => sendWhatsApp('student')} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black transition">👨‍🎓 الطالب</button>
+                                            <button onClick={() => sendWhatsApp('both')} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-black transition">👥 معاً</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-center text-blue-200">سجل حصة لتظهر خيارات الإرسال الفوري.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
+                        <h3 className="text-xl font-black mb-6 text-white">{t.sessionsRecord}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right">
+                                <thead>
+                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
+                                        <th className="pb-3 px-4">Student</th>
+                                        <th className="pb-3 px-4">Session Details</th>
+                                        <th className="pb-3 px-4">Cost</th>
+                                        <th className="pb-3 px-4">Status & Reminder</th>
+                                        <th className="pb-3 px-4 text-center">Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sessionsList.map(s => (
+                                        <tr key={s.id} className="border-b border-white/5 hover:bg-white/5 transition">
+                                            <td className="py-4 px-4 font-bold text-white">{s.students?.student_name}</td>
+                                            <td className="py-4 px-4 text-xs max-w-sm">
+                                                <div className="font-bold text-white">{s.lesson_topic}</div>
+                                                <div className="text-blue-300">{s.strand}</div>
+                                                <div className="text-emerald-300">{s.skills_covered}</div>
+                                            </td>
+                                            <td className="py-4 px-4 font-black text-orange-300">{s.calculated_cost} EGP</td>
+                                            <td className="py-4 px-4 space-x-2 space-x-reverse">
+                                                <button onClick={() => togglePaymentStatus(s.id, s.is_paid)} className={`px-3 py-1 rounded-xl text-xs font-black transition ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-orange-500 text-white'}`}>
+                                                    {s.is_paid ? `✅ ${t.paid}` : `💵 ${t.confirmPay}`}
+                                                </button>
+                                                {!s.is_paid && (
+                                                    <button onClick={() => sendPaymentReminder(s)} className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition inline-flex items-center gap-1 shadow-md">
+                                                        <span>🔔</span> {t.reminder}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button onClick={() => deleteSession(s.id)} className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition">🗑</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {viewingStudentModal && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+                            <div className="glass-card p-8 rounded-3xl max-w-lg w-full border border-white/20 shadow-2xl relative">
+                                <button onClick={() => setViewingStudentModal(null)} className="absolute top-4 left-4 text-slate-400 hover:text-white text-2xl font-bold">×</button>
+                                {!isEditingStudent ? (
+                                    <div>
+                                        <div className="text-center mb-6">
+                                            <div className="text-5xl mb-2">🎓</div>
+                                            <h3 className="text-2xl font-black text-white">{viewingStudentModal.student_name}</h3>
+                                            <p className="text-blue-200 text-sm font-bold mt-1">{viewingStudentModal.curriculum_system} • {viewingStudentModal.grade_level}</p>
+                                        </div>
+                                        <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-sm">
+                                            <div><span className="text-slate-400">Student Phone:</span> <strong className="text-white">{viewingStudentModal.student_phone || 'N/A'}</strong></div>
+                                            <div><span className="text-slate-400">Parent Phone:</span> <strong className="text-emerald-300">{viewingStudentModal.parent_phone}</strong></div>
+                                            <div><span className="text-slate-400">Email:</span> <strong className="text-white">{viewingStudentModal.email || 'Not set'}</strong></div>
+                                            <div><span className="text-slate-400">Password:</span> <strong className="text-orange-300">{viewingStudentModal.password || 'Not set'}</strong></div>
+                                            <div><span className="text-slate-400">Hourly Rate:</span> <strong className="text-orange-300">{viewingStudentModal.hourly_rate} EGP</strong></div>
+                                        </div>
+                                        <div className="mt-6 pt-4 border-t border-white/10 flex gap-3">
+                                            <button onClick={() => setIsEditingStudent(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">✏️ Edit Profile</button>
+                                            <button onClick={() => setViewingStudentModal(null)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition">Close</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleUpdateStudent} className="space-y-4">
+                                        <h3 className="text-xl font-black text-white mb-4 border-b border-white/10 pb-2">✏️ Edit Student Profile</h3>
+                                        <div>
+                                            <label className="text-xs text-blue-200 block mb-1">Student Name:</label>
+                                            <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.student_name || ''} onChange={e => setEditStudentForm({...editStudentForm, student_name: e.target.value})} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">Student Phone:</label>
+                                                <input type="tel" className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.student_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, student_phone: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">Parent Phone:</label>
+                                                <input type="tel" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.parent_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, parent_phone: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">Email:</label>
+                                                <input type="email" className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.email || ''} onChange={e => setEditStudentForm({...editStudentForm, email: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">Password:</label>
+                                                <input type="text" className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.password || ''} onChange={e => setEditStudentForm({...editStudentForm, password: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">System:</label>
+                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.curriculum_system || ''} onChange={e => setEditStudentForm({...editStudentForm, curriculum_system: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">Grade:</label>
+                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.grade_level || ''} onChange={e => setEditStudentForm({...editStudentForm, grade_level: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-blue-200 block mb-1">Hourly Rate (EGP):</label>
+                                            <input type="number" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.hourly_rate || ''} onChange={e => setEditStudentForm({...editStudentForm, hourly_rate: e.target.value})} />
+                                        </div>
+                                        <div className="flex gap-3 pt-2">
+                                            <button type="submit" className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">Save Changes ✅</button>
+                                            <button type="button" onClick={() => setIsEditingStudent(false)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition">Cancel</button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
