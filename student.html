@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة الطالب المتقدمة | Jebali Math Academy</title>
+    <title>بوابة الطالب | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -11,7 +11,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- KaTeX لعرض المعادلات الرياضية باحترافية -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
@@ -20,11 +19,19 @@
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 12px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
-    <div id="root"></div>
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="text-4xl mb-3 animate-spin">⏳</div>
+                <p class="text-blue-200 font-bold text-sm">جاري تحميل البوابة...</p>
+            </div>
+        </div>
+    </div>
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
@@ -49,13 +56,10 @@
             const [authMode, setAuthMode] = useState('login');
 
             const [sessions, setSessions] = useState([]);
-            
-            // حالات مساعد الجبر الذكي والاختبار الذاتي
             const [selectedTopic, setSelectedTopic] = useState('');
             const [submittingHw, setSubmittingHw] = useState(false);
             const [submitSuccess, setSubmitSuccess] = useState('');
 
-            // مسألة اختبار ذاتي تجريبية تفاعلية
             const [selfTestAnswer, setSelfTestAnswer] = useState('');
             const [testResultMsg, setTestResultMsg] = useState('');
 
@@ -65,55 +69,65 @@
 
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setAuthSession(session);
-                    if (session) fetchStudentProfile(session.user.email);
-                });
+                    if (session && session.user) fetchStudentProfile(session.user.email);
+                }).catch(err => console.error(err));
 
-                supabase.auth.onAuthStateChange((_event, session) => {
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
                     setAuthSession(session);
-                    if (session) fetchStudentProfile(session.user.email);
-                    else {
+                    if (session && session.user) {
+                        fetchStudentProfile(session.user.email);
+                    } else {
                         setStudentData(null);
                         setSessions([]);
                     }
                 });
+
+                return () => subscription.unsubscribe();
             }, [lang]);
 
-            // تفعيل KaTeX تلقائياً عند تحميل البيانات
             useEffect(() => {
-                setTimeout(() => {
-                    if (window.renderMathInElement) {
-                        window.renderMathInElement(document.body, {
-                            delimiters: [
-                                {left: "$$", right: "$$", display: true},
-                                {left: "$", right: "$", display: false}
-                            ]
-                        });
-                    }
-                }, 500);
-            }, [studentData, sessions]);
+                try {
+                    setTimeout(() => {
+                        if (window.renderMathInElement) {
+                            window.renderMathInElement(document.body, {
+                                delimiters: [
+                                    {left: "$$", right: "$$", display: true},
+                                    {left: "$", right: "$", display: false}
+                                ]
+                            });
+                        }
+                    }, 400);
+                } catch(e) {}
+            }, [authSession, studentData]);
 
             async function fetchStudentProfile(userEmail) {
-                const { data } = await supabase
-                    .from('students')
-                    .select('*')
-                    .ilike('email', userEmail)
-                    .single();
+                try {
+                    const { data } = await supabase
+                        .from('students')
+                        .select('*')
+                        .ilike('email', userEmail)
+                        .single();
 
-                if (data) {
-                    setStudentData(data);
-                    fetchStudentSessions(data.id);
-                } else {
+                    if (data) {
+                        setStudentData(data);
+                        fetchStudentSessions(data.id);
+                    } else {
+                        setStudentData({ student_name: 'الطالب', curriculum_system: 'General', grade_level: 'N/A' });
+                    }
+                } catch (e) {
                     setStudentData({ student_name: 'الطالب', curriculum_system: 'General', grade_level: 'N/A' });
                 }
             }
 
             async function fetchStudentSessions(studentId) {
-                const { data: sessData } = await supabase
-                    .from('sessions')
-                    .select('*')
-                    .eq('student_id', studentId)
-                    .order('created_at', { ascending: false });
-                if (sessData) setSessions(sessData);
+                try {
+                    const { data: sessData } = await supabase
+                        .from('sessions')
+                        .select('*')
+                        .eq('student_id', studentId)
+                        .order('created_at', { ascending: false });
+                    if (sessData) setSessions(sessData);
+                } catch (e) {}
             }
 
             async function handleLogin(e) {
@@ -121,25 +135,29 @@
                 setLoading(true);
                 setErrorMsg('');
 
-                let targetEmail = loginInput.trim();
-                if (!targetEmail.includes('@')) {
-                    const cleanPhone = targetEmail.replace(/\D/g, '');
-                    const { data: stRecord } = await supabase
-                        .from('students')
-                        .select('email')
-                        .ilike('student_phone', `%${cleanPhone}%`)
-                        .single();
+                try {
+                    let targetEmail = loginInput.trim();
+                    if (!targetEmail.includes('@')) {
+                        const cleanPhone = targetEmail.replace(/\D/g, '');
+                        const { data: stRecord } = await supabase
+                            .from('students')
+                            .select('email')
+                            .ilike('student_phone', `%${cleanPhone}%`)
+                            .single();
 
-                    if (!stRecord || !stRecord.email) {
-                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد مسجل لهذا الهاتف.' : 'No email found.');
-                        setLoading(false);
-                        return;
+                        if (!stRecord || !stRecord.email) {
+                            setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد مسجل لهذا الهاتف.' : 'No email found.');
+                            setLoading(false);
+                            return;
+                        }
+                        targetEmail = stRecord.email;
                     }
-                    targetEmail = stRecord.email;
-                }
 
-                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
-                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول.' : 'Invalid credentials.');
+                    const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                    if (error) setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول.' : 'Invalid credentials.');
+                } catch (err) {
+                    setErrorMsg('Login error occurred.');
+                }
                 setLoading(false);
             }
 
@@ -150,16 +168,20 @@
                 setErrorMsg('');
                 setSuccessMsg('');
 
-                let targetEmail = loginInput.trim();
-                if (!targetEmail.includes('@')) {
-                    const cleanPhone = targetEmail.replace(/\D/g, '');
-                    const { data: stRecord } = await supabase.from('students').select('email').ilike('student_phone', `%${cleanPhone}%`).single();
-                    if (stRecord && stRecord.email) targetEmail = stRecord.email;
-                }
+                try {
+                    let targetEmail = loginInput.trim();
+                    if (!targetEmail.includes('@')) {
+                        const cleanPhone = targetEmail.replace(/\D/g, '');
+                        const { data: stRecord } = await supabase.from('students').select('email').ilike('student_phone', `%${cleanPhone}%`).single();
+                        if (stRecord && stRecord.email) targetEmail = stRecord.email;
+                    }
 
-                const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
-                if (error) setErrorMsg('Error: ' + error.message);
-                else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!' : '📬 Reset link sent!');
+                    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
+                    if (error) setErrorMsg('Error: ' + error.message);
+                    else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط استعادة كلمة المرور!' : '📬 Reset link sent!');
+                } catch (err) {
+                    setErrorMsg('Error occurred.');
+                }
                 setLoading(false);
             }
 
@@ -187,11 +209,10 @@
                 }
             }
 
-            // معالجة حل الاختبار الذاتي وإرساله للمعلم
             async function handleSelfTestSubmit(e) {
                 e.preventDefault();
                 if (!selfTestAnswer) return;
-                setTestResultMsg(lang === 'ar' ? '⏳ جاري إرسال الحل للأستاذ للمراجعة...' : '⏳ Submitting answer...');
+                setTestResultMsg(lang === 'ar' ? '⏳ جاري إرسال الحل للأستاذ...' : '⏳ Submitting answer...');
                 
                 try {
                     await fetch(API_WORKER_URL, {
@@ -204,7 +225,7 @@
                             feedback: `إجابة الطالب في الاختبار الذاتي: ${selfTestAnswer}`
                         })
                     });
-                    setTestResultMsg(lang === 'ar' ? '🎉 تم إرسال الحل بنجاح وسيتم تقييمه من الأستاذ قريباً!' : '🎉 Answer submitted successfully!');
+                    setTestResultMsg(lang === 'ar' ? '🎉 تم إرسال الحل بنجاح!' : '🎉 Answer submitted successfully!');
                     setSelfTestAnswer('');
                 } catch (err) {
                     setTestResultMsg('❌ Error submitting answer.');
@@ -273,7 +294,6 @@
                         </div>
                     </header>
 
-                    {/* مساعد الجبر الذكي والاختبار الذاتي التفاعلي */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-blue-600/10">
                         <h3 className="text-lg font-black mb-2 flex items-center gap-2">
                             <span>⚡</span> {lang === 'ar' ? 'مساعد الجبر الذكي والاختبار الذاتي' : 'Smart Math Assistant & Self-Test'}
