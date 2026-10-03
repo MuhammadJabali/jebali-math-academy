@@ -674,7 +674,13 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'النظام الدراسي' : 'Curriculum'}</label>
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})}>
+                                        <select 
+                                            required 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" 
+                                            value={newStudent.system} 
+                                            /* عند تغيير النظام، يتم مسح المرحلة القديمة تلقائياً */
+                                            onChange={e => setNewStudent({...newStudent, system: e.target.value, grade: ''})}
+                                        >
                                             <option value="" disabled>{isArabic ? '-- اختر النظام --' : '-- Select System --'}</option>
                                             <option value="IGCSE">IGCSE (British)</option>
                                             <option value="IB">IB (International Baccalaureate)</option>
@@ -684,15 +690,43 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade'}</label>
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
-                                            <option value="" disabled>{isArabic ? '-- اختر المرحلة --' : '-- Select Grade --'}</option>
-                                            <option value="Grade 7 / Year 8">Grade 7 / Year 8</option>
-                                            <option value="Grade 8 / Year 9">Grade 8 / Year 9</option>
-                                            <option value="Grade 9 / Year 10">Grade 9 / Year 10</option>
-                                            <option value="Grade 10 / Year 11">Grade 10 / Year 11</option>
-                                            <option value="Grade 11 / Year 12">Grade 11 / Year 12</option>
-                                            <option value="Grade 12 / Year 13">Grade 12 / Year 13</option>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade / Year'}</label>
+                                        <select 
+                                            required 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed" 
+                                            value={newStudent.grade} 
+                                            onChange={e => setNewStudent({...newStudent, grade: e.target.value})}
+                                            disabled={!newStudent.system} /* إيقاف التفعيل حتى يتم اختيار النظام */
+                                        >
+                                            <option value="" disabled>
+                                                {isArabic 
+                                                    ? (newStudent.system ? '-- اختر المرحلة --' : '-- اختر النظام أولاً --') 
+                                                    : (newStudent.system ? '-- Select Grade --' : '-- Select System First --')}
+                                            </option>
+                                            
+                                            {/* عرض المراحل البريطانية فقط إذا تم اختيار IGCSE */}
+                                            {newStudent.system === 'IGCSE' && (
+                                                <>
+                                                    <option value="Year 8">Year 8 (Pre-IG)</option>
+                                                    <option value="Year 9">Year 9 (Pre-IG)</option>
+                                                    <option value="Year 10">Year 10 (IGCSE / O-Level)</option>
+                                                    <option value="Year 11">Year 11 (IGCSE / O-Level)</option>
+                                                    <option value="Year 12">Year 12 (AS-Level)</option>
+                                                    <option value="Year 13">Year 13 (A2-Level)</option>
+                                                </>
+                                            )}
+                                            
+                                            {/* عرض المراحل الأمريكية والوطنية لباقي الأنظمة */}
+                                            {newStudent.system && newStudent.system !== 'IGCSE' && (
+                                                <>
+                                                    <option value="Grade 7">Grade 7</option>
+                                                    <option value="Grade 8">Grade 8</option>
+                                                    <option value="Grade 9">Grade 9</option>
+                                                    <option value="Grade 10">Grade 10</option>
+                                                    <option value="Grade 11">Grade 11</option>
+                                                    <option value="Grade 12">Grade 12</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
                                 </div>
@@ -1075,7 +1109,7 @@
                                                     title={isArabic ? 'حذف ملف الطالب' : 'Delete Student'}
                                                     className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition"
                                                 >
-                                                    🗑️️
+                                                    🗑
                                                 </button>
                                             </td>
                                         </tr>
