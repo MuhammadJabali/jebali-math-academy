@@ -23,9 +23,8 @@
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
 
-        /* عزل وتنسيق المعادلات الرياضية */
-        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
-        .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
+        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.05em; }
+        .katex-display { margin: 0.4em 0; overflow-x: auto; overflow-y: hidden; }
 
         @media print {
             body { background: white !important; color: black !important; }
@@ -79,6 +78,30 @@
             );
         }
 
+        // دالة استخراج بطاقات التقرير الموجز لولي الأمر (نقاط قوة / نقاط ضعف / خطة علاج)
+        function parseExecutiveSummary(text, isArabic) {
+            if (!text) return null;
+
+            let strengths = '';
+            let weaknesses = '';
+            let actionPlan = '';
+
+            // البحث باللغة الإنجليزية أو العربية
+            const strengthsMatch = text.match(/(?:\*\*Strengths:\*\*|\*\*نقاط القوة:\*\*|Strengths:|نقاط القوة:)([\s\S]*?)(?=(?:\*\*Errors|\*\*الأخطاء|Errors:|الأخطاء:|$))/i);
+            const weaknessesMatch = text.match(/(?:\*\*Errors & Corrections:\*\*|\*\*الأخطاء والملاحظات:\*\*|Errors & Corrections:|الأخطاء والملاحظات:)([\s\S]*?)(?=(?:\*\*Examiner Tips|\*\*نصيحة المصحح|Examiner Tips:|نصيحة المصحح:|$))/i);
+            const tipsMatch = text.match(/(?:\*\*Examiner Tips for Full Marks:\*\*|\*\*نصيحة المصحح للحصول على الدرجة الكاملة:\*\*|Examiner Tips:|نصيحة المصحح:)([\s\S]*?)$/i);
+
+            if (strengthsMatch) strengths = strengthsMatch[1].trim();
+            if (weaknessesMatch) weaknesses = weaknessesMatch[1].trim();
+            if (tipsMatch) actionPlan = tipsMatch[1].trim();
+
+            if (!strengths && !weaknesses && !actionPlan) {
+                return null; // إذا كان التقرير بنظام قديم غير مقسم
+            }
+
+            return { strengths, weaknesses, actionPlan };
+        }
+
         function ParentPortal() {
             const [isArabic, setIsArabic] = useState(true);
             const [phone, setPhone] = useState('');
@@ -89,7 +112,6 @@
             const [isLoading, setIsLoading] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
 
-            // إدارة كاش الترجمة الفورية لسجل الواجبات
             const [transCache, setTransCache] = useState({});
             const [loadingTransId, setLoadingTransId] = useState(null);
 
@@ -229,7 +251,7 @@ ${textToTranslate}`;
                         </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-6xl mb-6">👨‍👩‍‍👦</div>
+                            <div className="text-6xl mb-6">👨‍👩‍👦</div>
                             <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}</h2>
                             <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك أو رقم هاتف الطالب للدخول' : 'Enter parent or student phone to view reports'}</p>
                             
@@ -338,7 +360,7 @@ ${textToTranslate}`;
 
                     {/* سجل الحصص والمحتوى الأكاديمي */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white print-text-dark">{isArabic ? '🗓️ سجل الحصص والمحتوى الأكاديمي المشروح' : '🗓️ Academic Sessions Log & Content'}</h3>
+                        <h3 className="text-xl font-black mb-6 text-white print-text-dark">{isArabic ? '🗓️ سجل الحصص والمحتوى الأكاديمي المشروح' : '🗓️️ Academic Sessions Log & Content'}</h3>
                         {sessions.length === 0 ? (
                             <p className="text-blue-200 text-center py-8 font-bold print-text-dark">{isArabic ? 'لا توجد حصص مسجلة حتى الآن.' : 'No sessions logged yet.'}</p>
                         ) : (
@@ -386,34 +408,36 @@ ${textToTranslate}`;
                         )}
                     </div>
 
-                    {/* تقرير الواجبات الأكاديمي مع اعتماد المعلم و KaTeX */}
+                    {/* تقرير الواجبات الأكاديمي الموجز لولي الأمر (الدرجة + نقاط القوة + نقاط الضعف + خطة العلاج) */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-black text-white print-text-dark">{isArabic ? '📝 تقارير الواجبات والدرجات المعتمدة' : '📝 Graded Homework Reports'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1 print-text-dark">{isArabic ? 'تفاصيل كل واجب مع موضوع المسألة والدرجة وتوجيهات المعلم' : 'Tasks with topic, score out of 10, KaTeX formulas, and teacher endorsement'}</p>
+                                <h3 className="text-xl font-black text-white print-text-dark">{isArabic ? '📝 التقرير الموجز لأداء الواجبات والدرجات' : '📝 Executive Homework & Performance Reports'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1 print-text-dark">{isArabic ? 'ملخص درجات الطالب، نقاط إتقانه، الجوانب التي تحتاج معالجة، وتوجيهات المعلم' : 'Concise breakdown: Score, Strengths, Areas for Improvement, and Remediation Plan'}</p>
                             </div>
-                            <span className="text-2xl no-print">🤖</span>
+                            <span className="text-2xl no-print">📊</span>
                         </div>
 
                         {submissions.length === 0 ? (
                             <p className="text-blue-200 text-center py-6 font-bold text-sm print-text-dark">{isArabic ? 'لم يقم الطالب برفع أي واجبات حتى الآن.' : 'No homework submitted yet.'}</p>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {submissions.map((sub, idx) => {
                                     const cached = transCache[sub.id];
                                     const displayedText = cached ? cached.active : sub.ai_feedback;
                                     const isSubArabic = hasArabicLetters(displayedText);
+                                    const summary = parseExecutiveSummary(displayedText, isArabic);
 
                                     return (
-                                        <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                        <div key={sub.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl">
+                                            {/* شريط رأس التقرير: الموضوع + الدرجة + اعتماد المعلم + زر الترجمة */}
+                                            <div className="flex flex-wrap justify-between items-center mb-4 gap-2 border-b border-white/10 pb-4">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold print-text-dark">
-                                                        {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
+                                                    <span className="text-sm bg-indigo-500/20 text-indigo-300 px-3.5 py-1 rounded-full font-black print-text-dark">
+                                                        📖 {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
                                                     </span>
                                                     {sub.score != null && (
-                                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black print-text-dark">
+                                                        <span className="text-sm bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black print-text-dark">
                                                             🎯 {sub.score} / 10
                                                         </span>
                                                     )}
@@ -431,22 +455,69 @@ ${textToTranslate}`;
                                                     <button 
                                                         onClick={() => handleToggleTranslate(sub.id, sub.ai_feedback)}
                                                         disabled={loadingTransId === sub.id}
-                                                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                        className="px-3 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                                                     >
                                                         <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            {/* إظهار ملاحظات المعلم لولي الأمر */}
+                                            {/* إظهار ملاحظة وتوجيه المعلم الخاص إن وُجدت */}
                                             {sub.teacher_note && (
-                                                <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-200 print-text-dark">
-                                                    <span>👨‍🏫 {isArabic ? 'ملاحظة المعلم:' : "Teacher's Note:"} </span>
-                                                    <span className="text-white print-text-dark font-medium">{sub.teacher_note}</span>
+                                                <div className="mb-4 p-4 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl print-text-dark">
+                                                    <span className="text-xs text-emerald-300 font-black block mb-1">👨‍🏫 {isArabic ? 'توجيه وملاحظة المعلم المعتمدة:' : "Teacher's Personal Endorsement:"}</span>
+                                                    <span className="text-sm text-white font-medium">{sub.teacher_note}</span>
                                                 </div>
                                             )}
 
-                                            <MathView content={displayedText} className="text-sm text-slate-100 print-text-dark" />
+                                            {/* إذا توفر التقرير المقسم إلى نقاط قوة وضعف وعلاج */}
+                                            {summary ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    {/* بطاقة نقاط القوة */}
+                                                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex flex-col justify-between">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="text-base">💪</span>
+                                                                <h4 className="text-xs font-black text-emerald-300 uppercase tracking-wide">
+                                                                    {isArabic ? 'نقاط القوة والإتقان' : 'Strengths & Mastery'}
+                                                                </h4>
+                                                            </div>
+                                                            <MathView content={summary.strengths || (isArabic ? 'تمت الإجابة بصورة جيدة.' : 'Well executed.')} className="text-xs text-slate-200 print-text-dark" />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* بطاقة نقاط الضعف والملاحظات */}
+                                                    <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex flex-col justify-between">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="text-base">⚠️</span>
+                                                                <h4 className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                                                                    {isArabic ? 'نقاط الضعف والأخطاء' : 'Areas for Improvement'}
+                                                                </h4>
+                                                            </div>
+                                                            <MathView content={summary.weaknesses || (isArabic ? 'لا توجد أخطاء جوهرية.' : 'No major mistakes.')} className="text-xs text-slate-200 print-text-dark" />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* بطاقة خطة العلاج والتركيز */}
+                                                    <div className="p-4 bg-blue-500/10 border border-blue-500/25 rounded-2xl flex flex-col justify-between">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="text-base">🎯</span>
+                                                                <h4 className="text-xs font-black text-blue-300 uppercase tracking-wide">
+                                                                    {isArabic ? 'ما سيحتاج علاجه مع الطالب' : 'Remediation & Action Plan'}
+                                                                </h4>
+                                                            </div>
+                                                            <MathView content={summary.actionPlan || (isArabic ? 'الاستمرار في التدريب والممارسة.' : 'Continue practice for mastery.')} className="text-xs text-slate-200 print-text-dark" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* في حالة التقارير القديمة غير المقسمة تظهر في بطاقة نظيفة */
+                                                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                                                    <MathView content={displayedText} className="text-xs text-slate-200 print-text-dark" />
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
