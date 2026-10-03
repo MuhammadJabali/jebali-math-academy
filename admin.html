@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="pageTitle">لوحة الإدارة المتكاملة | Jebali Math Academy</title>
+    <title>بوابة الطالب المتقدمة | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- KaTeX لعرض المعادلات الرياضية باحترافية -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
@@ -19,11 +20,7 @@
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
-        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .glass-input option { color: black; background: white; }
-        select[multiple] { height: 140px; }
-        select[multiple] option { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        select[multiple] option:checked { background-color: #f97316 !important; color: white !important; font-weight: bold; }
+        .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 12px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
@@ -37,447 +34,184 @@
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        function AdminPortal() {
+        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
+
+        function StudentPortal() {
             const [lang, setLang] = useState('ar');
-            const [session, setSession] = useState(null);
-            const [email, setEmail] = useState('');
+            const [authSession, setAuthSession] = useState(null);
+            const [studentData, setStudentData] = useState(null);
+            
+            const [loginInput, setLoginInput] = useState('');
             const [password, setPassword] = useState('');
-            const [loginError, setLoginError] = useState('');
-            
-            const [students, setStudents] = useState([]);
-            const [sessionsList, setSessionsList] = useState([]);
-            
-            const [arabicLessons, setArabicLessons] = useState([]);
-            const [languagesLessons, setLanguagesLessons] = useState([]);
-            const [igcseSkillsList, setIgcseSkillsList] = useState([]);
-            const [americanSkillsList, setAmericanSkillsList] = useState([]);
-            const [ibSkillsList, setIbSkillsList] = useState([]);
-            
-            const [viewingStudentModal, setViewingStudentModal] = useState(null);
-            const [isEditingStudent, setIsEditingStudent] = useState(false);
-            const [editStudentForm, setEditStudentForm] = useState({});
+            const [loading, setLoading] = useState(false);
+            const [errorMsg, setErrorMsg] = useState('');
+            const [successMsg, setSuccessMsg] = useState('');
+            const [authMode, setAuthMode] = useState('login');
 
-            const [newStudent, setNewStudent] = useState({ 
-                name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
-            });
+            const [sessions, setSessions] = useState([]);
             
-            const [newSession, setNewSession] = useState({ 
-                student_id: '', 
-                session_date: new Date().toISOString().split('T')[0],
-                start_time: '14:00',
-                end_time: '15:30',
-                location_type: 'Online', 
-                center_name: '',
-                center_fees: '',
-                eg_term: '', eg_branch: '', eg_lesson: '',
-                int_strand: '', int_skills: []
-            });
+            // حالات مساعد الجبر الذكي والاختبار الذاتي
+            const [selectedTopic, setSelectedTopic] = useState('');
+            const [submittingHw, setSubmittingHw] = useState(false);
+            const [submitSuccess, setSubmitSuccess] = useState('');
 
-            const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
-            const [msg, setMsg] = useState('');
-
-            const t = {
-                ar: {
-                    title: "لوحة التحكم | Jebali Math Academy",
-                    subtitle: "نظام الإدارة الشامل",
-                    home: "الرئيسية (Home)",
-                    logout: "خروج",
-                    collected: "المبالغ المحصلة",
-                    pending: "المستحقات المعلقة",
-                    addStudent: "إضافة طالب جديد وبيانات الدخول",
-                    studentName: "اسم الطالب بالكامل",
-                    studentPhone: "هاتف الطالب",
-                    parentPhone: "هاتف ولي الأمر",
-                    studentEmail: "البريد الإلكتروني",
-                    studentPass: "كلمة المرور",
-                    rate: "سعر الساعة (EGP)",
-                    saveStudent: "حفظ وتوليد بيانات الدخول",
-                    docSession: "توثيق حصة",
-                    selectStudent: "اختر الطالب",
-                    startTime: "وقت البدء",
-                    endTime: "وقت الانتهاء",
-                    location: "مكان انعقاد الحصة",
-                    online: "أونلاين (Online)",
-                    homeLoc: "منزل الطالب (Home)",
-                    center: "سنتر تعليمي (Center)",
-                    centerName: "اسم السنتر والعنوان",
-                    centerFees: "تكلفة السنتر الإضافية (EGP)",
-                    saveSession: "وثّق الحصة",
-                    sessionsRecord: "سجل الحصص والمدفوعات",
-                    studentsRecord: "سجل الطلاب المسجلين وملفاتهم",
-                    paid: "مسددة",
-                    confirmPay: "تأكيد السداد",
-                    reminder: "تذكير",
-                    delete: "حذف"
-                },
-                en: {
-                    title: "Admin Dashboard | Jebali Math Academy",
-                    subtitle: "Comprehensive Management System",
-                    home: "Home",
-                    logout: "Logout",
-                    collected: "Collected Amount",
-                    pending: "Pending Dues",
-                    addStudent: "Add Student & Credentials",
-                    studentName: "Full Student Name",
-                    studentPhone: "Student Phone",
-                    parentPhone: "Parent Phone",
-                    studentEmail: "Email",
-                    studentPass: "Password",
-                    rate: "Hourly Rate (EGP)",
-                    saveStudent: "Save & Generate Credentials",
-                    docSession: "Document Session",
-                    selectStudent: "Select Student",
-                    startTime: "Start Time",
-                    endTime: "End Time",
-                    location: "Session Location",
-                    online: "Online",
-                    homeLoc: "Student's Home",
-                    center: "Educational Center",
-                    centerName: "Center Name & Address",
-                    centerFees: "Extra Center Fees (EGP)",
-                    saveSession: "Document Session",
-                    sessionsRecord: "Sessions & Payments Record",
-                    studentsRecord: "Registered Students Directory",
-                    paid: "Paid",
-                    confirmPay: "Confirm Payment",
-                    reminder: "Remind",
-                    delete: "Delete"
-                }
-            }[lang];
+            // مسألة اختبار ذاتي تجريبية تفاعلية
+            const [selfTestAnswer, setSelfTestAnswer] = useState('');
+            const [testResultMsg, setTestResultMsg] = useState('');
 
             useEffect(() => {
                 document.documentElement.lang = lang;
                 document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
                 supabase.auth.getSession().then(({ data: { session } }) => {
-                    setSession(session);
-                    if (session) loadAllData();
+                    setAuthSession(session);
+                    if (session) fetchStudentProfile(session.user.email);
                 });
+
                 supabase.auth.onAuthStateChange((_event, session) => {
-                    setSession(session);
-                    if (session) loadAllData();
+                    setAuthSession(session);
+                    if (session) fetchStudentProfile(session.user.email);
+                    else {
+                        setStudentData(null);
+                        setSessions([]);
+                    }
                 });
             }, [lang]);
 
-            async function loadAllData() {
-                fetchStudents();
-                fetchSessions();
-                fetchCurriculums();
-            }
+            // تفعيل KaTeX تلقائياً عند تحميل البيانات
+            useEffect(() => {
+                setTimeout(() => {
+                    if (window.renderMathInElement) {
+                        window.renderMathInElement(document.body, {
+                            delimiters: [
+                                {left: "$$", right: "$$", display: true},
+                                {left: "$", right: "$", display: false}
+                            ]
+                        });
+                    }
+                }, 500);
+            }, [studentData, sessions]);
 
-            async function fetchStudents() {
-                const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
-                if (data) setStudents(data);
-            }
+            async function fetchStudentProfile(userEmail) {
+                const { data } = await supabase
+                    .from('students')
+                    .select('*')
+                    .ilike('email', userEmail)
+                    .single();
 
-            async function fetchSessions() {
-                const { data } = await supabase.from('sessions').select('*, students(student_name, parent_phone, student_phone, curriculum_system)').order('created_at', { ascending: false }).limit(100);
-                if (data) setSessionsList(data);
-            }
-
-            async function fetchCurriculums() {
-                const { data: arData } = await supabase.from('egyptian_arabic_lessons').select('*');
-                if (arData) setArabicLessons(arData);
-
-                const { data: langData } = await supabase.from('egyptian_languages_lessons').select('*');
-                if (langData) setLanguagesLessons(langData);
-
-                const { data: igData } = await supabase.from('igcse_skills').select('*');
-                if (igData) setIgcseSkillsList(igData);
-
-                const { data: amData } = await supabase.from('american_skills').select('*');
-                if (amData) setAmericanSkillsList(amData);
-
-                const { data: ibData } = await supabase.from('ib_skills').select('*');
-                if (ibData) setIbSkillsList(ibData);
-            }
-
-            // قائمة صفوف التعليم المصري
-            const getEgyptianGradesList = () => {
-                const isLang = newStudent.systemType === 'egyptian_languages';
-                const stage = newStudent.schoolStage;
-                if (stage === 'primary') {
-                    return isLang ? ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'] 
-                                  : ['الصف الأول الابتدائي', 'الصف الثاني الابتدائي', 'الصف الثالث الابتدائي', 'الصف الرابع الابتدائي', 'الصف الخامس الابتدائي', 'الصف السادس الابتدائي'];
-                } else if (stage === 'prep') {
-                    return isLang ? ['Prep 1', 'Prep 2', 'Prep 3'] 
-                                  : ['الصف الأول الإعدادي', 'الصف الثاني الإعدادي', 'الصف الثالث الإعدادي'];
+                if (data) {
+                    setStudentData(data);
+                    fetchStudentSessions(data.id);
                 } else {
-                    return isLang ? ['Secondary 1', 'Secondary 2', 'Secondary 3'] 
-                                  : ['الصف الأول الثانوي', 'الصف الثاني الثانوي', 'الصف الثالث الثانوي'];
+                    setStudentData({ student_name: 'الطالب', curriculum_system: 'General', grade_level: 'N/A' });
                 }
-            };
+            }
 
-            // قائمة صفوف التعليم الدولي الشاملة (من Grade 1 إلى Grade 12)
-            const getInternationalGradesList = () => {
-                return [
-                    'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6',
-                    'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'
-                ];
-            };
-
-            const selectedStudentObj = students.find(s => s.id === newSession.student_id);
-            const studentSysText = selectedStudentObj ? selectedStudentObj.curriculum_system.toLowerCase() : '';
-            
-            const isArabicMode = studentSysText.includes('عربي') || studentSysText.includes('egyptian_arabic');
-            const isLanguagesMode = studentSysText.includes('لغات') || studentSysText.includes('languages');
-            const isIgcseMode = studentSysText.includes('igcse');
-            const isAmericanMode = studentSysText.includes('american');
-            const isIbMode = studentSysText.includes('ib');
-
-            const activeLessonsTable = isArabicMode ? arabicLessons : (isLanguagesMode ? languagesLessons : []);
-            const studentGradeLevel = selectedStudentObj ? selectedStudentObj.grade_level : '';
-            
-            const filteredEgByGrade = activeLessonsTable.filter(i => {
-                if (!i.grade || !studentGradeLevel) return false;
-                return i.grade.trim().toLowerCase() === studentGradeLevel.trim().toLowerCase();
-            });
-
-            const egTerms = [...new Set(filteredEgByGrade.map(i => i.term))];
-            const filteredEgByTerm = filteredEgByGrade.filter(i => i.term === newSession.eg_term);
-            const egBranches = [...new Set(filteredEgByTerm.map(i => i.branch))];
-            const egLessons = filteredEgByTerm.filter(i => i.branch === newSession.eg_branch);
-
-            const activeIntList = isIgcseMode ? igcseSkillsList : (isAmericanMode ? americanSkillsList : (isIbMode ? ibSkillsList : []));
-            const intStrands = [...new Set(activeIntList.map(i => i.strand))].filter(Boolean);
-            const availableIntSkills = activeIntList.filter(i => i.strand === newSession.int_strand);
-
-            function calculateRoundedHours(start, end) {
-                const [startH, startM] = start.split(':').map(Number);
-                const [endH, endM] = end.split(':').map(Number);
-                let startTotalMins = startH * 60 + startM;
-                let endTotalMins = endH * 60 + endM;
-                if (endTotalMins < startTotalMins) endTotalMins += 24 * 60;
-                return Math.round(((endTotalMins - startTotalMins) / 60) * 4) / 4;
+            async function fetchStudentSessions(studentId) {
+                const { data: sessData } = await supabase
+                    .from('sessions')
+                    .select('*')
+                    .eq('student_id', studentId)
+                    .order('created_at', { ascending: false });
+                if (sessData) setSessions(sessData);
             }
 
             async function handleLogin(e) {
                 e.preventDefault();
-                setLoginError('');
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) setLoginError(lang === 'ar' ? 'بيانات الدخول غير صحيحة.' : 'Invalid login credentials.');
+                setLoading(true);
+                setErrorMsg('');
+
+                let targetEmail = loginInput.trim();
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord } = await supabase
+                        .from('students')
+                        .select('email')
+                        .ilike('student_phone', `%${cleanPhone}%`)
+                        .single();
+
+                    if (!stRecord || !stRecord.email) {
+                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد مسجل لهذا الهاتف.' : 'No email found.');
+                        setLoading(false);
+                        return;
+                    }
+                    targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول.' : 'Invalid credentials.');
+                setLoading(false);
+            }
+
+            async function handleForgotPassword(e) {
+                e.preventDefault();
+                if (!loginInput) return;
+                setLoading(true);
+                setErrorMsg('');
+                setSuccessMsg('');
+
+                let targetEmail = loginInput.trim();
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord } = await supabase.from('students').select('email').ilike('student_phone', `%${cleanPhone}%`).single();
+                    if (stRecord && stRecord.email) targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
+                if (error) setErrorMsg('Error: ' + error.message);
+                else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!' : '📬 Reset link sent!');
+                setLoading(false);
             }
 
             async function handleLogout() {
                 await supabase.auth.signOut();
             }
 
-            async function handleAddStudent(e) {
+            async function handleUploadHomework(e) {
                 e.preventDefault();
-                setMsg(lang === 'ar' ? '⏳ جاري إضافة الطالب...' : '⏳ Adding student...');
-                let systemFullName = '';
-                if (newStudent.systemType === 'egyptian_arabic') systemFullName = `تعليم مصري عربي (${newStudent.grade})`;
-                else if (newStudent.systemType === 'egyptian_languages') systemFullName = `تعليم مصري لغات (${newStudent.grade})`;
-                else if (newStudent.systemType === 'igcse') systemFullName = 'IGCSE (British)';
-                else if (newStudent.systemType === 'american') systemFullName = 'American Diploma';
-                else if (newStudent.systemType === 'ib') systemFullName = 'IB (International)';
-
-                const studentObjToInsert = {
-                    student_name: newStudent.name.trim(),
-                    student_phone: newStudent.student_phone.trim(),
-                    parent_phone: newStudent.parent_phone.trim(),
-                    email: newStudent.student_email.trim() || null,
-                    password: newStudent.password.trim() || null,
-                    curriculum_system: systemFullName,
-                    grade_level: newStudent.grade,
-                    hourly_rate: parseFloat(newStudent.rate)
-                };
-
-                const { error } = await supabase.from('students').insert([studentObjToInsert]);
-                
-                if (!error) {
-                    setMsg(lang === 'ar' ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
-                    fetchStudents();
-                    setNewStudent({ name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
-                } else {
-                    setMsg('❌ Error: ' + error.message);
+                if (!selectedTopic) return;
+                setSubmittingHw(true);
+                setSubmitSuccess('');
+                try {
+                    await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'submit_homework', studentId: studentData?.id || 0, topic: selectedTopic, feedback: 'حل واجب رياضي مقدم من الطالب.' })
+                    });
+                    setSubmitSuccess(lang === 'ar' ? '✅ تم تسليم الواجب بنجاح للأستاذ!' : '✅ Homework submitted!');
+                    setSelectedTopic('');
+                } catch (err) {
+                    alert('Error: ' + err.message);
+                } finally {
+                    setSubmittingHw(false);
                 }
-                setTimeout(() => setMsg(''), 5000);
             }
 
-            async function handleUpdateStudent(e) {
+            // معالجة حل الاختبار الذاتي وإرساله للمعلم
+            async function handleSelfTestSubmit(e) {
                 e.preventDefault();
-                setMsg(lang === 'ar' ? '⏳ جاري تحديث ملف الطالب...' : '⏳ Updating student profile...');
-                const { error } = await supabase.from('students').update({
-                    student_name: editStudentForm.student_name,
-                    student_phone: editStudentForm.student_phone,
-                    parent_phone: editStudentForm.parent_phone,
-                    email: editStudentForm.email,
-                    password: editStudentForm.password,
-                    curriculum_system: editStudentForm.curriculum_system,
-                    grade_level: editStudentForm.grade_level,
-                    hourly_rate: parseFloat(editStudentForm.hourly_rate)
-                }).eq('id', viewingStudentModal.id);
-
-                if (!error) {
-                    setMsg(lang === 'ar' ? '✅ تم تحديث ملف الطالب بنجاح!' : '✅ Student profile updated!');
-                    fetchStudents();
-                    setIsEditingStudent(false);
-                    setViewingStudentModal(null);
-                } else {
-                    setMsg('❌ Error: ' + error.message);
+                if (!selfTestAnswer) return;
+                setTestResultMsg(lang === 'ar' ? '⏳ جاري إرسال الحل للأستاذ للمراجعة...' : '⏳ Submitting answer...');
+                
+                try {
+                    await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'submit_homework',
+                            studentId: studentData?.id || 0,
+                            topic: 'اختبار ذاتي تفاعلي: حل المعادلة التربيعية',
+                            feedback: `إجابة الطالب في الاختبار الذاتي: ${selfTestAnswer}`
+                        })
+                    });
+                    setTestResultMsg(lang === 'ar' ? '🎉 تم إرسال الحل بنجاح وسيتم تقييمه من الأستاذ قريباً!' : '🎉 Answer submitted successfully!');
+                    setSelfTestAnswer('');
+                } catch (err) {
+                    setTestResultMsg('❌ Error submitting answer.');
                 }
-                setTimeout(() => setMsg(''), 4000);
             }
 
-            // ميزة حذف طالب نهائياً مع حصصه
-            async function handleDeleteStudent(studentId, studentName) {
-                if (!window.confirm(lang === 'ar' ? `هل أنت متأكد من حذف حساب الطالب (${studentName}) نهائياً؟` : `Are you sure to delete ${studentName}?`)) return;
-                
-                // حذف الحصص التابعة أولاً لمنع تعارض القيود
-                await supabase.from('sessions').delete().eq('student_id', studentId);
-                const { error } = await supabase.from('students').delete().eq('id', studentId);
-                
-                if (!error) {
-                    setMsg(lang === 'ar' ? '✅ تم حذف حساب الطالب بنجاح.' : '✅ Student deleted successfully.');
-                    fetchStudents();
-                    fetchSessions();
-                } else {
-                    alert('Error deleting student: ' + error.message);
-                }
-                setTimeout(() => setMsg(''), 4000);
-            }
-
-            async function handleAddSession(e) {
-                e.preventDefault();
-                setMsg(lang === 'ar' ? '⏳ جاري حساب التوقيت وتوثيق الحصة...' : '⏳ Documenting session...');
-                
-                const calculatedDuration = calculateRoundedHours(newSession.start_time, newSession.end_time);
-                if (calculatedDuration <= 0) {
-                    alert(lang === 'ar' ? 'خطأ: وقت الانتهاء يجب أن يكون بعد وقت البدء!' : 'Error: End time must be after start time!');
-                    setMsg('');
-                    return;
-                }
-
-                let lessonTopic = '';
-                let strandName = '';
-                let skillsCovered = '';
-
-                const baseCost = calculatedDuration * (selectedStudentObj.hourly_rate || 0);
-                const centerFee = newSession.location_type === 'Center' ? parseFloat(newSession.center_fees || 0) : 0;
-                const totalCalculatedCost = baseCost + centerFee;
-
-                if (isArabicMode || isLanguagesMode) {
-                    const selectedLessonObj = activeLessonsTable.find(l => l.id.toString() === newSession.eg_lesson);
-                    strandName = newSession.eg_branch;
-                    lessonTopic = selectedLessonObj ? selectedLessonObj.unit_title : 'الوحدة الدراسية';
-                    skillsCovered = selectedLessonObj ? selectedLessonObj.lesson_title : 'الدرس';
-                } else {
-                    strandName = newSession.int_strand;
-                    lessonTopic = 'International Core Topic';
-                    const selectedSkillNames = availableIntSkills
-                        .filter(s => newSession.int_skills.includes(s.id.toString()))
-                        .map(s => s.skill_name);
-                    skillsCovered = selectedSkillNames.join(' | ');
-                }
-
-                const locationDetails = newSession.location_type === 'Center' 
-                    ? `سنتر: ${newSession.center_name} (+${centerFee} EGP)` 
-                    : (newSession.location_type === 'Home' ? 'منزل الطالب' : 'Online');
-
-                const dateObj = new Date(newSession.session_date);
-                const dayName = dateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'long' });
-                const formattedDateText = `${newSession.session_date} (${dayName}) | ${newSession.start_time} - ${newSession.end_time}`;
-
-                const { error: sessionError } = await supabase.from('sessions').insert([{
-                    student_id: newSession.student_id,
-                    duration_hours: calculatedDuration,
-                    strand: strandName,
-                    lesson_topic: `${formattedDateText} | ${lessonTopic} [${locationDetails}]`,
-                    skills_covered: skillsCovered,
-                    calculated_cost: totalCalculatedCost,
-                    is_paid: false
-                }]);
-                
-                if (sessionError) {
-                    setMsg('❌ Error: ' + sessionError.message);
-                    return setTimeout(() => setMsg(''), 4000);
-                }
-                
-                setMsg(lang === 'ar' ? `✅ تم توثيق الحصة (${calculatedDuration} ساعة) بنجاح!` : `✅ Session documented!`);
-                setLastLoggedInfo({
-                    student: selectedStudentObj,
-                    duration: calculatedDuration,
-                    timeText: formattedDateText,
-                    cost: totalCalculatedCost,
-                    strand: strandName,
-                    topic: lessonTopic,
-                    skill: skillsCovered,
-                    location: locationDetails,
-                    isEgyptian: (isArabicMode || isLanguagesMode)
-                });
-                
-                setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
-                fetchSessions();
-                setTimeout(() => setMsg(''), 4000);
-            }
-
-            // إرسال بيانات الدخول عبر الواتساب مباشرة من جدول الطلاب
-            const sendDirectStudentWhatsApp = (st, target) => {
-                const formatPhone = (p) => {
-                    let clean = (p || '').replace(/\D/g, '');
-                    if (clean.startsWith('0')) clean = '2' + clean;
-                    return clean;
-                };
-                const targetPhone = target === 'student' ? formatPhone(st.student_phone) : formatPhone(st.parent_phone);
-                if (!targetPhone) return alert('رقم الهاتف المطلوب غير مسجل!');
-
-                const msgText = `أهلاً بحضرتك/ك في أكاديمية Jebali للرياضيات 📐\n\nبيانات الدخول الخاصة بالطالب/ة: *${st.student_name}*\n\n• الإيميل: ${st.email || 'غير مسجل'}\n• كلمة المرور: ${st.password || 'غير مسجلة'}\n\nبوابات الدخول:\n• الطالب: https://jebali-math-academy.pages.dev/student.html\n• ولي الأمر: https://jebali-math-academy.pages.dev/parent.html\n\nبالتوفيق دائماً!`;
-                window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msgText)}`, '_blank');
-            };
-
-            const sendWhatsApp = (target) => {
-                if (!lastLoggedInfo) return;
-                const { student, duration, timeText, cost, strand, topic, skill, location, isEgyptian } = lastLoggedInfo;
-                const formatPhone = (p) => {
-                    let clean = (p || '').replace(/\D/g, '');
-                    if (clean.startsWith('0')) clean = '2' + clean;
-                    return clean;
-                };
-                const parentPhone = formatPhone(student.parent_phone);
-                const studentPhone = formatPhone(student.student_phone);
-                const totalUnpaid = sessionsList.filter(s => s.student_id === student.id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
-
-                let academicDetails = isEgyptian 
-                    ? `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
-                    : `\n📚 *التقرير الأكاديمي:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• Strand: ${strand}\n• Skills:\n- ${skill.replace(/ \| /g, '\n- ')}`;
-
-                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم توثيق حصة جديدة للطالب/ة: *${student.student_name}*` + academicDetails + `\n\n• التكلفة: ${cost} جنيه\n• المستحقات المعلقة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay:\nhttps://jebali-math-academy.pages.dev/parent.html`;
-                const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم:` + academicDetails + `\nتابع واجبك عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
-
-                if (target === 'parent') {
-                    if (!parentPhone) return alert('رقم ولي الأمر غير مسجل!');
-                    window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
-                } else if (target === 'student') {
-                    if (!studentPhone) return alert('رقم الطالب غير مسجل!');
-                    window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank');
-                } else if (target === 'both') {
-                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
-                    if (studentPhone) setTimeout(() => window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank'), 600);
-                }
-            };
-
-            const sendPaymentReminder = (sessionItem) => {
-                const student = sessionItem.students;
-                if (!student || !student.parent_phone) return alert('رقم ولي الأمر غير متوفر!');
-                let phone = student.parent_phone.replace(/\D/g, '');
-                if (phone.startsWith('0')) phone = '2' + phone;
-                const studentUnpaid = sessionsList.filter(s => s.student_id === sessionItem.student_id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
-                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nيوجد مستحقات مالية معلقة للطالب/ة *${student.student_name}* بقيمة *${studentUnpaid} جنيه مصري*.\nنرجو السداد عبر InstaPay. شكراً لتعاونكم!`;
-                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderMsg)}`, '_blank');
-            };
-
-            async function togglePaymentStatus(sessionId, currentStatus) {
-                await supabase.from('sessions').update({ is_paid: !currentStatus }).eq('id', sessionId);
-                fetchSessions();
-            }
-
-            async function deleteSession(sessionId) {
-                if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه الحصة؟' : 'Are you sure to delete this session?')) return;
-                await supabase.from('sessions').delete().eq('id', sessionId);
-                fetchSessions();
-            }
-
-            if (!session) {
+            if (!authSession) {
                 return (
                     <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                         <div className="absolute top-6 left-6 flex gap-2">
@@ -485,376 +219,133 @@
                                 🌐 {lang === 'ar' ? 'English' : 'العربية'}
                             </button>
                             <a href="index.html" className="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">
-                                🏠 {t.home}
+                                🏠 {lang === 'ar' ? 'الرئيسية' : 'Home'}
                             </a>
                         </div>
-                        <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
-                            <div className="text-6xl mb-4 text-center">👨‍🏫</div>
-                            <h2 className="text-3xl font-black text-center mb-6">{lang === 'ar' ? 'لوحة الإدارة' : 'Admin Login'}</h2>
-                            {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <input type="email" placeholder={lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} required className="w-full p-4 glass-input rounded-xl font-bold" value={email} onChange={e => setEmail(e.target.value)} />
-                                <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold" value={password} onChange={e => setPassword(e.target.value)} />
-                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">{lang === 'ar' ? 'تسجيل الدخول' : 'Login'}</button>
-                            </form>
+
+                        <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
+                            <div className="text-6xl mb-4">🎓</div>
+                            <h2 className="text-3xl font-black mb-2">{lang === 'ar' ? 'بوابة الطالب' : 'Student Portal'}</h2>
+                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'الدخول برقم الهاتف أو البريد الإلكتروني' : 'Login via Phone or Email'}</p>
+                            
+                            {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
+                            {successMsg && <p className="bg-emerald-500/20 text-emerald-100 p-3 rounded-xl mb-4 text-xs font-bold">{successMsg}</p>}
+
+                            {authMode === 'login' && (
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <input type="text" placeholder={lang === 'ar' ? 'رقم الهاتف أو البريد الإلكتروني' : 'Phone or Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
+                                    <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
+                                    <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
+                                        {loading ? '...' : (lang === 'ar' ? 'تسجيل الدخول' : 'Login')}
+                                    </button>
+                                    <button type="button" onClick={() => setAuthMode('forgot')} className="text-xs text-orange-300 hover:underline block w-full mt-3 font-bold">
+                                        {lang === 'ar' ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                                    </button>
+                                </form>
+                            )}
+
+                            {authMode === 'forgot' && (
+                                <form onSubmit={handleForgotPassword} className="space-y-4">
+                                    <p className="text-xs text-blue-200">أدخل رقم هاتفك أو بريدك لاستلام رابط الاستعادة:</p>
+                                    <input type="text" placeholder="رقم الهاتف أو البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
+                                    <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 rounded-xl transition text-sm">
+                                        {loading ? '...' : 'إرسال رابط الاستعادة 📬'}
+                                    </button>
+                                    <button type="button" onClick={() => setAuthMode('login')} className="text-xs text-slate-300 hover:underline block w-full mt-2 font-bold">العودة لتسجيل الدخول</button>
+                                </form>
+                            )}
                         </div>
                     </div>
                 );
             }
 
-            const totalCollected = sessionsList.filter(s => s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
-            const totalPending = sessionsList.filter(s => !s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
-
             return (
-                <div className="p-4 md:p-8 max-w-6xl mx-auto font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                <div className="p-4 md:p-8 max-w-4xl mx-auto font-cairo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">📐</div>
-                            <div>
-                                <h1 className="text-xl md:text-2xl font-black">{t.title}</h1>
-                                <p className="text-blue-200 font-bold text-xs md:text-sm">{t.subtitle}</p>
-                            </div>
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black">{lang === 'ar' ? `أهلاً بك، ${studentData?.student_name || 'الطالب'}` : `Welcome`} 📐</h1>
+                            <p className="text-blue-200 text-xs mt-1">{studentData?.curriculum_system || ''} • {studentData?.grade_level || ''}</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-xs transition">
-                                🌐 {lang === 'ar' ? 'English' : 'العربية'}
-                            </button>
-                            <a href="index.html" className="px-4 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">
-                                🏠 {t.home}
-                            </a>
-                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-xs transition">{t.logout}</button>
+                            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="px-4 py-2 glass-card rounded-xl font-bold text-xs transition">🌐 {lang === 'ar' ? 'English' : 'العربية'}</button>
+                            <a href="index.html" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 {lang === 'ar' ? 'الرئيسية' : 'Home'}</a>
+                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">{lang === 'ar' ? 'خروج' : 'Logout'}</button>
                         </div>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
-                            <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">{t.collected}</span>
-                            <h3 className="text-4xl font-black mt-4 text-white">{totalCollected} <span className="text-xl text-blue-200">EGP</span></h3>
+                    {/* مساعد الجبر الذكي والاختبار الذاتي التفاعلي */}
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-blue-600/10">
+                        <h3 className="text-lg font-black mb-2 flex items-center gap-2">
+                            <span>⚡</span> {lang === 'ar' ? 'مساعد الجبر الذكي والاختبار الذاتي' : 'Smart Math Assistant & Self-Test'}
+                        </h3>
+                        <p className="text-xs text-blue-200 mb-4">
+                            {lang === 'ar' ? 'تدرب على حل المعادلات الرياضية المتقدمة بمعاملات KaTeX التفاعلية:' : 'Practice advanced math problems:'}
+                        </p>
+
+                        <div className="math-box mb-4">
+                            <p className="text-xs text-orange-300 font-bold mb-1">مسألة تحدي اليوم:</p>
+                            <div className="text-white font-bold my-2">
+                                أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام: 
+                                $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+                                التطبيق العملي: $2x^2 - 5x + 2 = 0$
+                            </div>
                         </div>
-                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
-                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{t.pending}</span>
-                            <h3 className="text-4xl font-black mt-4 text-white">{totalPending} <span className="text-xl text-blue-200">EGP</span></h3>
-                        </div>
+
+                        {testResultMsg && <p className="mb-3 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{testResultMsg}</p>}
+                        
+                        <form onSubmit={handleSelfTestSubmit} className="space-y-3">
+                            <input 
+                                type="text" 
+                                required 
+                                placeholder={lang === 'ar' ? 'اكتب خطوات الحل أو الناتج النهائي هنا (مثال: x = 2, x = 0.5)' : 'Enter your solution...'} 
+                                className="w-full p-3 glass-input rounded-xl text-sm font-bold" 
+                                value={selfTestAnswer} 
+                                onChange={e => setSelfTestAnswer(e.target.value)} 
+                            />
+                            <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg flex items-center justify-center gap-2">
+                                <span>🚀</span> {lang === 'ar' ? 'إرسال الإجابة للأستاذ للتقييم' : 'Submit Answer for Review'}
+                            </button>
+                        </form>
                     </div>
 
-                    {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-100">{msg}</div>}
-
-                    {/* سجل الطلاب المسجلين مع أزرار الواتساب الدائمة وخيارات الحذف */}
-                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white">{t.studentsRecord}</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-right">
-                                <thead>
-                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
-                                        <th className="pb-3 px-4">Student Name</th>
-                                        <th className="pb-3 px-4">System & Grade</th>
-                                        <th className="pb-3 px-4">Credentials</th>
-                                        <th className="pb-3 px-4 text-center">WhatsApp Send</th>
-                                        <th className="pb-3 px-4 text-center">Profile</th>
-                                        <th className="pb-3 px-4 text-center">Delete</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {students.map(st => (
-                                        <tr key={st.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                                            <td className="py-4 px-4 font-bold text-white">{st.student_name}</td>
-                                            <td className="py-4 px-4 text-xs text-blue-200">
-                                                <div>{st.curriculum_system}</div>
-                                                <div className="font-semibold text-slate-300">{st.grade_level}</div>
-                                            </td>
-                                            <td className="py-4 px-4 text-xs">
-                                                <div>📧 {st.email || 'Not set'}</div>
-                                                <div className="text-orange-300 font-bold">🔑 {st.password || 'Not set'}</div>
-                                            </td>
-                                            <td className="py-4 px-4 text-center space-x-1 space-x-reverse">
-                                                <button onClick={() => sendDirectStudentWhatsApp(st, 'parent')} title="مراسلة ولي الأمر" className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition">💬 ولي الأمر</button>
-                                                <button onClick={() => sendDirectStudentWhatsApp(st, 'student')} title="مراسلة الطالب" className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition">💬 الطالب</button>
-                                            </td>
-                                            <td className="py-4 px-4 text-center">
-                                                <button onClick={() => { setViewingStudentModal(st); setEditStudentForm(st); setIsEditingStudent(false); }} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition">📁 Profile</button>
-                                            </td>
-                                            <td className="py-4 px-4 text-center">
-                                                <button onClick={() => handleDeleteStudent(st.id, st.student_name)} className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded-xl transition font-black text-xs" title="حذف الحساب">🗑️</button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <div className="glass-card p-8 rounded-3xl relative">
-                            <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
-                            <h3 className="text-2xl font-black mb-6">{t.addStudent}</h3>
-                            <form onSubmit={handleAddStudent} className="space-y-4">
-                                <input type="text" placeholder={t.studentName} required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input type="tel" placeholder={t.studentPhone} className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
-                                    <input type="tel" placeholder={t.parentPhone} required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input type="email" placeholder={t.studentEmail} className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_email} onChange={e => setNewStudent({...newStudent, student_email: e.target.value})} />
-                                    <input type="text" placeholder={t.studentPass} className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value, grade: ''})}>
-                                        <option value="egyptian_arabic">🇪🇬 مصري (عربي)</option>
-                                        <option value="egyptian_languages">🌐 مصري (لغات)</option>
-                                        <option value="igcse">🇬🇧 IGCSE</option>
-                                        <option value="american">🇺🇸 American</option>
-                                        <option value="ib">🌍 IB</option>
-                                    </select>
-                                    
-                                    {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') ? (
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.schoolStage} onChange={e => setNewStudent({...newStudent, schoolStage: e.target.value, grade: ''})}>
-                                            <option value="primary">الابتدائية</option>
-                                            <option value="prep">الإعدادية</option>
-                                            <option value="secondary">الثانوية</option>
-                                        </select>
-                                    ) : (
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
-                                            <option value="" disabled>-- حدد Grade --</option>
-                                            {getInternationalGradesList().map(g => <option key={g} value={g}>{g}</option>)}
-                                        </select>
-                                    )}
-                                </div>
-
-                                {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') && (
-                                    <select required className="w-full p-3 glass-input rounded-xl font-bold text-sm" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
-                                        <option value="" disabled>-- حدد الصف بدقة --</option>
-                                        {getEgyptianGradesList().map(g => <option key={g} value={g}>{g}</option>)}
-                                    </select>
-                                )}
-
-                                <input type="number" placeholder={t.rate} required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
-                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition">{t.saveStudent}</button>
-                            </form>
-                        </div>
-
-                        <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
+                    <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
+                        <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> {lang === 'ar' ? 'تسليم الواجب المنزلي' : 'Submit Homework'}</h3>
+                        {submitSuccess && <p className="mb-4 p-3 bg-emerald-500/20 text-emerald-200 rounded-xl text-xs font-bold">{submitSuccess}</p>}
+                        <form onSubmit={handleUploadHomework} className="space-y-4">
                             <div>
-                                <h3 className="text-2xl font-black mb-6">{t.docSession}</h3>
-                                <form onSubmit={handleAddSession} className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
-                                            <option value="" disabled>1. {t.selectStudent}</option>
-                                            {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
-                                        </select>
-                                        <input type="date" required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.session_date} onChange={e => setNewSession({...newSession, session_date: e.target.value})} />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                                        <div>
-                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">⏰ {t.startTime}:</label>
-                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.start_time} onChange={e => setNewSession({...newSession, start_time: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">🏁 {t.endTime}:</label>
-                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.end_time} onChange={e => setNewSession({...newSession, end_time: e.target.value})} />
-                                        </div>
-                                    </div>
-
-                                    <div className="p-4 border border-white/10 bg-white/5 rounded-xl space-y-3">
-                                        <label className="text-xs font-bold text-blue-200 block">📍 {t.location}:</label>
-                                        <select className="w-full p-3 glass-input rounded-xl text-sm font-bold" value={newSession.location_type} onChange={e => setNewSession({...newSession, location_type: e.target.value})}>
-                                            <option value="Online">{t.online}</option>
-                                            <option value="Home">{t.homeLoc}</option>
-                                            <option value="Center">{t.center}</option>
-                                        </select>
-                                        {newSession.location_type === 'Center' && (
-                                            <div className="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-white/10">
-                                                <input type="text" placeholder={t.centerName} required className="w-full p-2.5 glass-input rounded-xl text-xs font-bold" value={newSession.center_name} onChange={e => setNewSession({...newSession, center_name: e.target.value})} />
-                                                <input type="number" placeholder={t.centerFees} required className="w-full p-2.5 glass-input rounded-xl text-xs font-bold" value={newSession.center_fees} onChange={e => setNewSession({...newSession, center_fees: e.target.value})} />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {(isArabicMode || isLanguagesMode) && (
-                                        <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
-                                            <div className="flex justify-between items-center text-xs font-bold text-blue-200">
-                                                <span>🟢 منهج مصري:</span>
-                                                <span className="bg-blue-600/40 text-blue-100 px-2 py-0.5 rounded">{selectedStudentObj?.grade_level}</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
-                                                    <option value="" disabled>-- الترم --</option>
-                                                    {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
-                                                </select>
-                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
-                                                    <option value="" disabled>-- الفرع --</option>
-                                                    {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                                                </select>
-                                            </div>
-                                            <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
-                                                <option value="" disabled>-- الدرس المحدد --</option>
-                                                {egLessons.map(l => <option key={l.id} value={l.id}>[الوحدة: {l.unit_title}] {l.lesson_title}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {(isIgcseMode || isAmericanMode || isIbMode) && (
-                                        <div className="space-y-3 p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl">
-                                            <p className="text-xs font-bold text-emerald-200">🟣 المهارات الدولية:</p>
-                                            <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
-                                                <option value="" disabled>-- اختر المجال --</option>
-                                                {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
-                                            <div>
-                                                <select multiple required disabled={!newSession.int_strand} className="w-full glass-input rounded-xl font-bold text-sm" value={newSession.int_skills} onChange={e => {
-                                                    const values = Array.from(e.target.selectedOptions, option => option.value);
-                                                    setNewSession({...newSession, int_skills: values});
-                                                }}>
-                                                    {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skill_name}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition mt-4 disabled:opacity-50 shadow-lg">{t.saveSession}</button>
-                                </form>
+                                <label className="text-xs text-blue-200 block mb-1">{lang === 'ar' ? 'اسم الدرس أو الموضوع:' : 'Topic:'}</label>
+                                <input type="text" required placeholder="مثال: الدوال التربيعية وتطبيقاتها" className="w-full p-3 glass-input rounded-xl text-sm" value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)} />
                             </div>
-
-                            <div className="mt-6 pt-4 border-t border-white/10">
-                                {lastLoggedInfo ? (
-                                    <div>
-                                        <h4 className="text-sm font-black text-blue-200 mb-2">إرسال التقرير والفاتورة عبر WhatsApp:</h4>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => sendWhatsApp('parent')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black transition">👨‍👩‍👦 ولي الأمر</button>
-                                            <button onClick={() => sendWhatsApp('student')} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black transition">👨‍🎓 الطالب</button>
-                                            <button onClick={() => sendWhatsApp('both')} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-black transition">👥 معاً</button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-center text-blue-200">سجل حصة لتظهر خيارات الإرسال الفوري.</p>
-                                )}
-                            </div>
-                        </div>
+                            <button type="submit" disabled={submittingHw} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
+                                {submittingHw ? '...' : (lang === 'ar' ? 'تسليم الواجب للأستاذ 🚀' : 'Submit Homework 🚀')}
+                            </button>
+                        </form>
                     </div>
 
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white">{t.sessionsRecord}</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-right">
-                                <thead>
-                                    <tr className="border-b border-white/10 text-blue-200 text-sm">
-                                        <th className="pb-3 px-4">Student</th>
-                                        <th className="pb-3 px-4">Session Details</th>
-                                        <th className="pb-3 px-4">Cost</th>
-                                        <th className="pb-3 px-4">Status & Reminder</th>
-                                        <th className="pb-3 px-4 text-center">Delete</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sessionsList.map(s => (
-                                        <tr key={s.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                                            <td className="py-4 px-4 font-bold text-white">{s.students?.student_name}</td>
-                                            <td className="py-4 px-4 text-xs max-w-sm">
-                                                <div className="font-bold text-white">{s.lesson_topic}</div>
-                                                <div className="text-blue-300">{s.strand}</div>
-                                                <div className="text-emerald-300">{s.skills_covered}</div>
-                                            </td>
-                                            <td className="py-4 px-4 font-black text-orange-300">{s.calculated_cost} EGP</td>
-                                            <td className="py-4 px-4 space-x-2 space-x-reverse">
-                                                <button onClick={() => togglePaymentStatus(s.id, s.is_paid)} className={`px-3 py-1 rounded-xl text-xs font-black transition ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-orange-500 text-white'}`}>
-                                                    {s.is_paid ? `✅ ${t.paid}` : `💵 ${t.confirmPay}`}
-                                                </button>
-                                                {!s.is_paid && (
-                                                    <button onClick={() => sendPaymentReminder(s)} className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition inline-flex items-center gap-1 shadow-md">
-                                                        <span>🔔</span> {t.reminder}
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td className="py-4 px-4 text-center">
-                                                <button onClick={() => deleteSession(s.id)} className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition">🗑</button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {viewingStudentModal && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-                            <div className="glass-card p-8 rounded-3xl max-w-lg w-full border border-white/20 shadow-2xl relative">
-                                <button onClick={() => setViewingStudentModal(null)} className="absolute top-4 left-4 text-slate-400 hover:text-white text-2xl font-bold">×</button>
-                                {!isEditingStudent ? (
-                                    <div>
-                                        <div className="text-center mb-6">
-                                            <div className="text-5xl mb-2">🎓</div>
-                                            <h3 className="text-2xl font-black text-white">{viewingStudentModal.student_name}</h3>
-                                            <p className="text-blue-200 text-sm font-bold mt-1">{viewingStudentModal.curriculum_system} • {viewingStudentModal.grade_level}</p>
+                        <h3 className="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> {lang === 'ar' ? 'سجل حصصي والمواعيد' : 'My Sessions'}</h3>
+                        {sessions.length === 0 ? (
+                            <p className="text-xs text-slate-300 text-center py-6">{lang === 'ar' ? 'لا توجد حصص مسجلة بعد.' : 'No sessions recorded yet.'}</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {sessions.map(s => (
+                                    <div key={s.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
+                                        <div>
+                                            <div className="font-black text-sm text-white">{s.lesson_topic}</div>
+                                            <div className="text-xs text-blue-300 mt-1">{s.strand}</div>
                                         </div>
-                                        <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-sm">
-                                            <div><span className="text-slate-400">Student Phone:</span> <strong className="text-white">{viewingStudentModal.student_phone || 'N/A'}</strong></div>
-                                            <div><span className="text-slate-400">Parent Phone:</span> <strong className="text-emerald-300">{viewingStudentModal.parent_phone}</strong></div>
-                                            <div><span className="text-slate-400">Email:</span> <strong className="text-white">{viewingStudentModal.email || 'Not set'}</strong></div>
-                                            <div><span className="text-slate-400">Password:</span> <strong className="text-orange-300">{viewingStudentModal.password || 'Not set'}</strong></div>
-                                            <div><span className="text-slate-400">Hourly Rate:</span> <strong className="text-orange-300">{viewingStudentModal.hourly_rate} EGP</strong></div>
-                                        </div>
-                                        <div className="mt-6 pt-4 border-t border-white/10 flex gap-3">
-                                            <button onClick={() => setIsEditingStudent(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">✏️ Edit Profile</button>
-                                            <button onClick={() => setViewingStudentModal(null)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition">Close</button>
-                                        </div>
+                                        <span className="text-xs bg-orange-500/20 text-orange-300 px-3 py-1.5 rounded-xl font-black">⏱️ {s.duration_hours} h</span>
                                     </div>
-                                ) : (
-                                    <form onSubmit={handleUpdateStudent} className="space-y-4">
-                                        <h3 className="text-xl font-black text-white mb-4 border-b border-white/10 pb-2">✏️ Edit Student Profile</h3>
-                                        <div>
-                                            <label className="text-xs text-blue-200 block mb-1">Student Name:</label>
-                                            <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.student_name || ''} onChange={e => setEditStudentForm({...editStudentForm, student_name: e.target.value})} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">Student Phone:</label>
-                                                <input type="tel" className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.student_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, student_phone: e.target.value})} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">Parent Phone:</label>
-                                                <input type="tel" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.parent_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, parent_phone: e.target.value})} />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">Email:</label>
-                                                <input type="email" className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.email || ''} onChange={e => setEditStudentForm({...editStudentForm, email: e.target.value})} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">Password:</label>
-                                                <input type="text" className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.password || ''} onChange={e => setEditStudentForm({...editStudentForm, password: e.target.value})} />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">System:</label>
-                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.curriculum_system || ''} onChange={e => setEditStudentForm({...editStudentForm, curriculum_system: e.target.value})} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-blue-200 block mb-1">Grade:</label>
-                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.grade_level || ''} onChange={e => setEditStudentForm({...editStudentForm, grade_level: e.target.value})} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-blue-200 block mb-1">Hourly Rate (EGP):</label>
-                                            <input type="number" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.hourly_rate || ''} onChange={e => setEditStudentForm({...editStudentForm, hourly_rate: e.target.value})} />
-                                        </div>
-                                        <div className="flex gap-3 pt-2">
-                                            <button type="submit" className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">Save Changes ✅</button>
-                                            <button type="button" onClick={() => setIsEditingStudent(false)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition">Cancel</button>
-                                        </div>
-                                    </form>
-                                )}
+                                ))}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<AdminPortal />);
+        root.render(<StudentPortal />);
     </script>
 </body>
 </html>
