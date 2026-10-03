@@ -62,10 +62,11 @@
             const [egyptianLessons, setEgyptianLessons] = useState([]);
             const [internationalSkills, setInternationalSkills] = useState([]);
             
-            const [viewingStudentModal, setViewingStudentModal] = useState(null); // لعرض ملف الطالب الشخصي
+            const [viewingStudentModal, setViewingStudentModal] = useState(null);
 
+            // حالة إضافة طالب جديد مع التقسيم الهرمي الجديد للمنهج المصري
             const [newStudent, setNewStudent] = useState({ 
-                name: '', student_phone: '', parent_phone: '', system: 'National (Egyptian)', grade: 'الصف الأول الثانوي', rate: '', teaching_type: 'Private'
+                name: '', student_phone: '', parent_phone: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
             });
             
             const [newSession, setNewSession] = useState({ 
@@ -106,7 +107,7 @@
             }
 
             async function fetchSessions() {
-                const { data } = await supabase.from('sessions').select('*, students(student_name, parent_phone, student_phone, curriculum_system, teaching_type)').order('created_at', { ascending: false }).limit(100);
+                const { data } = await supabase.from('sessions').select('*, students(student_name, parent_phone, student_phone, curriculum_system)').order('created_at', { ascending: false }).limit(100);
                 if (data) setSessionsList(data);
             }
 
@@ -120,8 +121,36 @@
                 if (data) setInternationalSkills(data);
             }
 
+            // قائمة الصفوف المصرية بناءً على (عربي/لغات) + (المرحلة: ابتدائي، إعدادي، ثانوي)
+            const getEgyptianGradesList = () => {
+                const isLang = newStudent.systemType === 'egyptian_languages';
+                const stage = newStudent.schoolStage;
+
+                if (stage === 'primary') {
+                    return isLang ? [
+                        'Primary 1 (Languages)', 'Primary 2 (Languages)', 'Primary 3 (Languages)', 
+                        'Primary 4 (Languages)', 'Primary 5 (Languages)', 'Primary 6 (Languages)'
+                    ] : [
+                        'الصف الأول الابتدائي (عربي)', 'الصف الثاني الابتدائي (عربي)', 'الصف الثالث الابتدائي (عربي)', 
+                        'الصف الرابع الابتدائي (عربي)', 'الصف الخامس الابتدائي (عربي)', 'الصف السادس الابتدائي (عربي)'
+                    ];
+                } else if (stage === 'prep') {
+                    return isLang ? [
+                        'Prep 1 (Languages)', 'Prep 2 (Languages)', 'Prep 3 (Languages)'
+                    ] : [
+                        'الصف الأول الإعدادي (عربي)', 'الصف الثاني الإعدادي (عربي)', 'الصف الثالث الإعدادي (عربي)'
+                    ];
+                } else {
+                    return isLang ? [
+                        'Secondary 1 (Languages)', 'Secondary 2 (Languages)', 'Secondary 3 (Languages)'
+                    ] : [
+                        'الصف الأول الثانوي (عربي)', 'الصف الثاني الثانوي (عربي)', 'الصف الثالث الثانوي (عربي)'
+                    ];
+                }
+            };
+
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
-            const isEgyptianMode = selectedStudentObj && (selectedStudentObj.curriculum_system.toLowerCase().includes('national') || selectedStudentObj.curriculum_system.toLowerCase().includes('مصري'));
+            const isEgyptianMode = selectedStudentObj && (selectedStudentObj.curriculum_system.toLowerCase().includes('national') || selectedStudentObj.curriculum_system.toLowerCase().includes('مصري') || selectedStudentObj.curriculum_system.toLowerCase().includes('عربي') || selectedStudentObj.curriculum_system.toLowerCase().includes('لغات'));
 
             const egGrades = [...new Set(egyptianLessons.map(i => i.grade))];
             const filteredEgByGrade = egyptianLessons.filter(i => i.grade === newSession.eg_grade);
@@ -154,12 +183,20 @@
             async function handleAddStudent(e) {
                 e.preventDefault();
                 setMsg('⏳ جاري إضافة الطالب...');
-                // إرسال الأعمدة الأساسية المتاحة حصراً لتجنب أي أخطاء في الجدول
+                
+                // تحديد النص الوصفي للنظام بناءً على اختيار المستخدم
+                let systemFullName = '';
+                if (newStudent.systemType === 'egyptian_arabic') systemFullName = `تعليم مصري عربي (${newStudent.grade})`;
+                else if (newStudent.systemType === 'egyptian_languages') systemFullName = `تعليم مصري لغات (${newStudent.grade})`;
+                else if (newStudent.systemType === 'igcse') systemFullName = 'IGCSE (British)';
+                else if (newStudent.systemType === 'american') systemFullName = 'American Diploma';
+                else if (newStudent.systemType === 'ib') systemFullName = 'IB (International)';
+
                 const { error } = await supabase.from('students').insert([{
                     student_name: newStudent.name.trim(),
                     student_phone: newStudent.student_phone.trim(),
                     parent_phone: newStudent.parent_phone.trim(),
-                    curriculum_system: newStudent.system,
+                    curriculum_system: systemFullName,
                     grade_level: newStudent.grade,
                     hourly_rate: parseFloat(newStudent.rate)
                 }]);
@@ -167,7 +204,7 @@
                 if (!error) {
                     setMsg('✅ تم إضافة الطالب بنجاح إلى سجل الأكاديمية!');
                     fetchStudents();
-                    setNewStudent({ name: '', student_phone: '', parent_phone: '', system: 'National (Egyptian)', grade: 'الصف الأول الثانوي', rate: '', teaching_type: 'Private' });
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
                 } else {
                     setMsg('❌ خطأ: ' + error.message);
                 }
@@ -310,7 +347,7 @@
                     <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍🏫</div>
+                                <div className="text-6xl mb-4">👨‍‍🏫</div>
                                 <h2 className="text-3xl font-black">لوحة الإدارة</h2>
                             </div>
                             {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
@@ -353,7 +390,7 @@
 
                     {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-100">{msg}</div>}
 
-                    {/* 1. سجل الطلاب (Directory) وملفاتهم الشخصية */}
+                    {/* سجل الطلاب (Directory) وملفاتهم الشخصية */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-white">🎓 سجل الطلاب المسجلين (الملفات الشخصية)</h3>
@@ -396,7 +433,7 @@
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* 2. إضافة طالب جديد مع خيارات التعليم المصري الموسعة */}
+                        {/* 1. إضافة طالب جديد مع التقسيم الهرمي الجديد للمنهج المصري */}
                         <div className="glass-card p-8 rounded-3xl relative">
                             <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                             <h3 className="text-2xl font-black mb-6">👤 إضافة طالب جديد</h3>
@@ -406,36 +443,45 @@
                                     <input type="tel" placeholder="هاتف الطالب" className="w-full p-3 glass-input rounded-xl" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
                                     <input type="tel" placeholder="هاتف ولي الأمر" required className="w-full p-3 glass-input rounded-xl" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
                                 </div>
+                                
                                 <div className="grid grid-cols-2 gap-4">
-                                    <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})}>
-                                        <option value="National (Egyptian)">النظام المصري (National)</option>
-                                        <option value="IGCSE">IGCSE (British)</option>
-                                        <option value="American Diploma">American Diploma</option>
-                                        <option value="IB">IB (International)</option>
+                                    {/* اختيار نوع التعليم */}
+                                    <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
+                                        <option value="egyptian_arabic">🇪🇬 تعليم مصري (عربي)</option>
+                                        <option value="egyptian_languages">🌐 تعليم مصري (لغات/تجريبي)</option>
+                                        <option value="igcse">🇬🇧 IGCSE (British)</option>
+                                        <option value="american">🇺🇸 American Diploma</option>
+                                        <option value="ib">🌍 IB (International)</option>
                                     </select>
-                                    
-                                    {/* اختيار الصف الدراسي بناءً على النظام */}
-                                    <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
-                                        {newStudent.system === 'National (Egyptian)' ? (
-                                            <>
-                                                <option value="الصف الثالث الإعدادي">الصف الثالث الإعدادي</option>
-                                                <option value="الصف الأول الثانوي (عربي)">الصف الأول الثانوي (عربي)</option>
-                                                <option value="الصف الأول الثانوي (لغات)">الصف الأول الثانوي (لغات)</option>
-                                                <option value="الصف الثاني الثانوي (عربي)">الصف الثاني الثانوي (عربي)</option>
-                                                <option value="الصف الثاني الثانوي (لغات)">الصف الثاني الثانوي (لغات)</option>
-                                                <option value="الصف الثالث الثانوي (عربي)">الصف الثالث الثانوي (عربي)</option>
-                                                <option value="الصف الثالث الثانوي (لغات)">الصف الثالث الثانوي (لغات)</option>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <option value="Grade 9">Grade 9 / Year 9</option>
-                                                <option value="Grade 10">Grade 10 / Year 10</option>
-                                                <option value="Grade 11">Grade 11 / Year 11</option>
-                                                <option value="Grade 12">Grade 12 / Year 12</option>
-                                            </>
-                                        )}
-                                    </select>
+
+                                    {/* اختيار المرحلة التعليمية (إذا كان تعليماً مصرياً) */}
+                                    {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') ? (
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.schoolStage} onChange={e => setNewStudent({...newStudent, schoolStage: e.target.value})}>
+                                            <option value="primary">المرحلة الابتدائية</option>
+                                            <option value="prep">المرحلة الإعدادية</option>
+                                            <option value="secondary">المرحلة الثانوية</option>
+                                        </select>
+                                    ) : (
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                            <option value="" disabled>-- اختر الصف --</option>
+                                            <option value="Grade 9">Grade 9 / Year 9</option>
+                                            <option value="Grade 10">Grade 10 / Year 10</option>
+                                            <option value="Grade 11">Grade 11 / Year 11</option>
+                                            <option value="Grade 12">Grade 12 / Year 12</option>
+                                        </select>
+                                    )}
                                 </div>
+
+                                {/* ظهور الصف المحدد داخل المرحلة المصرية */}
+                                {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') && (
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">الصف الدراسي:</label>
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
+                                            <option value="" disabled>-- حدد الصف بدقة --</option>
+                                            {getEgyptianGradesList().map(g => <option key={g} value={g}>{g}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                                 
                                 <input type="number" placeholder="سعر الساعة (EGP)" required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
 
@@ -443,7 +489,7 @@
                             </form>
                         </div>
 
-                        {/* 3. توثيق الحصة ومكان الانعقاد */}
+                        {/* 2. توثيق الحصة ومكان الانعقاد */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
@@ -543,7 +589,7 @@
                         </div>
                     </div>
 
-                    {/* 4. سجل الحصص والمدفوعات */}
+                    {/* 3. سجل الحصص والمدفوعات */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <h3 className="text-xl font-black mb-6 text-white">💳 سجل الحصص والمدفوعات</h3>
                         <div className="overflow-x-auto">
