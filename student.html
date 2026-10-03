@@ -48,12 +48,22 @@
             const [isLoading, setIsLoading] = useState(false);
             const [aiFeedback, setAiFeedback] = useState('');
             const [isAnalyzing, setIsAnalyzing] = useState(false);
+            const [submissions, setSubmissions] = useState([]);
 
             useEffect(() => {
                 supabase.from('students').select('*').order('student_name').then(({data}) => {
                     if(data) setStudentsList(data);
                 });
             }, []);
+
+            const fetchSubmissions = async (studentId) => {
+                const { data } = await supabase
+                    .from('homework_submissions')
+                    .select('*')
+                    .eq('student_id', studentId)
+                    .order('created_at', { ascending: false });
+                if (data) setSubmissions(data);
+            };
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -64,6 +74,7 @@
                     const { data: sessions } = await supabase.from('sessions').select('calculated_cost').eq('student_id', student.id);
                     const cost = sessions ? sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) : 0;
                     setTotalCost(cost);
+                    fetchSubmissions(student.id);
                 }
                 setIsLoading(false);
             };
@@ -83,7 +94,7 @@
                 if (!file) return;
 
                 setIsAnalyzing(true);
-                setAiFeedback(isArabic ? '⏳ جاري تحليل خطوات الحل...' : '⏳ Analyzing solution steps...');
+                setAiFeedback(isArabic ? '⏳ جاري تحليل خطوات الحل وحفظ الواجب...' : '⏳ Analyzing solution and archiving...');
                 sendTelegramNotification(loggedInStudent.student_name);
 
                 try {
@@ -97,7 +108,17 @@
                             : "You are an expert math tutor. Analyze this handwritten math solution. Check the steps, provide encouragement, and point out mistakes.";
                         const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
                         const result = await model.generateContent([prompt, imagePart]);
-                        setAiFeedback((await result.response).text());
+                        const responseText = (await result.response).text();
+                        
+                        setAiFeedback(responseText);
+
+                        // حفظ التقييم في جدول الواجبات
+                        await supabase.from('homework_submissions').insert([{
+                            student_id: loggedInStudent.id,
+                            ai_feedback: responseText
+                        }]);
+
+                        fetchSubmissions(loggedInStudent.id);
                         setIsAnalyzing(false);
                     };
                 } catch (error) {
@@ -188,10 +209,11 @@
                         </div>
                     </div>
 
-                    <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    {/* رفع وتقييم الواجب */}
+                    <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التقييم الذكي للواجبات 🤖' : 'AI Homework Evaluation 🤖'}</h4>
-                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد وسيقوم المساعد بتصحيحه فوراً' : 'Upload your handwritten solution for instant AI feedback'}</p>
+                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد وسيقوم المساعد بتصحيحه فوراً وحفظه في سجلك' : 'Upload your handwritten solution for instant feedback and auto-archiving'}</p>
                         
                         <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
                         <label htmlFor="hw-upload" className="inline-block px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl cursor-pointer transition shadow-lg shadow-blue-500/40">
@@ -200,8 +222,32 @@
                         
                         {aiFeedback && (
                             <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm">
-                                <h5 className="font-black text-indigo-300 mb-3 text-lg">✨ {isArabic ? 'رد المساعد الذكي:' : 'AI Feedback:'}</h5>
+                                <h5 className="font-black text-indigo-300 mb-3 text-lg">✨ {isArabic ? 'نتيجة التقييم الحالية:' : 'Current Evaluation:'}</h5>
                                 <p className="text-slate-100 text-base leading-loose whitespace-pre-wrap font-bold">{aiFeedback}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* أرشيف الواجبات السابقة */}
+                    <div className="glass-card p-8 rounded-3xl">
+                        <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات السابقة والملاحظات' : '📚 Previous Submissions & Feedback'}</h4>
+                        {submissions.length === 0 ? (
+                            <p className="text-blue-200 text-center py-6 font-bold">{isArabic ? 'لا توجد واجبات مسجلة حتى الآن.' : 'No previous submissions found.'}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {submissions.map((sub, idx) => (
+                                    <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
+                                                {isArabic ? `واجب #${submissions.length - idx}` : `Submission #${submissions.length - idx}`}
+                                            </span>
+                                            <span className="text-xs text-blue-200 font-bold">
+                                                {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-slate-200 whitespace-pre-wrap font-bold leading-relaxed">{sub.ai_feedback}</p>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
