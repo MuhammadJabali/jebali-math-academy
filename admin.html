@@ -63,15 +63,19 @@
             const [internationalSkills, setInternationalSkills] = useState([]);
             
             const [viewingStudentModal, setViewingStudentModal] = useState(null);
+            const [isEditingStudent, setIsEditingStudent] = useState(false);
+            const [editStudentForm, setEditStudentForm] = useState({});
 
-            // حالة إضافة طالب جديد مع التقسيم الهرمي الجديد للمنهج المصري
             const [newStudent, setNewStudent] = useState({ 
                 name: '', student_phone: '', parent_phone: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
             });
             
+            // تحديث حقول الحصة لتشمل التواريخ وأوقات البدء والانتهاء
             const [newSession, setNewSession] = useState({ 
                 student_id: '', 
-                duration: '1.5', 
+                session_date: new Date().toISOString().split('T')[0],
+                start_time: '14:00',
+                end_time: '15:30',
                 location_type: 'Online', 
                 center_name: '',
                 center_fees: '',
@@ -121,7 +125,6 @@
                 if (data) setInternationalSkills(data);
             }
 
-            // قائمة الصفوف المصرية بناءً على (عربي/لغات) + (المرحلة: ابتدائي، إعدادي، ثانوي)
             const getEgyptianGradesList = () => {
                 const isLang = newStudent.systemType === 'egyptian_languages';
                 const stage = newStudent.schoolStage;
@@ -169,6 +172,23 @@
             const intStrands = [...new Set(filteredInt.map(i => i.strand || i.strands))].filter(Boolean);
             const availableIntSkills = filteredInt.filter(i => (i.strand || i.strands) === newSession.int_strand);
 
+            // دالة حساب المدة بالتقريب لأرباع الساعة
+            function calculateRoundedHours(start, end) {
+                const [startH, startM] = start.split(':').map(Number);
+                const [endH, endM] = end.split(':').map(Number);
+                
+                let startTotalMins = startH * 60 + startM;
+                let endTotalMins = endH * 60 + endM;
+                
+                if (endTotalMins < startTotalMins) endTotalMins += 24 * 60; // في حال تعدي منتصف الليل
+                
+                const diffMins = endTotalMins - startTotalMins;
+                const diffHours = diffMins / 60;
+                
+                // التقريب لأقرب ربع ساعة (0.25)
+                return Math.round(diffHours * 4) / 4;
+            }
+
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoginError('');
@@ -183,8 +203,6 @@
             async function handleAddStudent(e) {
                 e.preventDefault();
                 setMsg('⏳ جاري إضافة الطالب...');
-                
-                // تحديد النص الوصفي للنظام بناءً على اختيار المستخدم
                 let systemFullName = '';
                 if (newStudent.systemType === 'egyptian_arabic') systemFullName = `تعليم مصري عربي (${newStudent.grade})`;
                 else if (newStudent.systemType === 'egyptian_languages') systemFullName = `تعليم مصري لغات (${newStudent.grade})`;
@@ -202,7 +220,7 @@
                 }]);
                 
                 if (!error) {
-                    setMsg('✅ تم إضافة الطالب بنجاح إلى سجل الأكاديمية!');
+                    setMsg('✅ تم إضافة الطالب بنجاح!');
                     fetchStudents();
                     setNewStudent({ name: '', student_phone: '', parent_phone: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
                 } else {
@@ -211,16 +229,47 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
+            // حفظ التعديلات على ملف الطالب
+            async function handleUpdateStudent(e) {
+                e.preventDefault();
+                setMsg('⏳ جاري تحديث ملف الطالب...');
+                
+                const { error } = await supabase.from('students').update({
+                    student_name: editStudentForm.student_name,
+                    student_phone: editStudentForm.student_phone,
+                    parent_phone: editStudentForm.parent_phone,
+                    curriculum_system: editStudentForm.curriculum_system,
+                    grade_level: editStudentForm.grade_level,
+                    hourly_rate: parseFloat(editStudentForm.hourly_rate)
+                }).eq('id', viewingStudentModal.id);
+
+                if (!error) {
+                    setMsg('✅ تم تحديث ملف الطالب بنجاح!');
+                    fetchStudents();
+                    setIsEditingStudent(false);
+                    setViewingStudentModal(null);
+                } else {
+                    setMsg('❌ خطأ أثناء التحديث: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 4000);
+            }
+
             async function handleAddSession(e) {
                 e.preventDefault();
-                setMsg('⏳ جاري توثيق الحصة وتكلفة السنتر...');
+                setMsg('⏳ جاري حساب التوقيت وتوثيق الحصة...');
                 
-                const duration = parseFloat(newSession.duration);
+                const calculatedDuration = calculateRoundedHours(newSession.start_time, newSession.end_time);
+                if (calculatedDuration <= 0) {
+                    alert('خطأ: وقت الانتهاء يجب أن يكون بعد وقت البدء!');
+                    setMsg('');
+                    return;
+                }
+
                 let lessonTopic = '';
                 let strandName = '';
                 let skillsCovered = '';
 
-                const baseCost = duration * (selectedStudentObj.hourly_rate || 0);
+                const baseCost = calculatedDuration * (selectedStudentObj.hourly_rate || 0);
                 const centerFee = newSession.location_type === 'Center' ? parseFloat(newSession.center_fees || 0) : 0;
                 const totalCalculatedCost = baseCost + centerFee;
 
@@ -242,11 +291,16 @@
                     ? `سنتر: ${newSession.center_name} (+${centerFee} EGP)` 
                     : (newSession.location_type === 'Home' ? 'منزل الطالب' : 'Online');
 
+                // تنسيق التاريخ واليوم والتوقيت
+                const dateObj = new Date(newSession.session_date);
+                const dayName = dateObj.toLocaleDateString('ar-EG', { weekday: 'long' });
+                const formattedDateText = `${newSession.session_date} (${dayName}) من ${newSession.start_time} إلى ${newSession.end_time}`;
+
                 const { data: sessionData, error: sessionError } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
-                    duration_hours: duration,
+                    duration_hours: calculatedDuration,
                     strand: strandName,
-                    lesson_topic: `${lessonTopic} [${locationDetails}]`,
+                    lesson_topic: `${formattedDateText} | ${lessonTopic} [${locationDetails}]`,
                     skills_covered: skillsCovered,
                     calculated_cost: totalCalculatedCost,
                     is_paid: false
@@ -267,10 +321,11 @@
                     await supabase.from('session_international_skills').insert(skillLinks);
                 }
                 
-                setMsg('✅ تم توثيق الحصة وإضافة رسوم السنتر بنجاح!');
+                setMsg(`✅ تم توثيق الحصة (${calculatedDuration} ساعة) بنجاح!`);
                 setLastLoggedInfo({
                     student: selectedStudentObj,
-                    duration: duration,
+                    duration: calculatedDuration,
+                    timeText: formattedDateText,
                     cost: totalCalculatedCost,
                     strand: strandName,
                     topic: lessonTopic,
@@ -279,14 +334,14 @@
                     isEgyptian: isEgyptianMode
                 });
                 
-                setNewSession({ student_id: '', duration: '1.5', location_type: 'Online', center_name: '', center_fees: '', eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
+                setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
                 fetchSessions();
                 setTimeout(() => setMsg(''), 4000);
             }
 
             const sendWhatsApp = (target) => {
                 if (!lastLoggedInfo) return;
-                const { student, duration, cost, strand, topic, skill, location, isEgyptian } = lastLoggedInfo;
+                const { student, duration, timeText, cost, strand, topic, skill, location, isEgyptian } = lastLoggedInfo;
 
                 const formatPhone = (p) => {
                     let clean = (p || '').replace(/\D/g, '');
@@ -298,12 +353,12 @@
                 const totalUnpaid = sessionsList.filter(s => s.student_id === student.id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
                 let academicDetails = isEgyptian 
-                    ? `\n📚 *التقرير الأكاديمي:*\n• المكان: ${location}\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
-                    : `\n📚 *التقرير الأكاديمي:*\n• المكان: ${location}\n• Strand: ${strand}\n• Skills:\n- ${skill.replace(/ \| /g, '\n- ')}`;
+                    ? `\n📚 *مواعيد الحصة والتقرير:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
+                    : `\n📚 *مواعيد الحصة والتقرير:*\n• الموعد: ${timeText}\n• المدة: ${duration} ساعة\n• المكان: ${location}\n• Strand: ${strand}\n• Skills:\n- ${skill.replace(/ \| /g, '\n- ')}`;
 
-                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*\n• المدة: ${duration} ساعة (${cost} جنيه مصري)${academicDetails}\n\n• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay أو المحافظ، ومتابعة الواجبات عبر الأكاديمية:\nhttps://jebali-math-academy.pages.dev/parent.html`;
+                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم توثيق حصة جديدة للطالب/ة: *${student.student_name}*` + academicDetails + `\n\n• إجمالي التكلفة: ${cost} جنيه\n• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay أو المحافظ ومتابعة الواجبات:\nhttps://jebali-math-academy.pages.dev/parent.html`;
                 
-                const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}\nتأكد من تسليم واجبك عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
+                const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم:` + academicDetails + `\nتأكد من تسليم واجبك عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
 
                 if (target === 'parent') {
                     if (!parentPhone) return alert('رقم ولي الأمر غير مسجل!');
@@ -326,7 +381,7 @@
 
                 const studentUnpaid = sessionsList.filter(s => s.student_id === sessionItem.student_id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
 
-                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nنحيطكم علماً بأن هناك مستحقات مالية معلقة خاصة بالحصة المسجلة بتاريخ (${new Date(sessionItem.created_at).toLocaleDateString('en-GB')}).\n\n• إجمالي المستحقات المعلقة حتى الآن: *${studentUnpaid} جنيه مصري*\n\nنرجو التكرم بالسداد في أقرب وقت عبر InstaPay أو المحافظ الإلكترونية. شكراً لتفوق وتعاون ابننا/ابنتنا *${student.student_name}*!`;
+                const reminderMsg = `مرحباً بحضرتك، تذكير ودي من أكاديمية Jebali للرياضيات 📐\n\nنحيطكم علماً بأن هناك مستحقات مالية معلقة خاصة بالحصة المسجلة بتاريخ (${new Date(sessionItem.created_at).toLocaleDateString('en-GB')}).\n\n• إجمالي المستحقات المعلقة حتى الآن: *${studentUnpaid} جنيه مصري*\n\nنرجو التكرم بالسداد في أقرب وقت عبر InstaPay أو المحافظ الإلكترونية. شكراً لتعاونكم مع ابننا/ابنتنا *${student.student_name}*!`;
 
                 window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderMsg)}`, '_blank');
             };
@@ -371,7 +426,7 @@
                             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">📐</div>
                             <div>
                                 <h1 className="text-2xl font-black">Jebali Math Academy | لوحة التحكم</h1>
-                                <p className="text-blue-200 font-bold text-sm">نظام الإدارة الشامل (سجل الطلاب وملفاتهم)</p>
+                                <p className="text-blue-200 font-bold text-sm">نظام الإدارة المطور (توقيتات آلية وتعديل الطلاب)</p>
                             </div>
                         </div>
                         <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold transition">خروج</button>
@@ -390,7 +445,7 @@
 
                     {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-100">{msg}</div>}
 
-                    {/* سجل الطلاب (Directory) وملفاتهم الشخصية */}
+                    {/* سجل الطلاب (Directory) */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-white">🎓 سجل الطلاب المسجلين (الملفات الشخصية)</h3>
@@ -404,7 +459,7 @@
                                         <th className="pb-3 px-4">النظام التعليمي والصف</th>
                                         <th className="pb-3 px-4">الهواتف (الطالب / ولي الأمر)</th>
                                         <th className="pb-3 px-4">سعر الساعة</th>
-                                        <th className="pb-3 px-4 text-center">الملف الشخصي</th>
+                                        <th className="pb-3 px-4 text-center">إدارة الملف</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -421,7 +476,7 @@
                                             </td>
                                             <td className="py-4 px-4 font-black text-orange-300">{st.hourly_rate} EGP</td>
                                             <td className="py-4 px-4 text-center">
-                                                <button onClick={() => setViewingStudentModal(st)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition shadow">
+                                                <button onClick={() => { setViewingStudentModal(st); setEditStudentForm(st); setIsEditingStudent(false); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition shadow">
                                                     📁 فتح الملف
                                                 </button>
                                             </td>
@@ -433,7 +488,7 @@
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* 1. إضافة طالب جديد مع التقسيم الهرمي الجديد للمنهج المصري */}
+                        {/* 1. إضافة طالب جديد */}
                         <div className="glass-card p-8 rounded-3xl relative">
                             <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                             <h3 className="text-2xl font-black mb-6">👤 إضافة طالب جديد</h3>
@@ -443,9 +498,7 @@
                                     <input type="tel" placeholder="هاتف الطالب" className="w-full p-3 glass-input rounded-xl" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
                                     <input type="tel" placeholder="هاتف ولي الأمر" required className="w-full p-3 glass-input rounded-xl" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
                                 </div>
-                                
                                 <div className="grid grid-cols-2 gap-4">
-                                    {/* اختيار نوع التعليم */}
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
                                         <option value="egyptian_arabic">🇪🇬 تعليم مصري (عربي)</option>
                                         <option value="egyptian_languages">🌐 تعليم مصري (لغات/تجريبي)</option>
@@ -453,8 +506,6 @@
                                         <option value="american">🇺🇸 American Diploma</option>
                                         <option value="ib">🌍 IB (International)</option>
                                     </select>
-
-                                    {/* اختيار المرحلة التعليمية (إذا كان تعليماً مصرياً) */}
                                     {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') ? (
                                         <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.schoolStage} onChange={e => setNewStudent({...newStudent, schoolStage: e.target.value})}>
                                             <option value="primary">المرحلة الابتدائية</option>
@@ -471,8 +522,6 @@
                                         </select>
                                     )}
                                 </div>
-
-                                {/* ظهور الصف المحدد داخل المرحلة المصرية */}
                                 {(newStudent.systemType === 'egyptian_arabic' || newStudent.systemType === 'egyptian_languages') && (
                                     <div>
                                         <label className="text-xs font-bold text-blue-200 block mb-1">الصف الدراسي:</label>
@@ -482,25 +531,35 @@
                                         </select>
                                     </div>
                                 )}
-                                
                                 <input type="number" placeholder="سعر الساعة (EGP)" required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
-
                                 <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition">حفظ ملف الطالب</button>
                             </form>
                         </div>
 
-                        {/* 2. توثيق الحصة ومكان الانعقاد */}
+                        {/* 2. توثيق الحصة مع تحديد المواعيد والحساب الآلي */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6">⏱️ توثيق حصة ومكان الانعقاد</h3>
+                                <h3 className="text-2xl font-black mb-6">⏱️ توثيق حصة (توقيت آلي بالأرباع ساعة)</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
                                             <option value="" disabled>1. اختر الطالب</option>
                                             {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
                                         </select>
-                                        <input type="number" step="0.25" required placeholder="المدة (ساعات)" className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
+                                        <input type="date" required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.session_date} onChange={e => setNewSession({...newSession, session_date: e.target.value})} />
+                                    </div>
+
+                                    {/* توقيت البدء والانتهاء */}
+                                    <div className="grid grid-cols-2 gap-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                                        <div>
+                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">⏰ وقت البدء:</label>
+                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.start_time} onChange={e => setNewSession({...newSession, start_time: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-bold text-blue-200 block mb-1">🏁 وقت الانتهاء (حساب آلي):</label>
+                                            <input type="time" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={newSession.end_time} onChange={e => setNewSession({...newSession, end_time: e.target.value})} />
+                                        </div>
                                     </div>
 
                                     <div className="p-4 border border-white/10 bg-white/5 rounded-xl space-y-3">
@@ -510,7 +569,6 @@
                                             <option value="Home">منزل الطالب (Student's Home)</option>
                                             <option value="Center">سنتر تعليمي (Educational Center)</option>
                                         </select>
-
                                         {newSession.location_type === 'Center' && (
                                             <div className="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-white/10">
                                                 <input type="text" placeholder="اسم السنتر والعنوان" required className="w-full p-2.5 glass-input rounded-xl text-xs font-bold" value={newSession.center_name} onChange={e => setNewSession({...newSession, center_name: e.target.value})} />
@@ -519,7 +577,7 @@
                                         )}
                                     </div>
 
-                                    {/* تفاصيل المنهج المصري */}
+                                    {/* المنهج المصري */}
                                     {selectedStudentObj && isEgyptianMode && (
                                         <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
                                             <p className="text-xs font-bold text-blue-200">🟢 منهج مصري:</p>
@@ -546,7 +604,7 @@
                                         </div>
                                     )}
 
-                                    {/* تفاصيل المنهج الدولي */}
+                                    {/* المنهج الدولي */}
                                     {selectedStudentObj && !isEgyptianMode && (
                                         <div className="space-y-3 p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl">
                                             <p className="text-xs font-bold text-emerald-200">🟣 المهارات الدولية (متعدد التحديد):</p>
@@ -567,7 +625,7 @@
                                     )}
 
                                     <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition mt-4 disabled:opacity-50 shadow-lg">
-                                        وثّق الحصة (مع التكلفة التلقائية)
+                                        وثّق الحصة (حساب آلي للتوقيت والتكلفة)
                                     </button>
                                 </form>
                             </div>
@@ -589,7 +647,7 @@
                         </div>
                     </div>
 
-                    {/* 3. سجل الحصص والمدفوعات */}
+                    {/* سجل الحصص والمدفوعات */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <h3 className="text-xl font-black mb-6 text-white">💳 سجل الحصص والمدفوعات</h3>
                         <div className="overflow-x-auto">
@@ -597,7 +655,7 @@
                                 <thead>
                                     <tr className="border-b border-white/10 text-blue-200 text-sm">
                                         <th className="pb-3 px-4">الطالب</th>
-                                        <th className="pb-3 px-4">مكان الحصة والمهارات الموثقة</th>
+                                        <th className="pb-3 px-4">المواعيد ومكان الحصة والمهارات</th>
                                         <th className="pb-3 px-4">التكلفة الشاملة</th>
                                         <th className="pb-3 px-4">حالة السداد والتذكير</th>
                                         <th className="pb-3 px-4 text-center">حذف</th>
@@ -634,29 +692,78 @@
                         </div>
                     </div>
 
-                    {/* نافذة ملف الطالب الشخصي */}
+                    {/* نافذة ملف الطالب الشخصي (مع زر التعديل الشامل) */}
                     {viewingStudentModal && (
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
                             <div className="glass-card p-8 rounded-3xl max-w-lg w-full border border-white/20 shadow-2xl relative">
                                 <button onClick={() => setViewingStudentModal(null)} className="absolute top-4 left-4 text-slate-400 hover:text-white text-2xl font-bold">×</button>
-                                <div className="text-center mb-6">
-                                    <div className="text-5xl mb-2">🎓</div>
-                                    <h3 className="text-2xl font-black text-white">{viewingStudentModal.student_name}</h3>
-                                    <p className="text-blue-200 text-sm font-bold mt-1">{viewingStudentModal.curriculum_system} • {viewingStudentModal.grade_level}</p>
-                                </div>
+                                
+                                {!isEditingStudent ? (
+                                    <div>
+                                        <div className="text-center mb-6">
+                                            <div className="text-5xl mb-2">🎓</div>
+                                            <h3 className="text-2xl font-black text-white">{viewingStudentModal.student_name}</h3>
+                                            <p className="text-blue-200 text-sm font-bold mt-1">{viewingStudentModal.curriculum_system} • {viewingStudentModal.grade_level}</p>
+                                        </div>
 
-                                <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-sm">
-                                    <div><span className="text-slate-400">هاتف الطالب:</span> <strong className="text-white">{viewingStudentModal.student_phone || 'غير مسجل'}</strong></div>
-                                    <div><span className="text-slate-400">هاتف ولي الأمر:</span> <strong className="text-emerald-300">{viewingStudentModal.parent_phone}</strong></div>
-                                    <div><span className="text-slate-400">سعر الساعة:</span> <strong className="text-orange-300">{viewingStudentModal.hourly_rate} EGP</strong></div>
-                                    <div><span className="text-slate-400">تاريخ الانضمام:</span> <strong className="text-slate-200">{new Date(viewingStudentModal.created_at).toLocaleDateString('en-GB')}</strong></div>
-                                </div>
+                                        <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-sm">
+                                            <div><span className="text-slate-400">هاتف الطالب:</span> <strong className="text-white">{viewingStudentModal.student_phone || 'غير مسجل'}</strong></div>
+                                            <div><span className="text-slate-400">هاتف ولي الأمر:</span> <strong className="text-emerald-300">{viewingStudentModal.parent_phone}</strong></div>
+                                            <div><span className="text-slate-400">سعر الساعة:</span> <strong className="text-orange-300">{viewingStudentModal.hourly_rate} EGP</strong></div>
+                                            <div><span className="text-slate-400">تاريخ الانضمام:</span> <strong className="text-slate-200">{new Date(viewingStudentModal.created_at).toLocaleDateString('en-GB')}</strong></div>
+                                        </div>
 
-                                <div className="mt-6 pt-4 border-t border-white/10 flex gap-3">
-                                    <button onClick={() => setViewingStudentModal(null)} className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition">
-                                        إغلاق الملف
-                                    </button>
-                                </div>
+                                        <div className="mt-6 pt-4 border-t border-white/10 flex gap-3">
+                                            <button onClick={() => setIsEditingStudent(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">
+                                                ✏️ تعديل بيانات الطالب
+                                            </button>
+                                            <button onClick={() => setViewingStudentModal(null)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition">
+                                                إغلاق
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleUpdateStudent} className="space-y-4">
+                                        <h3 className="text-xl font-black text-white mb-4 border-b border-white/10 pb-2">✏️ تعديل ملف الطالب</h3>
+                                        <div>
+                                            <label className="text-xs text-blue-200 block mb-1">اسم الطالب:</label>
+                                            <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.student_name || ''} onChange={e => setEditStudentForm({...editStudentForm, student_name: e.target.value})} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">هاتف الطالب:</label>
+                                                <input type="tel" className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.student_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, student_phone: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">هاتف ولي الأمر:</label>
+                                                <input type="tel" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.parent_phone || ''} onChange={e => setEditStudentForm({...editStudentForm, parent_phone: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
+                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.curriculum_system || ''} onChange={e => setEditStudentForm({...editStudentForm, curriculum_system: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-blue-200 block mb-1">الصف الدراسي:</label>
+                                                <input type="text" required className="w-full p-2.5 glass-input rounded-xl text-sm" value={editStudentForm.grade_level || ''} onChange={e => setEditStudentForm({...editStudentForm, grade_level: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
+                                            <input type="number" required className="w-full p-2.5 glass-input rounded-xl text-sm font-bold" value={editStudentForm.hourly_rate || ''} onChange={e => setEditStudentForm({...editStudentForm, hourly_rate: e.target.value})} />
+                                        </div>
+
+                                        <div className="flex gap-3 pt-2">
+                                            <button type="submit" className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition shadow">
+                                                حفظ التعديلات ✅
+                                            </button>
+                                            <button type="button" onClick={() => setIsEditingStudent(false)} className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition">
+                                                إلغاء
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
                         </div>
                     )}
