@@ -59,7 +59,7 @@
             </p>
 
             <!-- البطاقات الثلاث الرئيسية (البوابات الفاخرة) -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-8">
                 
                 <!-- بوابة الطالب -->
                 <a href="student.html" class="blue-card p-8 rounded-3xl text-center group block relative overflow-hidden">
@@ -102,23 +102,43 @@
 
             </div>
 
-            <!-- بطاقات التبويبات والميزات السفلية (ثابتة ومتوافقة مع اللغتين بتنظيم دقيق) -->
+            <!-- الصف الأول من البطاقات السفلية (البيانات الرقمية البارزة) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto mb-4">
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div class="text-xl md:text-2xl font-black text-orange-400 mb-1">5+</div>
+                    <div id="stat1Text" class="text-xs md:text-sm text-slate-200 font-semibold">Global & Local Curricula</div>
+                </div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div class="text-xl md:text-2xl font-black text-blue-400 mb-1">100%</div>
+                    <div id="stat2Text" class="text-xs md:text-sm text-slate-200 font-semibold">Instant WhatsApp Reports</div>
+                </div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div class="text-xl md:text-2xl font-black text-emerald-400 mb-1">24/7</div>
+                    <div id="stat3Text" class="text-xs md:text-sm text-slate-200 font-semibold">24/7 Platform Stability</div>
+                </div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div class="text-xl md:text-2xl font-black text-amber-400 mb-1">KaTeX</div>
+                    <div id="stat4Text" class="text-xs md:text-sm text-slate-200 font-semibold">Advanced Math Rendering</div>
+                </div>
+            </div>
+
+            <!-- الصف الثاني من البطاقات السفلية (الميزات الإضافية والأيقونات) -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                <div class="blue-glass-panel p-5 rounded-2xl text-center border border-white/10">
-                    <div class="text-xl md:text-2xl font-black text-orange-400 mb-1" id="stat1Head">5+</div>
-                    <div id="feat1" class="text-xs md:text-sm text-slate-200 font-semibold">الأنظمة الدولية (IGCSE, American, IB)</div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div id="feat1Head" class="text-base md:text-lg font-black text-amber-400 mb-1">KaTeX Math</div>
+                    <div id="feat1Text" class="text-xs md:text-sm text-slate-200 font-semibold">عرض معادلات احترافي</div>
                 </div>
-                <div class="blue-glass-panel p-5 rounded-2xl text-center border border-white/10">
-                    <div class="text-xl md:text-2xl font-black text-blue-400 mb-1" id="stat2Head">100%</div>
-                    <div id="feat2" class="text-xs md:text-sm text-slate-200 font-semibold">توثيق فوري وتقارير واتساب تلقائية</div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div id="feat2Head" class="text-base md:text-lg font-black text-emerald-400 mb-1">أداء صاروخي</div>
+                    <div id="feat2Text" class="text-xs md:text-sm text-slate-200 font-semibold">سرعة تصفح فائقة</div>
                 </div>
-                <div class="blue-glass-panel p-5 rounded-2xl text-center border border-white/10">
-                    <div class="text-xl md:text-2xl font-black text-emerald-400 mb-1" id="stat3Head">24/7</div>
-                    <div id="feat3" class="text-xs md:text-sm text-slate-200 font-semibold">أداء صاروخي واستقرار المنصة</div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div id="feat3Head" class="text-base md:text-lg font-black text-blue-400 mb-1">توثيق فوري</div>
+                    <div id="feat3Text" class="text-xs md:text-sm text-slate-200 font-semibold">تقارير واتساب تلقائية</div>
                 </div>
-                <div class="blue-glass-panel p-5 rounded-2xl text-center border border-white/10">
-                    <div class="text-xl md:text-2xl font-black text-amber-400 mb-1" id="stat4Head">KaTeX</div>
-                    <div id="feat4" class="text-xs md:text-sm text-slate-200 font-semibold">عرض معادلات هندسي احترافي</div>
+                <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/10">
+                    <div id="feat4Head" class="text-base md:text-lg font-black text-orange-400 mb-1">الأنظمة الدولية</div>
+                    <div id="feat4Text" class="text-xs md:text-sm text-slate-200 font-semibold">IGCSE, American, IB</div>
                 </div>
             </div>
 
@@ -132,7 +152,7 @@
 
     </div>
 
-    <!-- كود تبديل اللغة المتقدم -->
+    <!-- كود تبديل اللغة -->
     <script>
         let currentLang = 'ar';
 
@@ -160,10 +180,19 @@
                 document.getElementById('adminPortalDesc').innerText = 'Comprehensive control system, quarter-hour session documentation, and instant WhatsApp reports.';
                 document.getElementById('adminBtnText').innerText = 'Academy Management';
 
-                document.getElementById('feat1').innerText = 'Global & Local Curricula (IGCSE, American, IB)';
-                document.getElementById('feat2').innerText = 'Instant Documentation & Auto WhatsApp Reports';
-                document.getElementById('feat3').innerText = '24/7 Platform Stability & Rocket Speed';
-                document.getElementById('feat4').innerText = 'Professional Math Rendering with KaTeX';
+                document.getElementById('stat1Text').innerText = 'Global & Local Curricula';
+                document.getElementById('stat2Text').innerText = 'Instant WhatsApp Reports';
+                document.getElementById('stat3Text').innerText = '24/7 Platform Stability';
+                document.getElementById('stat4Text').innerText = 'Advanced Math Rendering';
+
+                document.getElementById('feat1Head').innerText = 'KaTeX Math';
+                document.getElementById('feat1Text').innerText = 'Advanced Math Rendering';
+                document.getElementById('feat2Head').innerText = 'Rocket Speed';
+                document.getElementById('feat2Text').innerText = 'Lightning Fast Navigation';
+                document.getElementById('feat3Head').innerText = 'Instant Logs';
+                document.getElementById('feat3Text').innerText = 'Auto WhatsApp Reports';
+                document.getElementById('feat4Head').innerText = 'Global Systems';
+                document.getElementById('feat4Text').innerText = 'IGCSE, American, IB';
 
                 document.getElementById('footerCopy').innerText = '© 2026 Jebali Math Academy. All rights reserved.';
                 document.getElementById('langText').innerText = 'العربية';
@@ -185,10 +214,19 @@
                 document.getElementById('adminPortalDesc').innerText = 'نظام التحكم الشامل، توثيق الحصص بدقة الأرباع ساعة، وتقارير الواتساب الفورية.';
                 document.getElementById('adminBtnText').innerText = 'إدارة الأكاديمية';
 
-                document.getElementById('feat1').innerText = 'الأنظمة الدولية والمحلية (IGCSE, American, IB)';
-                document.getElementById('feat2').innerText = 'توثيق فوري وتقارير واتساب تلقائية';
-                document.getElementById('feat3').innerText = 'أداء صاروخي واستقرار المنصة 24/7';
-                document.getElementById('feat4').innerText = 'عرض معادلات هندسي احترافي بـ KaTeX';
+                document.getElementById('stat1Text').innerText = 'Global & Local Curricula';
+                document.getElementById('stat2Text').innerText = 'Instant WhatsApp Reports';
+                document.getElementById('stat3Text').innerText = '24/7 Platform Stability';
+                document.getElementById('stat4Text').innerText = 'Advanced Math Rendering';
+
+                document.getElementById('feat1Head').innerText = 'KaTeX Math';
+                document.getElementById('feat1Text').innerText = 'عرض معادلات احترافي';
+                document.getElementById('feat2Head').innerText = 'أداء صاروخي';
+                document.getElementById('feat2Text').innerText = 'سرعة تصفح فائقة';
+                document.getElementById('feat3Head').innerText = 'توثيق فوري';
+                document.getElementById('feat3Text').innerText = 'تقارير واتساب تلقائية';
+                document.getElementById('feat4Head').innerText = 'الأنظمة الدولية';
+                document.getElementById('feat4Text').innerText = 'IGCSE, American, IB';
 
                 document.getElementById('footerCopy').innerText = '© 2026 Jebali Math Academy. جميع الحقوق محفوظة.';
                 document.getElementById('langText').innerText = 'English';
