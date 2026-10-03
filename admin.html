@@ -45,6 +45,7 @@
                 name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' 
             });
             const [newSession, setNewSession] = useState({ student_id: '', duration: '' });
+            const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [msg, setMsg] = useState('');
 
             useEffect(() => {
@@ -73,7 +74,7 @@
             async function fetchSessions() {
                 const { data } = await supabase
                     .from('sessions')
-                    .select('*, students(student_name, parent_phone)')
+                    .select('*, students(student_name, parent_phone, student_phone)')
                     .order('created_at', { ascending: false })
                     .limit(30);
                 if (data) setSessionsList(data);
@@ -108,7 +109,7 @@
             }
 
             async function deleteStudent(studentId) {
-                if (!window.confirm(isArabic ? 'تحذير: سيتم حذف الطالب وجميع حصصه وواجباته المرتبطة. هل تود المتابعة؟' : 'Warning: This will delete student and all linked sessions/homeworks. Continue?')) return;
+                if (!window.confirm(isArabic ? 'تحذير: سيتم حذف الطالب وجميع حصصه وواجباته. هل تود المتابعة؟' : 'Warning: This will delete student and all linked records. Continue?')) return;
                 const { error } = await supabase.from('students').delete().eq('id', studentId);
                 if (!error) {
                     setMsg(isArabic ? '✅ تم حذف ملف الطالب بنجاح.' : '✅ Student profile deleted.');
@@ -150,17 +151,30 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
+            // تسجيل الحصة وحفظ الطالب المسجل لإظهاره وحده في الواتساب
             async function handleAddSession(e) {
                 e.preventDefault();
                 setMsg(isArabic ? '⏳ جاري التسجيل...' : '⏳ Logging session...');
+                
+                const selectedStudent = students.find(s => s.id === newSession.student_id);
+                const duration = parseFloat(newSession.duration);
+
                 const { error } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
-                    duration_hours: parseFloat(newSession.duration),
+                    duration_hours: duration,
                     is_paid: false
                 }]);
                 
                 if (!error) {
                     setMsg(isArabic ? '✅ تم تسجيل الحصة بنجاح!' : '✅ Session logged successfully!');
+                    
+                    // تجهيز بيانات هذا الطالب فقط لخيارات الواتساب
+                    setLastLoggedInfo({
+                        student: selectedStudent,
+                        duration: duration,
+                        cost: duration * (selectedStudent.hourly_rate || 0)
+                    });
+
                     setNewSession({ student_id: '', duration: '' });
                     fetchSessions();
                 } else {
@@ -169,21 +183,48 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            const sendWhatsAppInvoice = (student) => {
-                const studentSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
-                const unpaidAmount = studentSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
-                const unpaidHours = studentSessions.reduce((sum, s) => sum + (s.duration_hours || 0), 0);
-                
-                let phone = student.parent_phone ? student.parent_phone.replace(/\D/g, '') : '';
-                if (phone.startsWith('0')) {
-                    phone = '2' + phone;
+            // دالة إرسال الواتساب المخصصة (طالب / ولي أمر / الطرفين)
+            const sendWhatsApp = (target) => {
+                if (!lastLoggedInfo) return;
+                const { student, duration, cost } = lastLoggedInfo;
+
+                const formatPhone = (p) => {
+                    if (!p) return '';
+                    let clean = p.replace(/\D/g, '');
+                    if (clean.startsWith('0')) clean = '2' + clean;
+                    return clean;
+                };
+
+                const parentPhone = formatPhone(student.parent_phone);
+                const studentPhone = formatPhone(student.student_phone);
+
+                // حساب إجمالي المستحق الكلي المعلق لهذا الطالب
+                const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
+                const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
+
+                const parentMsg = isArabic 
+                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة%0A• تكلفة الحصة: ${cost} جنيه مصري%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0A%0Aيمكنكم متابعة تقرير الحصص والواجبات والسداد عبر الرابط:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
+                    : `Hello from Jebali Math Academy 📐%0A%0ANew session logged for: *${student.student_name}*%0A• Duration: ${duration} hrs%0A• Cost: ${cost} EGP%0A• Total Due: *${totalUnpaid} EGP*%0A%0AParent portal:%0Ahttps://jebali-math-academy.pages.dev/parent.html`;
+
+                const studentMsg = isArabic
+                    ? `مرحباً ${student.student_name} 📐%0Aتم تسجيل حضور حصة الرياضيات اليوم بنجاح (${duration} ساعة).%0Aيمكنك مراجعة واجباتك ورفع الحل لتصحيحه بالذكاء الاصطناعي عبر بوابتك:%0Ahttps://jebali-math-academy.pages.dev/student.html`
+                    : `Hello ${student.student_name} 📐%0AYour session today (${duration} hrs) has been recorded successfully.%0AUpload homework via student portal:%0Ahttps://jebali-math-academy.pages.dev/student.html`;
+
+                if (target === 'parent') {
+                    if (!parentPhone) return alert(isArabic ? 'رقم ولي الأمر غير مسجل لهذا الطالب!' : 'Parent phone not found!');
+                    window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                } else if (target === 'student') {
+                    if (!studentPhone) return alert(isArabic ? 'رقم هاتف الطالب غير مسجل!' : 'Student phone not found!');
+                    window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank');
+                } else if (target === 'both') {
+                    if (!parentPhone && !studentPhone) return alert(isArabic ? 'لا توجد أرقام مسجلة للطالب أو ولي الأمر!' : 'No phone numbers registered!');
+                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                    if (studentPhone) {
+                        setTimeout(() => {
+                            window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank');
+                        }, 500);
+                    }
                 }
-
-                const message = isArabic 
-                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتقرير حساب الطالب/ة: *${student.student_name}*%0A• النظام: ${student.curriculum_system} (${student.grade_level})%0A• الحصص غير المسددة: ${studentSessions.length} حصة (${unpaidHours} ساعة)%0A• إجمالي المستحق: *${unpaidAmount} جنيه مصري*%0A%0Aللسداد عبر InstaPay أو المحافظ الإلكترونية، ويمكنكم متابعة تفاصيل الواجبات والحصص عبر الرابط:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
-                    : `Hello from Jebali Math Academy 📐%0A%0AStatement for student: *${student.student_name}*%0A• Curriculum: ${student.curriculum_system}%0A• Pending sessions: ${studentSessions.length} (${unpaidHours} hrs)%0A• Total due: *${unpaidAmount} EGP*%0A%0APortal link:%0Ahttps://jebali-math-academy.pages.dev/parent.html`;
-
-                window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
             };
 
             const totalCollected = sessionsList.filter(s => s.is_paid).reduce((acc, s) => acc + (s.calculated_cost || 0), 0);
@@ -322,7 +363,7 @@
                             </form>
                         </div>
 
-                        {/* تسجيل حصة */}
+                        {/* تسجيل حصة وإرسال الواتساب الفوري */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
@@ -345,20 +386,51 @@
                                 </form>
                             </div>
 
+                            {/* بطاقة إرسال الواتساب للطالب المسجل فقط */}
                             <div className="mt-8 pt-6 border-t border-white/10">
-                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال مطالبة سريعة عبر WhatsApp:' : '📲 Quick WhatsApp Invoices:'}</h4>
-                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                                    {students.map(st => (
-                                        <div key={st.id} className="flex justify-between items-center p-2.5 bg-white/5 rounded-xl text-xs font-bold">
-                                            <span>{st.student_name}</span>
+                                <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال مطالبة عبر WhatsApp:' : '📲 Send WhatsApp Invoice:'}</h4>
+                                
+                                {lastLoggedInfo ? (
+                                    <div className="p-4 bg-white/10 rounded-2xl border border-white/15 animate-fade-in">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <div>
+                                                <span className="text-xs text-emerald-300 font-bold block">✨ {isArabic ? 'تم التسجيل بنجاح لـ:' : 'Logged for:'}</span>
+                                                <h5 className="text-base font-black text-white">{lastLoggedInfo.student.student_name} ({lastLoggedInfo.duration} {isArabic ? 'ساعة' : 'hrs'})</h5>
+                                            </div>
+                                            <span className="text-sm font-black text-orange-300">{lastLoggedInfo.cost} EGP</span>
+                                        </div>
+
+                                        <p className="text-xs text-blue-200 font-bold mb-3">{isArabic ? 'اختر الجهة المراد إرسال الرسالة إليها:' : 'Select recipient:'}</p>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             <button 
-                                                onClick={() => sendWhatsAppInvoice(st)}
-                                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 transition shadow-sm">
-                                                <span>💬</span> {isArabic ? 'واتساب' : 'WhatsApp'}
+                                                onClick={() => sendWhatsApp('parent')}
+                                                className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👨‍👩‍👦</span> {isArabic ? 'ولي الأمر' : 'Parent'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => sendWhatsApp('student')}
+                                                className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👨‍🎓</span> {isArabic ? 'الطالب' : 'Student'}
+                                            </button>
+
+                                            <button 
+                                                onClick={() => sendWhatsApp('both')}
+                                                className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
+                                                <span>👥</span> {isArabic ? 'الاثنين معاً' : 'Both'}
                                             </button>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center">
+                                        <p className="text-xs text-blue-200 font-bold">
+                                            {isArabic 
+                                                ? '💡 حدد الطالب والمدة واضغط "تسجيل الحصة" لتظهر لك هنا خيارات الإرسال لهذا الطالب فقط.' 
+                                                : '💡 Select student & log session to reveal WhatsApp send options for that student.'}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
