@@ -248,16 +248,24 @@
                 if (data) setTaxonomyList(data);
             }
 
-            // تصفية المحاور والمهارات بناءً على الطالب المختار لتتطابق مع منهجه ومرحلته في Supabase
+            // 1. تحديد الطالب المختار
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
-            const filteredTaxonomy = taxonomyList.filter(item => {
-                if (!selectedStudentObj) return false; // لا تعرض شيء قبل اختيار الطالب
-                return item.curriculum_system.trim().toLowerCase() === selectedStudentObj.curriculum_system.trim().toLowerCase() && 
-                       item.grade_level.trim().toLowerCase() === selectedStudentObj.grade_level.trim().toLowerCase();
-            });
 
-            const uniqueTopics = [...new Set(filteredTaxonomy.map(i => i.core_topic))];
-            const uniqueSkills = [...new Set(filteredTaxonomy.map(i => i.micro_skill))];
+            // 2. تصفية المحاور بناءً على (الطالب + المجال الرياضي المختار)
+            const topicsTaxonomy = taxonomyList.filter(item => {
+                if (!selectedStudentObj) return false;
+                return item.curriculum_system.trim().toLowerCase() === selectedStudentObj.curriculum_system.trim().toLowerCase() && 
+                       item.grade_level.trim().toLowerCase() === selectedStudentObj.grade_level.trim().toLowerCase() &&
+                       item.strand.trim().toLowerCase() === newSession.strand.trim().toLowerCase();
+            });
+            const uniqueTopics = [...new Set(topicsTaxonomy.map(i => i.core_topic))];
+
+            // 3. تصفية المهارات الدقيقة بناءً على (الطالب + المجال + المحور المختار إن وجد)
+            const skillsTaxonomy = topicsTaxonomy.filter(item => {
+                if (!newSession.lesson_topic) return true;
+                return item.core_topic.trim().toLowerCase() === newSession.lesson_topic.trim().toLowerCase();
+            });
+            const uniqueSkills = [...new Set(skillsTaxonomy.map(i => i.micro_skill))];
 
             const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
 
@@ -776,7 +784,7 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '3. المجال العام (Global Strand)' : '3. Global Strand'}</label>
-                                            <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value})}>
+                                            <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value, lesson_topic: '', targeted_skill: ''})}>
                                                 <option value="Geometry & Measure">Geometry & Measure (الهندسة والقياس)</option>
                                                 <option value="Algebra & Functions">Algebra & Functions (الجبر والدوال)</option>
                                                 <option value="Number & Arithmetic">Number & Arithmetic (الأعداد والحساب)</option>
@@ -794,7 +802,7 @@
                                                 placeholder={isArabic ? (!newSession.student_id ? 'اختر الطالب أولاً...' : 'اختر أو اكتب المحور...') : 'Select student first...'} 
                                                 className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400 disabled:opacity-40 disabled:cursor-not-allowed" 
                                                 value={newSession.lesson_topic} 
-                                                onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} 
+                                                onChange={e => setNewSession({...newSession, lesson_topic: e.target.value, targeted_skill: ''})} 
                                             />
                                             <datalist id="topics-list">
                                                 {uniqueTopics.map((top, idx) => <option key={idx} value={top} />)}
@@ -808,8 +816,8 @@
                                             type="text" 
                                             list="skills-list" 
                                             required 
-                                            disabled={!newSession.student_id}
-                                            placeholder={isArabic ? (!newSession.student_id ? 'اختر الطالب أولاً...' : 'اختر أو اكتب المهارة المعيارية...') : 'Select student first...'} 
+                                            disabled={!newSession.lesson_topic}
+                                            placeholder={isArabic ? (!newSession.lesson_topic ? 'اختر المحور أولاً...' : 'اختر أو اكتب المهارة المعيارية...') : 'Select topic first...'} 
                                             className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400 disabled:opacity-40 disabled:cursor-not-allowed" 
                                             value={newSession.targeted_skill} 
                                             onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} 
@@ -846,7 +854,7 @@
                                             <button 
                                                 onClick={() => sendWhatsApp('parent')}
                                                 className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1 shadow-md">
-                                                <span>👨‍👩‍👦</span> {isArabic ? 'ولي الأمر' : 'Parent'}
+                                                <span>👨‍👩‍‍👦</span> {isArabic ? 'ولي الأمر' : 'Parent'}
                                             </button>
 
                                             <button 
