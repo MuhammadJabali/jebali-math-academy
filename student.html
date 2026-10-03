@@ -15,7 +15,7 @@
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
-        .glass-input option { color: black; background: white; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
@@ -26,7 +26,7 @@
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         import { GoogleGenerativeAI } from 'https://esm.run/@google/generative-ai';
 
-        const { useState, useEffect } = React;
+        const { useState } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
@@ -40,21 +40,15 @@
 
         function StudentPortal() {
             const [isArabic, setIsArabic] = useState(true);
-            const [studentsList, setStudentsList] = useState([]);
-            const [selectedStudentId, setSelectedStudentId] = useState('');
+            const [studentPhone, setStudentPhone] = useState('');
             const [loggedInStudent, setLoggedInStudent] = useState(null);
+            const [loginError, setLoginError] = useState('');
             
             const [totalCost, setTotalCost] = useState(0);
             const [isLoading, setIsLoading] = useState(false);
             const [aiFeedback, setAiFeedback] = useState('');
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [submissions, setSubmissions] = useState([]);
-
-            useEffect(() => {
-                supabase.from('students').select('*').order('student_name').then(({data}) => {
-                    if(data) setStudentsList(data);
-                });
-            }, []);
 
             const fetchSubmissions = async (studentId) => {
                 const { data } = await supabase
@@ -68,20 +62,33 @@
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setIsLoading(true);
-                const student = studentsList.find(s => s.id === selectedStudentId);
-                if(student) {
-                    setLoggedInStudent(student);
-                    // جلب الحصص غير المدفوعة فقط لحساب المديونية
-                    const { data: sessions } = await supabase
-                        .from('sessions')
-                        .select('calculated_cost')
-                        .eq('student_id', student.id)
-                        .eq('is_paid', false);
-                    
-                    const cost = sessions ? sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) : 0;
-                    setTotalCost(cost);
-                    fetchSubmissions(student.id);
+                setLoginError('');
+
+                const cleanPhone = studentPhone.trim();
+                const { data, error } = await supabase
+                    .from('students')
+                    .select('*')
+                    .eq('student_phone', cleanPhone);
+
+                if (error || !data || data.length === 0) {
+                    setLoginError(isArabic ? 'عفواً، لا يوجد طالب مسجل برقم الهاتف هذا.' : 'No student found with this phone number.');
+                    setIsLoading(false);
+                    return;
                 }
+
+                const student = data[0];
+                setLoggedInStudent(student);
+
+                // جلب الحصص غير المسددة فقط لحساب المديونية
+                const { data: sessions } = await supabase
+                    .from('sessions')
+                    .select('calculated_cost')
+                    .eq('student_id', student.id)
+                    .eq('is_paid', false);
+                
+                const cost = sessions ? sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) : 0;
+                setTotalCost(cost);
+                fetchSubmissions(student.id);
                 setIsLoading(false);
             };
 
@@ -132,6 +139,7 @@
                 }
             };
 
+            // شاشة تسجيل الدخول برقم الهاتف
             if (!loggedInStudent) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -147,15 +155,25 @@
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
                             <div className="text-6xl mb-6">👨‍🎓</div>
                             <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة الطلاب' : 'Student Portal'}</h2>
-                            <p className="text-blue-200 font-bold text-sm mb-8">{isArabic ? 'الرجاء اختيار اسمك للدخول' : 'Please select your name to login'}</p>
+                            <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك المسجل للدخول لحسابك' : 'Enter registered phone number to access'}</p>
                             
+                            {loginError && (
+                                <p className="bg-red-500/20 border border-red-500/50 text-red-100 p-3 rounded-xl mb-4 text-sm font-bold">
+                                    {loginError}
+                                </p>
+                            )}
+
                             <form onSubmit={handleLogin} className="space-y-4">
-                                <select required value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-4 glass-input rounded-xl font-bold outline-none focus:border-blue-400">
-                                    <option value="" disabled>{isArabic ? '-- اختر اسمك --' : '-- Select your name --'}</option>
-                                    {studentsList.map(s => <option key={s.id} value={s.id}>{s.student_name}</option>)}
-                                </select>
-                                <button type="submit" disabled={!selectedStudentId || isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-blue-500/30 disabled:opacity-50">
-                                    {isLoading ? '...' : (isArabic ? 'تسجيل الدخول' : 'Login')}
+                                <input 
+                                    type="tel" 
+                                    required 
+                                    placeholder={isArabic ? 'رقم هاتف الطالب (مثال 010...)' : 'Student Phone (e.g. 010...)'} 
+                                    value={studentPhone} 
+                                    onChange={(e) => setStudentPhone(e.target.value)} 
+                                    className="w-full p-4 glass-input rounded-xl font-bold text-center text-lg outline-none focus:border-blue-400"
+                                />
+                                <button type="submit" disabled={!studentPhone || isLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-blue-500/30 disabled:opacity-50">
+                                    {isLoading ? '...' : (isArabic ? 'دخول ومتابعة' : 'Login')}
                                 </button>
                             </form>
                         </div>
@@ -163,6 +181,7 @@
                 );
             }
 
+            // لوحة تحكم الطالب بعد تسجيل الدخول
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
@@ -180,7 +199,7 @@
                             <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
-                            <button onClick={() => setLoggedInStudent(null)} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
+                            <button onClick={() => { setLoggedInStudent(null); setStudentPhone(''); }} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
                                 {isArabic ? 'خروج' : 'Logout'}
                             </button>
                         </div>
@@ -217,7 +236,7 @@
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التقييم الذكي للواجبات 🤖' : 'AI Homework Evaluation 🤖'}</h4>
-                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد وسيقوم المساعد بتصحيحه فوراً وحفظه في سجلك' : 'Upload your handwritten solution for instant feedback and auto-archiving'}</p>
+                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد وسيقوم المساعد بتصحيحه فوراً وحفظه في سجلك' : 'Upload handwritten solution for instant feedback and auto-archiving'}</p>
                         
                         <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
                         <label htmlFor="hw-upload" className="inline-block px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl cursor-pointer transition shadow-lg shadow-blue-500/40">
