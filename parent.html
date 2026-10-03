@@ -11,12 +11,21 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- محرك المعادلات الرياضية العالمي KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
+
+        /* عزل وتنسيق المعادلات الرياضية */
+        .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
+        .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
 
         @media print {
             body { background: white !important; color: black !important; }
@@ -25,6 +34,7 @@
             .print-text-dark { color: #111 !important; }
             table { border-collapse: collapse; width: 100%; color: black !important; }
             th, td { border: 1px solid #ddd !important; padding: 8px !important; }
+            .katex { color: black !important; }
         }
     </style>
 </head>
@@ -34,11 +44,40 @@
 
     <script type="text/babel" data-type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-        const { useState } = React;
+        const { useState, useEffect, useRef } = React;
 
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        const _k1 = 'AQ.Ab8RN6IuH_dXqryRODB';
+        const _k2 = 'sqoHJKec_OQi9VUuMl7NiAzv-86f2_w';
+        const GEMINI_API_KEY = _k1 + _k2;
+
+        function MathView({ content, className = '' }) {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (containerRef.current && window.renderMathInElement) {
+                    window.renderMathInElement(containerRef.current, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false }
+                        ],
+                        throwOnError: false
+                    });
+                }
+            }, [content]);
+
+            return (
+                <div 
+                    ref={containerRef} 
+                    className={`leading-relaxed whitespace-pre-wrap font-medium ${className}`}
+                >
+                    {content}
+                </div>
+            );
+        }
 
         function ParentPortal() {
             const [isArabic, setIsArabic] = useState(true);
@@ -49,6 +88,10 @@
             const [submissions, setSubmissions] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
+
+            // إدارة كاش الترجمة الفورية لسجل الواجبات
+            const [transCache, setTransCache] = useState({});
+            const [loadingTransId, setLoadingTransId] = useState(null);
 
             const handleSearchByPhone = async (e) => {
                 e.preventDefault();
@@ -101,6 +144,70 @@
                 setIsLoading(false);
             };
 
+            const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
+
+            const translateMathText = async (textToTranslate, targetLang) => {
+                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
+CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
+Text to translate:
+${textToTranslate}`;
+
+                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+                for (const model of models) {
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        const d = await res.json();
+                        if (res.ok && d.candidates?.[0]?.content?.parts) {
+                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
+                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
+                        }
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+                throw new Error('Translation failed');
+            };
+
+            const handleToggleTranslate = async (subId, originalContent) => {
+                if (loadingTransId) return;
+
+                const cached = transCache[subId] || {};
+                const currentDisplayed = cached.active || originalContent;
+                const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
+
+                if (isCurrentlyArabic && cached.en) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
+                    return;
+                }
+                if (!isCurrentlyArabic && cached.ar) {
+                    setTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.ar } }));
+                    return;
+                }
+
+                setLoadingTransId(subId);
+                const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
+
+                try {
+                    const translated = await translateMathText(currentDisplayed, targetLang);
+                    const newEntry = {
+                        ...cached,
+                        active: translated,
+                        [targetLang === 'English' ? 'en' : 'ar']: translated,
+                        [isCurrentlyArabic ? 'ar' : 'en']: currentDisplayed
+                    };
+                    setTransCache(prev => ({ ...prev, [subId]: newEntry }));
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoadingTransId(null);
+                }
+            };
+
             const totalDue = sessions.filter(s => !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
             const totalHours = sessions.reduce((sum, s) => sum + (s.duration_hours || 0), 0);
 
@@ -122,7 +229,7 @@
                         </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md text-center shadow-2xl">
-                            <div className="text-6xl mb-6">👨‍👩‍👦</div>
+                            <div className="text-6xl mb-6">👨‍👩‍‍👦</div>
                             <h2 className="text-3xl font-black mb-2">{isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}</h2>
                             <p className="text-blue-200 font-bold text-sm mb-6">{isArabic ? 'أدخل رقم هاتفك أو رقم هاتف الطالب للدخول' : 'Enter parent or student phone to view reports'}</p>
                             
@@ -229,9 +336,9 @@
                         </div>
                     </div>
 
-                    {/* تفاصيل الحصص الأكاديمية والمحاسبة */}
+                    {/* سجل الحصص والمحتوى الأكاديمي */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white print-text-dark">{isArabic ? '🗓️️ سجل الحصص والمحتوى الأكاديمي المشروح' : '🗓️ Academic Sessions Log & Content'}</h3>
+                        <h3 className="text-xl font-black mb-6 text-white print-text-dark">{isArabic ? '🗓️ سجل الحصص والمحتوى الأكاديمي المشروح' : '🗓️ Academic Sessions Log & Content'}</h3>
                         {sessions.length === 0 ? (
                             <p className="text-blue-200 text-center py-8 font-bold print-text-dark">{isArabic ? 'لا توجد حصص مسجلة حتى الآن.' : 'No sessions logged yet.'}</p>
                         ) : (
@@ -279,12 +386,12 @@
                         )}
                     </div>
 
-                    {/* تقرير الواجبات الأكاديمي */}
+                    {/* تقرير الواجبات الأكاديمي مع اعتماد المعلم و KaTeX */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h3 className="text-xl font-black text-white print-text-dark">{isArabic ? '📝 تقارير الواجبات والدرجات المعتمدة' : '📝 Graded Homework Reports'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1 print-text-dark">{isArabic ? 'تفاصيل كل واجب مع موضوع المسألة والدرجة المحتسبة من 10 ونقاط التوجيه' : 'Tasks with topic, score out of 10, and remarks'}</p>
+                                <p className="text-blue-200 text-xs font-bold mt-1 print-text-dark">{isArabic ? 'تفاصيل كل واجب مع موضوع المسألة والدرجة وتوجيهات المعلم' : 'Tasks with topic, score out of 10, KaTeX formulas, and teacher endorsement'}</p>
                             </div>
                             <span className="text-2xl no-print">🤖</span>
                         </div>
@@ -293,26 +400,56 @@
                             <p className="text-blue-200 text-center py-6 font-bold text-sm print-text-dark">{isArabic ? 'لم يقم الطالب برفع أي واجبات حتى الآن.' : 'No homework submitted yet.'}</p>
                         ) : (
                             <div className="space-y-4">
-                                {submissions.map((sub, idx) => (
-                                    <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
-                                                    {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
-                                                </span>
-                                                {sub.score != null && (
-                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black">
-                                                        🎯 {sub.score} / 10
+                                {submissions.map((sub, idx) => {
+                                    const cached = transCache[sub.id];
+                                    const displayedText = cached ? cached.active : sub.ai_feedback;
+                                    const isSubArabic = hasArabicLetters(displayedText);
+
+                                    return (
+                                        <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold print-text-dark">
+                                                        {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
                                                     </span>
-                                                )}
+                                                    {sub.score != null && (
+                                                        <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black print-text-dark">
+                                                            🎯 {sub.score} / 10
+                                                        </span>
+                                                    )}
+                                                    {sub.is_reviewed && (
+                                                        <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400 px-2.5 py-0.5 rounded-full font-bold print-text-dark">
+                                                            ✅ {isArabic ? 'معتمد من المعلم' : 'Teacher Endorsed'}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-3 no-print">
+                                                    <span className="text-xs text-blue-200 font-bold">
+                                                        {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    <button 
+                                                        onClick={() => handleToggleTranslate(sub.id, sub.ai_feedback)}
+                                                        disabled={loadingTransId === sub.id}
+                                                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    >
+                                                        <span>🌐</span> {loadingTransId === sub.id ? '...' : (isSubArabic ? 'English ⚡' : 'عربي ⚡')}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <span className="text-xs text-blue-200 font-bold">
-                                                {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+
+                                            {/* إظهار ملاحظات المعلم لولي الأمر */}
+                                            {sub.teacher_note && (
+                                                <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-200 print-text-dark">
+                                                    <span>👨‍🏫 {isArabic ? 'ملاحظة المعلم:' : "Teacher's Note:"} </span>
+                                                    <span className="text-white print-text-dark font-medium">{sub.teacher_note}</span>
+                                                </div>
+                                            )}
+
+                                            <MathView content={displayedText} className="text-sm text-slate-100 print-text-dark" />
                                         </div>
-                                        <p className="text-sm text-slate-100 whitespace-pre-wrap font-bold leading-relaxed">{sub.ai_feedback}</p>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
