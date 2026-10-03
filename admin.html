@@ -67,7 +67,6 @@
             );
         }
 
-        // مكوّن عرض ورقة الامتحان والمارك سكيم في نافذة المعاينة
         function ExamPaperView({ rawContent, studentInfo, topic }) {
             const [showAnswers, setShowAnswers] = useState(false);
             const containerRef = useRef(null);
@@ -179,7 +178,6 @@
                 name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: ''
             });
             
-            // الهيكل الجديد للحصة المطور (المجال، الدرس، المهارة)
             const [newSession, setNewSession] = useState({ 
                 student_id: '', duration: '', strand: 'Geometry & Trigonometry', lesson_topic: '', targeted_skill: '' 
             });
@@ -496,7 +494,6 @@
                 const selectedStudent = students.find(s => s.id === newSession.student_id);
                 const duration = parseFloat(newSession.duration);
 
-                // حفظ الحصة متضمنة المجال والدرس والمهارة الدقيقة
                 const { error } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
                     duration_hours: duration,
@@ -747,11 +744,11 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة وتوثيق التصميم التعليمي (Strand, Topic, Skill) */}
+                        {/* تسجيل الحصة وتوثيق التصميم التعليمي بالحقول الذكية (Datalist) */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة وتوثيق المهارات' : '⏱️ Log Session & Taxonomy'}</h3>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة (حقول ذكية مقترحة)' : '⏱️ Log Session with Smart Datalist'}</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
@@ -778,14 +775,65 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس أو الوحدة (Lesson / Topic)' : 'Lesson / Topic'}</label>
-                                            <input type="text" required placeholder="مثال: Relationships in Triangles" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.lesson_topic} onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} />
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس / الوحدة (اختر أو اكتب بحرية)' : 'Lesson / Topic (Select or Type)'}</label>
+                                            <input 
+                                                type="text" 
+                                                list="topics-list" 
+                                                required 
+                                                placeholder="اختر أو اكتب اسم الدرس..." 
+                                                className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
+                                                value={newSession.lesson_topic} 
+                                                onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} 
+                                            />
+                                            <datalist id="topics-list">
+                                                <option value="Relationships in Triangles" />
+                                                <option value="Quadrilaterals" />
+                                                <option value="Similarity" />
+                                                <option value="Right Triangles and Trigonometry" />
+                                                <option value="Circles" />
+                                                <option value="Measurement" />
+                                                <option value="Probability" />
+                                                <option value="Relations and Functions" />
+                                                <option value="Linear Equations and Systems" />
+                                                <option value="Exponents and Roots" />
+                                                <option value="Polynomials" />
+                                                <option value="Quadratic Functions" />
+                                                <option value="Trigonometric Identities" />
+                                            </datalist>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (Targeted Skill)' : 'Targeted Micro-Skill'}</label>
-                                        <input type="text" required placeholder="مثال: Applying the Circumcenter Theorem" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.targeted_skill} onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} />
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (اختر مقترحاً أو اكتب يديك)' : 'Targeted Micro-Skill (Select or Type)'}</label>
+                                        <input 
+                                            type="text" 
+                                            list="skills-list" 
+                                            required 
+                                            placeholder="اختر أو اكتب المهارة المستهدفة..." 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
+                                            value={newSession.targeted_skill} 
+                                            onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} 
+                                        />
+                                        <datalist id="skills-list">
+                                            <option value="Applying the Circumcenter Theorem" />
+                                            <option value="Applying the Incenter Theorem" />
+                                            <option value="Using the Centroid Theorem" />
+                                            <option value="Finding an Orthocenter" />
+                                            <option value="Properties of Parallelograms" />
+                                            <option value="Properties of Rectangles" />
+                                            <option value="Properties of Rhombi and Squares" />
+                                            <option value="Midsegment of a Trapezoid" />
+                                            <option value="Properties of Kites" />
+                                            <option value="Dilations and Scale Factor" />
+                                            <option value="AA Similarity Postulate" />
+                                            <option value="SSS and SAS Similarity Theorems" />
+                                            <option value="Triangle Proportionality Theorem" />
+                                            <option value="Geometric Mean in Right Triangles" />
+                                            <option value="Pythagorean Theorem and Converse" />
+                                            <option value="Trigonometric Ratios (Sine, Cosine, Tangent)" />
+                                            <option value="Completing the Square" />
+                                            <option value="Quadratic Formula" />
+                                        </datalist>
                                     </div>
 
                                     <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
@@ -904,7 +952,7 @@
                                 <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات وتوليد التمارين العلاجية' : '📝 Technical Homework Reports & Smart Remediation'}</h3>
                                 <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل ومعادلات KaTeX مع إمكانية تعديل الدرجة وتوليد أوراق عمل امتحانية' : 'Method marks analysis with KaTeX, score endorsement, and AI practice generator'}</p>
                             </div>
-                            <span className="text-3xl">👨‍🏫</span>
+                            <span className="text-3xl">👨‍‍🏫</span>
                         </div>
 
                         {homeworkList.length === 0 ? (
