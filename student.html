@@ -34,17 +34,15 @@
 
         const { useState, useEffect, useRef } = React;
 
+        // إعدادات قاعدة البيانات Supabase
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        const _k1 = 'AQ.Ab8RN6IuH_dXqryRODB';
-        const _k2 = 'sqoHJKec_OQi9VUuMl7NiAzv-86f2_w';
-        const GEMINI_API_KEY = _k1 + _k2;
+        // رابط الخادم السحابي الآمن (تم حذف المفاتيح الحساسة من الكود نهائياً)
+        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
-        const TELEGRAM_TOKEN = '8821809584:AAHaFFqJTnd1j9K4Y3-_hZdyseLRnEDsE_I';
-        const TELEGRAM_CHAT_ID = '8544954637';
-
+        // مكوّن عرض المعادلات الرياضية بـ KaTeX
         function MathView({ content, className = '' }) {
             const containerRef = useRef(null);
 
@@ -130,20 +128,7 @@
                 setIsLoading(false);
             };
 
-            const sendTelegramNotification = async (studentName, note) => {
-                const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-                const text = `🔔 إشعار أكاديمية Jebali للرياضيات:\n• الطالب: ${studentName}\n• ${note}`;
-                try {
-                    await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text })
-                    });
-                } catch (err) {
-                    console.error('Telegram error:', err);
-                }
-            };
-
+            // ضغط وتعديل أبعاد الصورة لضمان استجابة سريعة
             const compressImage = (file) => {
                 return new Promise((resolve) => {
                     const reader = new FileReader();
@@ -177,162 +162,59 @@
                 });
             };
 
-            const callGeminiModel = async (prompt, base64Data) => {
-                const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
-                let lastError = null;
-
-                for (const model of models) {
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-goog-api-key': GEMINI_API_KEY
-                            },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [
-                                        { text: prompt },
-                                        { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
-                                    ]
-                                }]
-                            })
-                        });
-
-                        const data = await response.json();
-                        if (response.ok && data.candidates?.[0]?.content?.parts) {
-                            const validParts = data.candidates[0].content.parts.filter(p => p.text && !p.thought);
-                            return (validParts.length > 0 ? validParts : data.candidates[0].content.parts).map(p => p.text).join('\n');
-                        } else if (data.error) {
-                            lastError = new Error(data.error.message);
-                        }
-                    } catch (err) {
-                        lastError = err;
-                    }
-                }
-                throw lastError || new Error('تعذر إكمال التصحيح حالياً، يرجى المحاولة بعد لحظات');
-            };
-
-            const translateMathText = async (textToTranslate, targetLang) => {
-                const prompt = `Translate the following mathematics examiner evaluation into ${targetLang}.
-CRITICAL RULE: Keep all LaTeX mathematical symbols, formulas, and expressions inside $...$ or $$...$$ strictly untouched and unaltered.
-Text to translate:
-${textToTranslate}`;
-
-                const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-                for (const model of models) {
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                        });
-                        const d = await res.json();
-                        if (res.ok && d.candidates?.[0]?.content?.parts) {
-                            const validParts = d.candidates[0].content.parts.filter(p => p.text && !p.thought);
-                            return (validParts.length > 0 ? validParts : d.candidates[0].content.parts).map(p => p.text).join('\n');
-                        }
-                    } catch (e) {
-                        console.warn(e);
-                    }
-                }
-                throw new Error('Translation failed');
-            };
-
             const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
 
+            // رفع وتصحيح الواجب عبر السيرفر الآمن
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
 
                 setIsAnalyzing(true);
-                setAiFeedback(isArabic ? '⏳ جاري تحضير الصورة وإخطار المعلم...' : '⏳ Preparing image and notifying tutor...');
-                sendTelegramNotification(loggedInStudent.student_name, '📸 قام برفع واجب منزلي جديد، وجاري التدقيق واحتساب الدرجة...');
+                setAiFeedback(isArabic ? '⏳ جاري تحضير الصورة وإرسالها للفحص الذكي...' : '⏳ Preparing image for AI evaluation...');
 
                 try {
                     const base64Data = await compressImage(file);
                     setAiFeedback(isArabic ? '⏳ جاري تدقيق الخطوات الرياضية واحتساب الدرجة بالذكاء الاصطناعي...' : '⏳ Evaluating mathematical steps with AI...');
 
-                    const curSystem = loggedInStudent.curriculum_system || '';
-                    const isEgyptianArabic = curSystem.includes('Arabic') || curSystem.includes('عربي');
+                    const res = await fetch(API_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'evaluate_homework',
+                            base64Data: base64Data,
+                            mimeType: 'image/jpeg',
+                            studentName: loggedInStudent.student_name,
+                            curriculumSystem: loggedInStudent.curriculum_system,
+                            gradeLevel: loggedInStudent.grade_level
+                        })
+                    });
 
-                    const prompt = isEgyptianArabic
-                        ? `أنت مصحح امتحانات رياضيات أول معتمد للمناهج المصرية (${curSystem} / ${loggedInStudent.grade_level}).
-قم بفحص صورة الحل المكتوبة بخط اليد بدقة متناهية.
+                    const data = await res.json();
+                    if (!res.ok || data.error) {
+                        throw new Error(data.error || 'فشل الاتصال بالخادم');
+                    }
 
-قواعد تنسيق الرموز الرياضية الإلزامية:
-- أي صيغة رياضية أو أس أو متغير يجب كتابتها حصراً بين علامات الدولار $ مثل: $3 \\times 10^{-5}$ أو $50.5 \\times 10^{-5}$ أو $A \\times 10^n$.
-- لا تضع كلمات عربية داخل علامات الدولار $.
-
-التنسيق الإلزامي للإجابة:
-TOPIC: [اسم الموضوع]
-SCORE: [درجة رقمية من 10]
-FEEDBACK:
-**نقاط القوة:**
-[التفاصيل بالرموز $...$]
-
-**الأخطاء والملاحظات:**
-[تحليل الفقرات بالتفصيل]
-
-**نصيحة المصحح للحصول على الدرجة الكاملة:**
-[نصيحة الامتحان]`
-                        : `You are an expert senior Mathematics examiner for international curricula (${curSystem} / ${loggedInStudent.grade_level}).
-Carefully examine this handwritten math solution image.
-
-Mandatory Math Formatting Rules:
-- Write EVERY formula, variable, or power of 10 inside dollar signs using standard LaTeX, e.g. $3 \\times 10^{-5}$ or $50.5 \\times 10^{-5}$ or $A \\times 10^n$.
-
-Strict Output Format in English:
-TOPIC: [Topic name, e.g. Standard Form / Scientific Notation]
-SCORE: [Numerical score out of 10, e.g. 5]
-FEEDBACK:
-**Strengths:**
-[Breakdown of correct parts with math in $...$]
-
-**Errors & Corrections:**
-[Detailed corrections for each part]
-
-**Examiner Tips for Full Marks:**
-[Direct exam guidance for accuracy marks]`;
-
-                    const responseText = await callGeminiModel(prompt, base64Data);
-
-                    let extractedScore = null;
-                    let extractedTopic = 'Mathematics';
-                    let cleanFeedback = responseText;
-
-                    const scoreMatch = responseText.match(/(?:SCORE|الدرجة)\s*[:=]\s*([\d.]+)/i);
-                    if (scoreMatch) extractedScore = parseFloat(scoreMatch[1]);
-
-                    const topicMatch = responseText.match(/(?:TOPIC|الموضوع)\s*[:=]\s*(.+)/i);
-                    if (topicMatch) extractedTopic = topicMatch[1].trim();
-
-                    const feedbackMatch = responseText.match(/(?:FEEDBACK|التقرير)\s*[:=]?\s*([\s\S]+)/i);
-                    if (feedbackMatch) cleanFeedback = feedbackMatch[1].trim();
+                    const extractedScore = data.score;
+                    const extractedTopic = data.topic || 'Mathematics';
+                    const cleanFeedback = data.feedback;
 
                     setCurrentScore(extractedScore);
                     setAiFeedback(cleanFeedback);
 
-                    // تخزين فوري للغة الأصلية في الذاكرة
-                    if (isEgyptianArabic) {
+                    // تخزين اللغة المبدئية في الذاكرة للتبديل اللحظي
+                    if (hasArabicLetters(cleanFeedback)) {
                         setCurrentTransCache({ ar: cleanFeedback, en: '' });
                     } else {
                         setCurrentTransCache({ en: cleanFeedback, ar: '' });
                     }
 
+                    // حفظ النتيجة في Supabase
                     await supabase.from('homework_submissions').insert([{
                         student_id: loggedInStudent.id,
                         ai_feedback: cleanFeedback,
                         score: extractedScore,
                         topic: extractedTopic
                     }]);
-
-                    sendTelegramNotification(
-                        loggedInStudent.student_name, 
-                        `🎯 اكتمل التقييم!\n• الموضوع: ${extractedTopic}\n• الدرجة: ${extractedScore != null ? extractedScore + '/10' : 'تم التدقيق'}`
-                    );
 
                     fetchSubmissions(loggedInStudent.id);
                 } catch (err) {
@@ -343,7 +225,23 @@ FEEDBACK:
                 }
             };
 
-            // التبديل الفوري 0 ثانية للتقرير الحالي
+            // ترجمة التقرير عبر السيرفر الآمن
+            const callWorkerTranslation = async (text, targetLang) => {
+                const res = await fetch(API_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'translate',
+                        text: text,
+                        targetLang: targetLang
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Translation failed');
+                return data.translatedText;
+            };
+
+            // التبديل الفوري للتقرير الحالي (0 ثانية)
             const handleTranslateCurrent = async () => {
                 if (!aiFeedback || isTranslating) return;
                 const isCurrentlyArabic = hasArabicLetters(aiFeedback);
@@ -358,11 +256,10 @@ FEEDBACK:
                     return;
                 }
 
-                // الترجمة لأول مرة وتخزينها
                 setIsTranslating(true);
                 const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
                 try {
-                    const translated = await translateMathText(aiFeedback, targetLang);
+                    const translated = await callWorkerTranslation(aiFeedback, targetLang);
                     setAiFeedback(translated);
                     if (targetLang === 'English') {
                         setCurrentTransCache(prev => ({ ...prev, en: translated }));
@@ -376,7 +273,7 @@ FEEDBACK:
                 }
             };
 
-            // التبديل الفوري 0 ثانية لسجل الواجبات السابقة
+            // التبديل الفوري لسجل الواجبات السابقة (0 ثانية)
             const handleTranslateHistoryItem = async (subId, originalContent) => {
                 if (loadingTransId) return;
 
@@ -384,7 +281,6 @@ FEEDBACK:
                 const currentDisplayed = cached.active || originalContent;
                 const isCurrentlyArabic = hasArabicLetters(currentDisplayed);
 
-                // إذا كانت النسخة البديلة مخزنة بالفعل، يتم التبديل فوراً (0 ثانية)
                 if (isCurrentlyArabic && cached.en) {
                     setHistoryTransCache(prev => ({ ...prev, [subId]: { ...cached, active: cached.en } }));
                     return;
@@ -394,12 +290,11 @@ FEEDBACK:
                     return;
                 }
 
-                // الترجمة لأول مرة وحفظها
                 setLoadingTransId(subId);
                 const targetLang = isCurrentlyArabic ? 'English' : 'Arabic';
 
                 try {
-                    const translated = await translateMathText(currentDisplayed, targetLang);
+                    const translated = await callWorkerTranslation(currentDisplayed, targetLang);
                     const newEntry = {
                         ...cached,
                         active: translated,
@@ -515,7 +410,7 @@ FEEDBACK:
                         </div>
                     </div>
 
-                    {/* التقييم الذكي مع زر الترجمة الفوري */}
+                    {/* التقييم الذكي الآمن */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
                         <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التصحيح الذكي وفق معايير الاختبارات 🤖' : 'AI Homework Examiner 🤖'}</h4>
@@ -553,7 +448,7 @@ FEEDBACK:
                         )}
                     </div>
 
-                    {/* سجل الواجبات السابقة مع دعم ملاحظات المعلم واعتماده */}
+                    {/* سجل الواجبات السابقة */}
                     <div className="glass-card p-8 rounded-3xl">
                         <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات والدرجات السابقة' : '📚 Graded Submissions History'}</h4>
                         {submissions.length === 0 ? (
@@ -599,7 +494,6 @@ FEEDBACK:
                                                 </div>
                                             </div>
 
-                                            {/* إظهار ملاحظة المعلم إن وُجدت */}
                                             {sub.teacher_note && (
                                                 <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-200">
                                                     <span>👨‍🏫 {isArabic ? 'ملاحظة المعلم:' : "Teacher's Note:"} </span>
