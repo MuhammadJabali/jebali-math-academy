@@ -20,7 +20,14 @@
         .font-cairo { font-family: 'Cairo', sans-serif; }
         .font-inter { font-family: 'Inter', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
+        .glass-input { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            color: white; 
+            padding-right: 14px;
+            padding-left: 14px;
+            text-overflow: ellipsis;
+        }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         .glass-input option { color: black; background: white; }
 
@@ -241,12 +248,12 @@
                 if (data) setTaxonomyList(data);
             }
 
-            // تصفية القوائم بناءً على النظام والمرحلة الخاصة بالطالب المختار
+            // تصفية المحاور والمهارات بناءً على الطالب المختار لتتطابق مع منهجه ومرحلته في Supabase
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
             const filteredTaxonomy = taxonomyList.filter(item => {
-                if (!selectedStudentObj) return true;
-                return item.curriculum_system === selectedStudentObj.curriculum_system && 
-                       item.grade_level === selectedStudentObj.grade_level;
+                if (!selectedStudentObj) return false; // لا تعرض شيء قبل اختيار الطالب
+                return item.curriculum_system.trim().toLowerCase() === selectedStudentObj.curriculum_system.trim().toLowerCase() && 
+                       item.grade_level.trim().toLowerCase() === selectedStudentObj.grade_level.trim().toLowerCase();
             });
 
             const uniqueTopics = [...new Set(filteredTaxonomy.map(i => i.core_topic))];
@@ -598,7 +605,7 @@
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍‍🏫</div>
+                                <div className="text-6xl mb-4">👨‍🏫</div>
                                 <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة الاحترافية' : 'Admin Portal'}</h2>
                                 <p className="text-blue-200 font-bold mt-2 text-sm">{isArabic ? 'أدخل بيانات الاعتماد للمتابعة' : 'Enter credentials to proceed'}</p>
                             </div>
@@ -746,29 +753,29 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة بقاعدة بيانات Supabase المعيارية */}
+                        {/* تسجيل الحصة بقاعدة بيانات Supabase المعيارية وترتيب الحقول */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة (من Supabase)' : '⏱️️ Log Session via Supabase Taxonomy'}</h3>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة (مرتبط بالطالب)' : '⏱ Log Session (Student-Linked)'}</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب (لتحديد منهجه)' : 'Select Student (for curriculum)'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '1. اختر الطالب أولاً (لتفعيل المنهج)' : '1. Select Student First'}</label>
                                             <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
-                                                <option value="" disabled>{isArabic ? '-- اضغط للاختيار --' : '-- Select Student --'}</option>
+                                                <option value="" disabled>{isArabic ? '-- اضغط لاختيار الطالب --' : '-- Select Student --'}</option>
                                                 {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system} - {s.grade_level})</option>)}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات' : 'Duration in hours'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '2. مدة الحصة بالساعات' : '2. Duration in hours'}</label>
                                             <input type="number" step="0.25" required placeholder="مثال: 1.5" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المجال العام (Global Strand)' : 'Global Strand'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '3. المجال العام (Global Strand)' : '3. Global Strand'}</label>
                                             <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value})}>
                                                 <option value="Geometry & Measure">Geometry & Measure (الهندسة والقياس)</option>
                                                 <option value="Algebra & Functions">Algebra & Functions (الجبر والدوال)</option>
@@ -778,13 +785,14 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المحور الموضوعي (Core Topic)' : 'Core Topic (From Supabase)'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '4. المحور الموضوعي (Core Topic)' : '4. Core Topic (Supabase)'}</label>
                                             <input 
                                                 type="text" 
                                                 list="topics-list" 
                                                 required 
-                                                placeholder={isArabic ? 'اختر أو اكتب المحور...' : 'Select or type topic...'} 
-                                                className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
+                                                disabled={!newSession.student_id}
+                                                placeholder={isArabic ? (!newSession.student_id ? 'اختر الطالب أولاً...' : 'اختر أو اكتب المحور...') : 'Select student first...'} 
+                                                className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400 disabled:opacity-40 disabled:cursor-not-allowed" 
                                                 value={newSession.lesson_topic} 
                                                 onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} 
                                             />
@@ -795,13 +803,14 @@
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (Micro-Skill)' : 'Micro-Skill (From Supabase)'}</label>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? '5. المهارة الدقيقة (Micro-Skill)' : '5. Micro-Skill (Supabase)'}</label>
                                         <input 
                                             type="text" 
                                             list="skills-list" 
                                             required 
-                                            placeholder={isArabic ? 'اختر أو اكتب المهارة المعيارية...' : 'Select or type micro-skill...'} 
-                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
+                                            disabled={!newSession.student_id}
+                                            placeholder={isArabic ? (!newSession.student_id ? 'اختر الطالب أولاً...' : 'اختر أو اكتب المهارة المعيارية...') : 'Select student first...'} 
+                                            className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400 disabled:opacity-40 disabled:cursor-not-allowed" 
                                             value={newSession.targeted_skill} 
                                             onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} 
                                         />
@@ -811,7 +820,7 @@
                                     </div>
 
                                     <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
-                                        {isArabic ? 'تسجيل الحصة واعتماد معايير Supabase' : 'Log Session & Supabase Taxonomy'}
+                                        {isArabic ? 'تسجيل الحصة واعتماد المعايير' : 'Log Session & Taxonomy'}
                                     </button>
                                 </form>
                             </div>
@@ -926,7 +935,7 @@
                                 <h3 className="text-xl font-black text-white">{isArabic ? '📝 تقارير الواجبات وتوليد التمارين العلاجية' : '📝 Technical Homework Reports & Smart Remediation'}</h3>
                                 <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'عرض خطوات الحل ومعادلات KaTeX مع إمكانية تعديل الدرجة وتوليد أوراق عمل امتحانية' : 'Method marks analysis with KaTeX, score endorsement, and AI practice generator'}</p>
                             </div>
-                            <span className="text-3xl">👨‍‍🏫</span>
+                            <span className="text-3xl">👨‍🏫</span>
                         </div>
 
                         {homeworkList.length === 0 ? (
@@ -1154,17 +1163,3 @@
     </script>
 </body>
 </html>
-async function fetchTaxonomy() {
-                const { data, error } = await supabase.from('curriculum_taxonomy').select('*');
-                if (data) {
-                    setTaxonomyList(data);
-                } else if (error) {
-                    console.error('Error fetching taxonomy:', error);
-                }
-            }
-
-            // تعديل مؤقت ليقوم بجلب كافة المهارات والمحاور المتاحة حتى لو لم يتم اختيار طالب بعد
-            const filteredTaxonomy = taxonomyList; 
-
-            const uniqueTopics = [...new Set(filteredTaxonomy.map(i => i.core_topic))];
-            const uniqueSkills = [...new Set(filteredTaxonomy.map(i => i.micro_skill))];
