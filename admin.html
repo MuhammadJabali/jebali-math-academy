@@ -39,11 +39,10 @@
             const [loginError, setLoginError] = useState('');
             
             const [students, setStudents] = useState([]);
-            const [newStudent, setNewStudent] = useState({ name: '', system: '', grade: '', rate: '' });
+            const [newStudent, setNewStudent] = useState({ name: '', system: '', grade: '', rate: '', parent_phone: '' });
             const [newSession, setNewSession] = useState({ student_id: '', duration: '' });
             const [msg, setMsg] = useState('');
 
-            // التحقق من حالة تسجيل الدخول
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => {
                     setSession(session);
@@ -79,13 +78,14 @@
                     student_name: newStudent.name,
                     curriculum_system: newStudent.system,
                     grade_level: newStudent.grade,
-                    hourly_rate: parseFloat(newStudent.rate)
+                    hourly_rate: parseFloat(newStudent.rate),
+                    parent_phone: newStudent.parent_phone.trim()
                 }]);
                 
                 if (!error) {
                     setMsg(isArabic ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
                     fetchStudents();
-                    setNewStudent({ name: '', system: '', grade: '', rate: '' });
+                    setNewStudent({ name: '', system: '', grade: '', rate: '', parent_phone: '' });
                 } else {
                     setMsg('❌ Error: ' + error.message);
                 }
@@ -109,7 +109,6 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            // واجهة الدخول للمدير
             if (!session) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -142,7 +141,6 @@
                 );
             }
 
-            // لوحة التحكم بعد الدخول
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
@@ -179,8 +177,12 @@
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اسم الطالب بالكامل' : 'Full Name'}</label>
                                     <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
                                 </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف ولي الأمر (للدخول والمتابعة)' : 'Parent Phone (For Login)'}</label>
+                                    <input type="tel" required placeholder="010xxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                </div>
                                 
-                                {/* قائمة النظام الدراسي المنسدلة */}
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'النظام الدراسي' : 'Curriculum System'}</label>
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value})}>
@@ -193,7 +195,6 @@
                                     </select>
                                 </div>
 
-                                {/* قائمة المرحلة/الصف المنسدلة */}
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المرحلة / الصف' : 'Grade Level'}</label>
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
