@@ -17,6 +17,411 @@
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+        .glass-input option { color: black; background: white; }
+        select[multiple] { height: 140px; }
+        select[multiple] option { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        select[multiple] option:checked { background-color: #f97316 !important; color: white !important; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        const { useState, useEffect } = React;
+
+        const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        function AdminPortal() {
+            const [lang, setLang] = useState('ar');
+            const [session, setSession] = useState(null);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
+            
+            const [students, setStudents] = useState([]);
+            const [sessionsList, setSessionsList] = useState([]);
+            
+            // بيانات المناهج المنفصلة
+            const [arabicLessons, setArabicLessons] = useState([]);
+            const [languagesLessons, setLanguagesLessons] = useState([]);
+            const [igcseSkillsList, setIgcseSkillsList] = useState([]);
+            const [americanSkillsList, setAmericanSkillsList] = useState([]);
+            const [ibSkillsList, setIbSkillsList] = useState([]);
+
+            const [viewingStudentModal, setViewingStudentModal] = useState(null);
+            const [isEditingStudent, setIsEditingStudent] = useState(false);
+            const [editStudentForm, setEditStudentForm] = useState({});
+
+            const [newStudent, setNewStudent] = useState({ 
+                name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: ''
+            });
+            
+            const [newSession, setNewSession] = useState({ 
+                student_id: '', 
+                session_date: new Date().toISOString().split('T')[0],
+                start_time: '14:00',
+                end_time: '15:30',
+                location_type: 'Online', 
+                center_name: '',
+                center_fees: '',
+                eg_term: '', eg_branch: '', eg_lesson: '',
+                int_strand: '', int_skills: []
+            });
+
+            const [lastAddedStudent, setLastAddedStudent] = useState(null);
+            const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
+            const [msg, setMsg] = useState('');
+
+            const t = {
+                ar: {
+                    title: "لوحة التحكم | Jebali Math Academy",
+                    subtitle: "نظام الإدارة الشامل للجداول المستقلة",
+                    home: "الرئيسية",
+                    logout: "خروج",
+                    collected: "المبالغ المحصلة",
+                    pending: "المستحقات المعلقة",
+                    addStudent: "إضافة طالب جديد",
+                    docSession: "توثيق حصة (توقيت آلي بالأرباع ساعة)",
+                    sessionsRecord: "سجل الحصص والمدفوعات",
+                    studentsRecord: "سجل الطلاب المسجلين"
+                },
+                en: {
+                    title: "Admin Dashboard | Jebali Math Academy",
+                    subtitle: "Comprehensive Management System",
+                    home: "Home",
+                    logout: "Logout",
+                    collected: "Collected Amount",
+                    pending: "Pending Dues",
+                    addStudent: "Add New Student",
+                    docSession: "Document Session",
+                    sessionsRecord: "Sessions Record",
+                    studentsRecord: "Students Directory"
+                }
+            }[lang];
+
+            useEffect(() => {
+                document.documentElement.lang = lang;
+                document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setSession(session);
+                    if (session) loadAllData();
+                });
+                supabase.auth.onAuthStateChange((_event, session) => {
+                    setSession(session);
+                    if (session) loadAllData();
+                });
+            }, [lang]);
+
+            async function loadAllData() {
+                fetchStudents();
+                fetchSessions();
+                fetchCurriculums();
+            }
+
+            async function fetchStudents() {
+                const { data } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+                if (data) setStudents(data);
+            }
+
+            async function fetchSessions() {
+                const { data } = await supabase.from('sessions').select('*, students(student_name, parent_phone, student_phone, curriculum_system)').order('created_at', { ascending: false }).limit(100);
+                if (data) setSessionsList(data);
+            }
+
+            // جلب البيانات من الجداول المستقلة الجديدة
+            async function fetchCurriculums() {
+                const { data: arData } = await supabase.from('egyptian_arabic_lessons').select('*');
+                if (arData) setArabicLessons(arData);
+
+                const { data: langData } = await supabase.from('egyptian_languages_lessons').select('*');
+                if (langData) setLanguagesLessons(langData);
+
+                const { data: igData } = await supabase.from('igcse_skills').select('*');
+                if (igData) setIgcseSkillsList(igData);
+
+                const { data: amData } = await supabase.from('american_skills').select('*');
+                if (amData) setAmericanSkillsList(amData);
+
+                const { data: ibData } = await supabase.from('ib_skills').select('*');
+                if (ibData) setIbSkillsList(ibData);
+            }
+
+            const getEgyptianGradesList = () => {
+                const isLang = newStudent.systemType === 'egyptian_languages';
+                const stage = newStudent.schoolStage;
+                if (stage === 'primary') {
+                    return isLang ? ['Primary 1 (Languages)', 'Primary 2 (Languages)', 'Primary 3 (Languages)', 'Primary 4 (Languages)', 'Primary 5 (Languages)', 'Primary 6 (Languages)'] 
+                                  : ['الصف الأول الابتدائي (عربي)', 'الصف الثاني الابتدائي (عربي)', 'الصف الثالث الابتدائي (عربي)', 'الصف الرابع الابتدائي (عربي)', 'الصف الخامس الابتدائي (عربي)', 'الصف السادس الابتدائي (عربي)'];
+                } else if (stage === 'prep') {
+                    return isLang ? ['Prep 1 (Languages)', 'Prep 2 (Languages)', 'Prep 3 (Languages)'] 
+                                  : ['الصف الأول الإعدادي (عربي)', 'الصف الثاني الإعدادي (عربي)', 'الصف الثالث الإعدادي (عربي)'];
+                } else {
+                    return isLang ? ['Secondary 1 (Languages)', 'Secondary 2 (Languages)', 'Secondary 3 (Languages)'] 
+                                  : ['الصف الأول الثانوي (عربي)', 'الصف الثاني الثانوي (عربي)', 'الصف الثالث الثانوي (عربي)'];
+                }
+            };
+
+            const selectedStudentObj = students.find(s => s.id === newSession.student_id);
+            
+            // تحديد النظام بناءً على اختيار الطالب
+            const studentSysText = selectedStudentObj ? selectedStudentObj.curriculum_system.toLowerCase() : '';
+            const isArabicMode = studentSysText.includes('عربي') || studentSysText.includes('مصري عربي');
+            const isLanguagesMode = studentSysText.includes('لغات') || studentSysText.includes('languages');
+            const isIgcseMode = studentSysText.includes('igcse');
+            const isAmericanMode = studentSysText.includes('american');
+            const isIbMode = studentSysText.includes('ib');
+
+            // تصفية دروس المصري بناءً على الجدول المستقل المناسب
+            const activeLessonsTable = isArabicMode ? arabicLessons : (isLanguagesMode ? languagesLessons : []);
+            const studentGradeLevel = selectedStudentObj ? selectedStudentObj.grade_level : '';
+            const filteredEgByGrade = activeLessonsTable.filter(i => i.grade === studentGradeLevel);
+            const egTerms = [...new Set(filteredEgByGrade.map(i => i.term))];
+            const filteredEgByTerm = filteredEgByGrade.filter(i => i.term === newSession.eg_term);
+            const egBranches = [...new Set(filteredEgByTerm.map(i => i.branch))];
+            const egLessons = filteredEgByTerm.filter(i => i.branch === newSession.eg_branch);
+
+            // تصفية المهارات الدولية بناءً على الجدول المستقل المناسب
+            const activeIntList = isIgcseMode ? igcseSkillsList : (isAmericanMode ? americanSkillsList : (isIbMode ? ibSkillsList : []));
+            const intStrands = [...new Set(activeIntList.map(i => i.strand))].filter(Boolean);
+            const availableIntSkills = activeIntList.filter(i => i.strand === newSession.int_strand);
+
+            function calculateRoundedHours(start, end) {
+                const [startH, startM] = start.split(':').map(Number);
+                const [endH, endM] = end.split(':').map(Number);
+                let startTotalMins = startH * 60 + startM;
+                let endTotalMins = endH * 60 + endM;
+                if (endTotalMins < startTotalMins) endTotalMins += 24 * 60;
+                return Math.round(((endTotalMins - startTotalMins) / 60) * 4) / 4;
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                setLoginError('');
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) setLoginError('Invalid login credentials.');
+            }
+
+            async function handleLogout() {
+                await supabase.auth.signOut();
+            }
+
+            async function handleAddStudent(e) {
+                e.preventDefault();
+                setMsg('⏳ Adding student...');
+                let systemFullName = '';
+                if (newStudent.systemType === 'egyptian_arabic') systemFullName = `تعليم مصري عربي (${newStudent.grade})`;
+                else if (newStudent.systemType === 'egyptian_languages') systemFullName = `تعليم مصري لغات (${newStudent.grade})`;
+                else if (newStudent.systemType === 'igcse') systemFullName = 'IGCSE (British)';
+                else if (newStudent.systemType === 'american') systemFullName = 'American Diploma';
+                else if (newStudent.systemType === 'ib') systemFullName = 'IB (International)';
+
+                const studentObjToInsert = {
+                    student_name: newStudent.name.trim(),
+                    student_phone: newStudent.student_phone.trim(),
+                    parent_phone: newStudent.parent_phone.trim(),
+                    email: newStudent.student_email.trim() || null,
+                    password: newStudent.password.trim() || null,
+                    curriculum_system: systemFullName,
+                    grade_level: newStudent.grade,
+                    hourly_rate: parseFloat(newStudent.rate)
+                };
+
+                const { data, error } = await supabase.from('students').insert([studentObjToInsert]).select();
+                if (!error) {
+                    setMsg('✅ Student added successfully!');
+                    setLastAddedStudent({ ...studentObjToInsert, id: data[0].id });
+                    fetchStudents();
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', student_email: '', password: '', systemType: 'egyptian_arabic', schoolStage: 'primary', grade: '', rate: '' });
+                } else {
+                    setMsg('❌ Error: ' + error.message);
+                }
+                setTimeout(() => setMsg(''), 5000);
+            }
+
+            async function handleAddSession(e) {
+                e.preventDefault();
+                setMsg('⏳ Documenting session...');
+                const calculatedDuration = calculateRoundedHours(newSession.start_time, newSession.end_time);
+                if (calculatedDuration <= 0) return alert('End time must be after start time!');
+
+                let lessonTopic = '';
+                let strandName = '';
+                let skillsCovered = '';
+                const baseCost = calculatedDuration * (selectedStudentObj.hourly_rate || 0);
+                const centerFee = newSession.location_type === 'Center' ? parseFloat(newSession.center_fees || 0) : 0;
+                const totalCalculatedCost = baseCost + centerFee;
+
+                if (isArabicMode || isLanguagesMode) {
+                    const selectedLessonObj = activeLessonsTable.find(l => l.id.toString() === newSession.eg_lesson);
+                    strandName = newSession.eg_branch;
+                    lessonTopic = selectedLessonObj ? selectedLessonObj.unit_title : 'الوحدة';
+                    skillsCovered = selectedLessonObj ? selectedLessonObj.lesson_title : 'الدرس';
+                } else {
+                    strandName = newSession.int_strand;
+                    lessonTopic = 'Core Topic';
+                    const selectedSkillNames = availableIntSkills
+                        .filter(s => newSession.int_skills.includes(s.id.toString()))
+                        .map(s => s.skill_name);
+                    skillsCovered = selectedSkillNames.join(' | ');
+                }
+
+                const locationDetails = newSession.location_type === 'Center' ? `سنتر: ${newSession.center_name}` : newSession.location_type;
+                const dateObj = new Date(newSession.session_date);
+                const formattedDateText = `${newSession.session_date} | ${newSession.start_time} - ${newSession.end_time}`;
+
+                const { data: sessionData, error } = await supabase.from('sessions').insert([{
+                    student_id: newSession.student_id,
+                    duration_hours: calculatedDuration,
+                    strand: strandName,
+                    lesson_topic: `${formattedDateText} | ${lessonTopic} [${locationDetails}]`,
+                    skills_covered: skillsCovered,
+                    calculated_cost: totalCalculatedCost,
+                    is_paid: false
+                }]).select();
+
+                if (error) {
+                    setMsg('❌ Error: ' + error.message);
+                    return;
+                }
+
+                setMsg(`✅ Session documented successfully!`);
+                setNewSession({ student_id: '', session_date: new Date().toISOString().split('T')[0], start_time: '14:00', end_time: '15:30', location_type: 'Online', center_name: '', center_fees: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
+                fetchSessions();
+                setTimeout(() => setMsg(''), 4000);
+            }
+
+            if (!session) {
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4 font-cairo" dir="rtl">
+                        <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
+                            <h2 className="text-3xl font-black text-center mb-6">Admin Login</h2>
+                            {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold">{loginError}</p>}
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input type="email" placeholder="Email" required className="w-full p-4 glass-input rounded-xl" value={email} onChange={e => setEmail(e.target.value)} />
+                                <input type="password" placeholder="Password" required className="w-full p-4 glass-input rounded-xl" value={password} onChange={e => setPassword(e.target.value)} />
+                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">Login</button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="p-4 md:p-8 max-w-6xl mx-auto font-cairo" dir="rtl">
+                    <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
+                        <h1 className="text-xl font-black">{t.title}</h1>
+                        <div className="flex gap-2">
+                            <a href="index.html" className="px-4 py-2 glass-card rounded-xl font-bold text-xs">🏠 {t.home}</a>
+                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs">{t.logout}</button>
+                        </div>
+                    </header>
+
+                    {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 text-emerald-100">{msg}</div>}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        {/* إضافة طالب */}
+                        <div className="glass-card p-8 rounded-3xl">
+                            <h3 className="text-xl font-black mb-6">{t.addStudent}</h3>
+                            <form onSubmit={handleAddStudent} className="space-y-4">
+                                <input type="text" placeholder="Full Name" required className="w-full p-3 glass-input rounded-xl" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="tel" placeholder="Student Phone" className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
+                                    <input type="tel" placeholder="Parent Phone" required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                </div>
+                                <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newStudent.systemType} onChange={e => setNewStudent({...newStudent, systemType: e.target.value})}>
+                                    <option value="egyptian_arabic">🇪🇬 مصري (عربي)</option>
+                                    <option value="egyptian_languages">🌐 مصري (لغات)</option>
+                                    <option value="igcse">🇬🇧 IGCSE</option>
+                                    <option value="american">🇺🇸 American</option>
+                                    <option value="ib">🌍 IB</option>
+                                </select>
+                                <input type="number" placeholder="Hourly Rate (EGP)" required className="w-full p-3 glass-input rounded-xl" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
+                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl">Save Student</button>
+                            </form>
+                        </div>
+
+                        {/* توثيق الحصة باستخدام الجداول المستقلة */}
+                        <div className="glass-card p-8 rounded-3xl">
+                            <h3 className="text-xl font-black mb-6">{t.docSession}</h3>
+                            <form onSubmit={handleAddSession} className="space-y-4">
+                                <select required className="w-full p-3 glass-input rounded-xl" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
+                                    <option value="" disabled>-- Select Student --</option>
+                                    {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                </select>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="time" required className="w-full p-3 glass-input rounded-xl" value={newSession.start_time} onChange={e => setNewSession({...newSession, start_time: e.target.value})} />
+                                    <input type="time" required className="w-full p-3 glass-input rounded-xl" value={newSession.end_time} onChange={e => setNewSession({...newSession, end_time: e.target.value})} />
+                                </div>
+
+                                {(isArabicMode || isLanguagesMode) && (
+                                    <div className="space-y-3 p-4 bg-blue-500/10 rounded-xl">
+                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
+                                            <option value="" disabled>-- Term --</option>
+                                            {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
+                                            <option value="" disabled>-- Branch --</option>
+                                            {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                                        </select>
+                                        <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
+                                            <option value="" disabled>-- Lesson --</option>
+                                            {egLessons.map(l => <option key={l.id} value={l.id}>{l.unit_title} - {l.lesson_title}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {(isIgcseMode || isAmericanMode || isIbMode) && (
+                                    <div className="space-y-3 p-4 bg-emerald-500/10 rounded-xl">
+                                        <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
+                                            <option value="" disabled>-- Select Strand --</option>
+                                            {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <select multiple required disabled={!newSession.int_strand} className="w-full glass-input rounded-xl text-sm" value={newSession.int_skills} onChange={e => {
+                                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                                            setNewSession({...newSession, int_skills: values});
+                                        }}>
+                                            {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skill_name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl">Document Session</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AdminPortal />);
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ar" dir="rtl" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">لوحة الإدارة المتكاملة | Jebali Math Academy</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        .font-cairo { font-family: 'Cairo', sans-serif; }
         .font-inter { font-family: 'Inter', sans-serif; }
         .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; text-overflow: ellipsis; }
