@@ -47,6 +47,7 @@
             const [totalCost, setTotalCost] = useState(0);
             const [isLoading, setIsLoading] = useState(false);
             const [aiFeedback, setAiFeedback] = useState('');
+            const [currentScore, setCurrentScore] = useState(null);
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [submissions, setSubmissions] = useState([]);
 
@@ -79,7 +80,7 @@
                 const student = data[0];
                 setLoggedInStudent(student);
 
-                // جلب الحصص غير المسددة فقط لحساب المديونية
+                // حساب الحصص غير المدفوعة فقط
                 const { data: sessions } = await supabase
                     .from('sessions')
                     .select('calculated_cost')
@@ -92,9 +93,9 @@
                 setIsLoading(false);
             };
 
-            const sendTelegramNotification = async (studentName) => {
+            const sendTelegramNotification = async (studentName, score) => {
                 const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-                const text = `🔔 إشعار أكاديمية Jebali:\nالطالب/ة (${studentName}) قام برفع واجب للتو، وجاري تقييمه بالذكاء الاصطناعي.`;
+                const text = `🔔 إشعار أكاديمية Jebali:\nقام الطالب/ة (${studentName}) برفع حل واجب رياضي.\nالدرجة المقدرة: ${score ? score + '/10' : 'جاري التقييم'}`;
                 fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -107,8 +108,7 @@
                 if (!file) return;
 
                 setIsAnalyzing(true);
-                setAiFeedback(isArabic ? '⏳ جاري تحليل خطوات الحل وحفظ الواجب...' : '⏳ Analyzing solution and archiving...');
-                sendTelegramNotification(loggedInStudent.student_name);
+                setAiFeedback(isArabic ? '⏳ جاري تدقيق الخطوات الرياضية واحتساب الدرجة بدقة...' : '⏳ Evaluating mathematical steps and calculating score...');
 
                 try {
                     const reader = new FileReader();
@@ -116,20 +116,50 @@
                     reader.onload = async () => {
                         const base64Data = reader.result.split(',')[1];
                         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                        const prompt = isArabic 
-                            ? "أنت معلم رياضيات خبير. قم بتحليل هذه الصورة التي تحتوي على حل رياضي بخط اليد. تحقق من صحة الخطوات، شجع الطالب، وحدد أي أخطاء إن وجدت."
-                            : "You are an expert math tutor. Analyze this handwritten math solution. Check the steps, provide encouragement, and point out mistakes.";
+                        
+                        // برومبت التصحيح المتقدم للمناهج الدولية
+                        const prompt = `You are a certified senior Mathematics examiner for international curricula (${loggedInStudent.curriculum_system} / ${loggedInStudent.grade_level}).
+Carefully examine this handwritten math solution image.
+
+You must follow this STRICT format in your answer:
+TOPIC: [Write topic name, e.g. Quadratic Equations, Calculus, Algebra]
+SCORE: [Write a numerical score between 0 and 10 based on method marks and final answer accuracy, e.g. 8.5]
+FEEDBACK:
+[Provide concise, constructive feedback in ${isArabic ? 'Arabic' : 'English'}:
+- Strengths in the solution steps.
+- Specific errors in calculations or logic.
+- Examiner tip for full marks.]`;
+
                         const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
                         const result = await model.generateContent([prompt, imagePart]);
                         const responseText = (await result.response).text();
                         
-                        setAiFeedback(responseText);
+                        // استخراج الدرجة والموضوع من الإجابة
+                        let extractedScore = null;
+                        let extractedTopic = 'Mathematics';
+                        let cleanFeedback = responseText;
 
+                        const scoreMatch = responseText.match(/SCORE:\s*([\d.]+)/i);
+                        if (scoreMatch) extractedScore = parseFloat(scoreMatch[1]);
+
+                        const topicMatch = responseText.match(/TOPIC:\s*(.+)/i);
+                        if (topicMatch) extractedTopic = topicMatch[1].trim();
+
+                        const feedbackMatch = responseText.match(/FEEDBACK:\s*([\s\S]+)/i);
+                        if (feedbackMatch) cleanFeedback = feedbackMatch[1].trim();
+
+                        setCurrentScore(extractedScore);
+                        setAiFeedback(cleanFeedback);
+
+                        // حفظ الواجب مع الدرجة والموضوع
                         await supabase.from('homework_submissions').insert([{
                             student_id: loggedInStudent.id,
-                            ai_feedback: responseText
+                            ai_feedback: cleanFeedback,
+                            score: extractedScore,
+                            topic: extractedTopic
                         }]);
 
+                        sendTelegramNotification(loggedInStudent.student_name, extractedScore);
                         fetchSubmissions(loggedInStudent.id);
                         setIsAnalyzing(false);
                     };
@@ -139,7 +169,11 @@
                 }
             };
 
-            // شاشة تسجيل الدخول برقم الهاتف
+            // حساب متوسط درجات الطالب
+            const averageScore = submissions.filter(s => s.score != null).length > 0 
+                ? (submissions.filter(s => s.score != null).reduce((sum, s) => sum + parseFloat(s.score), 0) / submissions.filter(s => s.score != null).length).toFixed(1)
+                : null;
+
             if (!loggedInStudent) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -167,7 +201,7 @@
                                 <input 
                                     type="tel" 
                                     required 
-                                    placeholder={isArabic ? 'رقم هاتف الطالب (مثال 010...)' : 'Student Phone (e.g. 010...)'} 
+                                    placeholder={isArabic ? 'رقم هاتف الطالب' : 'Student Phone'} 
                                     value={studentPhone} 
                                     onChange={(e) => setStudentPhone(e.target.value)} 
                                     className="w-full p-4 glass-input rounded-xl font-bold text-center text-lg outline-none focus:border-blue-400"
@@ -181,7 +215,6 @@
                 );
             }
 
-            // لوحة تحكم الطالب بعد تسجيل الدخول
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
@@ -205,6 +238,7 @@
                         </div>
                     </header>
 
+                    {/* كروت الإحصائيات مع متوسط الدرجات */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between group">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
@@ -220,49 +254,82 @@
                             </a>
                         </div>
 
-                        <div className="glass-card p-8 rounded-3xl md:col-span-2 relative overflow-hidden">
+                        {/* كارت متوسط الدرجات الأكاديمية */}
+                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
+                            <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
+                            <span className="text-xs font-bold text-indigo-200 bg-indigo-500/20 px-3 py-1 rounded-full border border-indigo-500/30">
+                                {isArabic ? 'المعدل الأكاديمي للواجبات' : 'Average Homework Score'}
+                            </span>
+                            <div className="mt-6">
+                                <h3 className="text-4xl font-black text-white">
+                                    {averageScore ? `${averageScore} ` : '-- '}
+                                    <span className="text-xl text-indigo-300">/ 10</span>
+                                </h3>
+                                <p className="text-sm text-blue-200 mt-2 font-bold">
+                                    {isArabic ? `بناءً على ${submissions.length} واجب تم تسليمه` : `Based on ${submissions.length} tasks`}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* كارت المنهج */}
+                        <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500`}></div>
                             <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
                                 {isArabic ? 'إنجاز المنهج' : 'Curriculum Progress'}
                             </span>
-                            <div className="flex justify-between items-end mt-8 mb-3">
-                                <span className="font-bold text-lg">{isArabic ? 'الوحدة الحالية: المعادلات' : 'Current Unit: Equations'}</span>
-                                <span className="font-black text-emerald-400 text-xl">35%</span>
+                            <div className="flex justify-between items-end mt-6 mb-3">
+                                <span className="font-bold text-base">{isArabic ? 'المعادلات والدوال' : 'Equations & Functions'}</span>
+                                <span className="font-black text-emerald-400 text-lg">35%</span>
                             </div>
-                            <div className="w-full bg-white/10 rounded-full h-4 border border-white/10"><div className="bg-emerald-500 h-full rounded-full w-[35%] shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div></div>
+                            <div className="w-full bg-white/10 rounded-full h-3 border border-white/10"><div className="bg-emerald-500 h-full rounded-full w-[35%]"></div></div>
                         </div>
                     </div>
 
+                    {/* رفع الواجب وتقييم الذكاء الاصطناعي مع بطاقة الدرجة الفورية */}
                     <div className="glass-card p-8 rounded-3xl relative overflow-hidden mb-8">
                         <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-indigo-500`}></div>
-                        <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التقييم الذكي للواجبات 🤖' : 'AI Homework Evaluation 🤖'}</h4>
-                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد وسيقوم المساعد بتصحيحه فوراً وحفظه في سجلك' : 'Upload handwritten solution for instant feedback and auto-archiving'}</p>
+                        <h4 className="text-2xl font-black mb-2 text-white">{isArabic ? 'التصحيح الذكي وفق معايير الاختبارات 🤖' : 'AI Homework Examiner 🤖'}</h4>
+                        <p className="text-blue-200 font-bold mb-6 text-sm">{isArabic ? 'ارفع صورة حلك بخط اليد لاحتساب الدرجة بدقة وفحص خطوات الحل' : 'Upload handwritten solution for method marks evaluation'}</p>
                         
                         <input type="file" accept="image/*" id="hw-upload" className="hidden" onChange={handleImageUpload} disabled={isAnalyzing} />
                         <label htmlFor="hw-upload" className="inline-block px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl cursor-pointer transition shadow-lg shadow-blue-500/40">
-                            {isAnalyzing ? (isArabic ? '⏳ جاري التحليل...' : '⏳ Analyzing...') : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
+                            {isAnalyzing ? (isArabic ? '⏳ جاري التصحيح...' : '⏳ Evaluating...') : (isArabic ? '📸 رفع صورة الواجب' : '📸 Upload Homework')}
                         </label>
                         
                         {aiFeedback && (
                             <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm">
-                                <h5 className="font-black text-indigo-300 mb-3 text-lg">✨ {isArabic ? 'نتيجة التقييم الحالية:' : 'Current Evaluation:'}</h5>
+                                {currentScore != null && (
+                                    <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-xl font-black text-lg mb-4">
+                                        <span>🎯 {isArabic ? 'الدرجة المستحقة:' : 'Score:'}</span>
+                                        <span>{currentScore} / 10</span>
+                                    </div>
+                                )}
+                                <h5 className="font-black text-indigo-300 mb-3 text-lg">✨ {isArabic ? 'تقرير وتوصيات المصحح:' : 'Examiner Report:'}</h5>
                                 <p className="text-slate-100 text-base leading-loose whitespace-pre-wrap font-bold">{aiFeedback}</p>
                             </div>
                         )}
                     </div>
 
+                    {/* سجل الواجبات السابقة والدرجات */}
                     <div className="glass-card p-8 rounded-3xl">
-                        <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات السابقة والملاحظات' : '📚 Previous Submissions & Feedback'}</h4>
+                        <h4 className="text-xl font-black mb-6 text-white">{isArabic ? '📚 سجل الواجبات والدرجات السابقة' : '📚 Graded Submissions History'}</h4>
                         {submissions.length === 0 ? (
                             <p className="text-blue-200 text-center py-6 font-bold">{isArabic ? 'لا توجد واجبات مسجلة حتى الآن.' : 'No previous submissions found.'}</p>
                         ) : (
                             <div className="space-y-4">
                                 {submissions.map((sub, idx) => (
                                     <div key={sub.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
-                                                {isArabic ? `واجب #${submissions.length - idx}` : `Submission #${submissions.length - idx}`}
-                                            </span>
+                                        <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold">
+                                                    {sub.topic || (isArabic ? `واجب #${submissions.length - idx}` : `Task #${submissions.length - idx}`)}
+                                                </span>
+                                                {sub.score != null && (
+                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full font-black">
+                                                        🎯 {sub.score} / 10
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="text-xs text-blue-200 font-bold">
                                                 {new Date(sub.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                                             </span>
