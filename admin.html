@@ -85,7 +85,7 @@
                     .from('homework_submissions')
                     .select('*, students(student_name, curriculum_system)')
                     .order('created_at', { ascending: false })
-                    .limit(15);
+                    .limit(20);
                 if (data) setHomeworkList(data);
             }
 
@@ -151,7 +151,6 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            // تسجيل الحصة وحفظ الطالب المسجل لإظهاره وحده في الواتساب
             async function handleAddSession(e) {
                 e.preventDefault();
                 setMsg(isArabic ? '⏳ جاري التسجيل...' : '⏳ Logging session...');
@@ -168,7 +167,6 @@
                 if (!error) {
                     setMsg(isArabic ? '✅ تم تسجيل الحصة بنجاح!' : '✅ Session logged successfully!');
                     
-                    // تجهيز بيانات هذا الطالب فقط لخيارات الواتساب
                     setLastLoggedInfo({
                         student: selectedStudent,
                         duration: duration,
@@ -183,7 +181,6 @@
                 setTimeout(() => setMsg(''), 4000);
             }
 
-            // دالة إرسال الواتساب المخصصة (طالب / ولي أمر / الطرفين)
             const sendWhatsApp = (target) => {
                 if (!lastLoggedInfo) return;
                 const { student, duration, cost } = lastLoggedInfo;
@@ -198,7 +195,6 @@
                 const parentPhone = formatPhone(student.parent_phone);
                 const studentPhone = formatPhone(student.student_phone);
 
-                // حساب إجمالي المستحق الكلي المعلق لهذا الطالب
                 const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
                 const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
@@ -391,7 +387,7 @@
                                 <h4 className="text-sm font-black text-blue-200 mb-3">{isArabic ? '📲 إرسال مطالبة عبر WhatsApp:' : '📲 Send WhatsApp Invoice:'}</h4>
                                 
                                 {lastLoggedInfo ? (
-                                    <div className="p-4 bg-white/10 rounded-2xl border border-white/15 animate-fade-in">
+                                    <div className="p-4 bg-white/10 rounded-2xl border border-white/15">
                                         <div className="flex justify-between items-center mb-3">
                                             <div>
                                                 <span className="text-xs text-emerald-300 font-bold block">✨ {isArabic ? 'تم التسجيل بنجاح لـ:' : 'Logged for:'}</span>
@@ -475,7 +471,7 @@
                                                     title={isArabic ? 'حذف الحصة' : 'Delete Session'}
                                                     className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition"
                                                 >
-                                                    🗑️
+                                                    🗑️️
                                                 </button>
                                             </td>
                                         </tr>
@@ -524,12 +520,12 @@
                         </div>
                     </div>
 
-                    {/* مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي */}
+                    {/* مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي مع الدرجة والموضوع */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة أحدث الواجبات وتصحيحات الذكاء الاصطناعي' : '📝 Recent Homework & AI Evaluations'}</h3>
-                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'متابعة ما تم تسليمه وتقييمه آلياً للطلاب' : 'Review recent automated evaluations generated for students'}</p>
+                                <h3 className="text-xl font-black text-white">{isArabic ? '📝 مراجعة الواجبات والدرجات المعتمدة' : '📝 Recent Graded Homework Submissions'}</h3>
+                                <p className="text-blue-200 text-xs font-bold mt-1">{isArabic ? 'متابعة تقييمات الذكاء الاصطناعي مع الدرجة الرقمية وموضوع المسألة' : 'Monitor AI evaluations, numerical scores, and topic analysis'}</p>
                             </div>
                             <span className="text-3xl">🤖</span>
                         </div>
@@ -541,11 +537,16 @@
                                 {homeworkList.map((hw) => (
                                     <div key={hw.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
                                         <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3">
                                                 <span className="text-sm font-black text-white">{hw.students?.student_name || 'طالب'}</span>
                                                 <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold">
-                                                    {hw.students?.curriculum_system}
+                                                    {hw.topic || hw.students?.curriculum_system}
                                                 </span>
+                                                {hw.score != null && (
+                                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black">
+                                                        🎯 {hw.score} / 10
+                                                    </span>
+                                                )}
                                             </div>
                                             <span className="text-xs text-blue-200 font-bold">
                                                 {new Date(hw.created_at).toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
