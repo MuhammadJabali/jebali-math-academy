@@ -39,7 +39,14 @@
             const [loginError, setLoginError] = useState('');
             
             const [students, setStudents] = useState([]);
-            const [newStudent, setNewStudent] = useState({ name: '', system: '', grade: '', rate: '', parent_phone: '' });
+            const [newStudent, setNewStudent] = useState({ 
+                name: '', 
+                student_phone: '', 
+                parent_phone: '', 
+                system: '', 
+                grade: '', 
+                rate: '' 
+            });
             const [newSession, setNewSession] = useState({ student_id: '', duration: '' });
             const [msg, setMsg] = useState('');
 
@@ -76,16 +83,17 @@
                 setMsg(isArabic ? '⏳ جاري الإضافة...' : '⏳ Adding...');
                 const { error } = await supabase.from('students').insert([{
                     student_name: newStudent.name,
+                    student_phone: newStudent.student_phone.trim(),
+                    parent_phone: newStudent.parent_phone.trim(),
                     curriculum_system: newStudent.system,
                     grade_level: newStudent.grade,
-                    hourly_rate: parseFloat(newStudent.rate),
-                    parent_phone: newStudent.parent_phone.trim()
+                    hourly_rate: parseFloat(newStudent.rate)
                 }]);
                 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم إضافة الطالب بنجاح!' : '✅ Student added successfully!');
+                    setMsg(isArabic ? '✅ تم إضافة الطالب وربط أرقام الهاتف بنجاح!' : '✅ Student and linked phones added successfully!');
                     fetchStudents();
-                    setNewStudent({ name: '', system: '', grade: '', rate: '', parent_phone: '' });
+                    setNewStudent({ name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' });
                 } else {
                     setMsg('❌ Error: ' + error.message);
                 }
@@ -112,9 +120,14 @@
             if (!session) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
-                        <button onClick={() => setIsArabic(!isArabic)} className="absolute top-6 left-6 px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
-                            {isArabic ? 'English' : 'العربية'}
-                        </button>
+                        <div className="absolute top-6 left-6 right-6 flex justify-between">
+                            <a href="/" className="px-5 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
+                            <button onClick={() => setIsArabic(!isArabic)} className="px-6 py-2 glass-card rounded-full font-bold text-sm hover:bg-white/20 transition">
+                                {isArabic ? 'English' : 'العربية'}
+                            </button>
+                        </div>
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
@@ -132,10 +145,6 @@
                                     {isArabic ? 'تسجيل الدخول' : 'Login'}
                                 </button>
                             </form>
-                            
-                            <div className="mt-6 text-center">
-                                <a href="/" className="text-sm text-blue-300 hover:text-white underline decoration-blue-300 underline-offset-4">{isArabic ? 'العودة للصفحة الرئيسية' : 'Back to Home'}</a>
-                            </div>
                         </div>
                     </div>
                 );
@@ -151,12 +160,15 @@
                                 <p className="text-blue-200 font-bold text-sm">mr.gebally@gmail.com</p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
+                            <a href="/" className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition flex items-center gap-2">
+                                <span>🏠</span> {isArabic ? 'الرئيسية' : 'Home'}
+                            </a>
                             <button onClick={() => setIsArabic(!isArabic)} className="px-5 py-2 glass-card hover:bg-white/20 rounded-xl font-bold text-sm transition">
                                 {isArabic ? 'English' : 'العربية'}
                             </button>
                             <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold text-sm border border-red-500/50 transition">
-                                {isArabic ? 'تسجيل خروج' : 'Logout'}
+                                {isArabic ? 'خروج' : 'Logout'}
                             </button>
                         </div>
                     </header>
@@ -168,19 +180,25 @@
                     )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* إضافة طالب */}
+                        {/* إضافة طالب وتوثيق الأرقام */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
-                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب جديد' : '👤 Add New Student'}</h3>
+                            <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '👤 إضافة طالب وربط الهواتف' : '👤 Add Student & Link Phones'}</h3>
                             <form onSubmit={handleAddStudent} className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اسم الطالب بالكامل' : 'Full Name'}</label>
                                     <input type="text" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
                                 </div>
 
-                                <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف ولي الأمر (للدخول والمتابعة)' : 'Parent Phone (For Login)'}</label>
-                                    <input type="tel" required placeholder="010xxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف الطالب' : 'Student Phone'}</label>
+                                        <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'رقم هاتف ولي الأمر' : 'Parent Phone'}</label>
+                                        <input type="tel" required placeholder="01xxxxxxxxx" className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-blue-400" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -231,13 +249,13 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات (مثال 1.5)' : 'Duration in hours (e.g., 1.5)'}</label>
+                                    <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'مدة الحصة بالساعات' : 'Duration in hours'}</label>
                                     <input type="number" step="0.25" required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
                                 </div>
                                 
                                 <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl mt-4">
                                     <p className="text-xs font-bold text-orange-200 leading-relaxed">
-                                        {isArabic ? '💡 بمجرد التسجيل، سيتم حساب التكلفة وإضافتها لفاتورة الطالب تلقائياً.' : '💡 Upon logging, the cost will be calculated and added to the student\'s bill automatically.'}
+                                        {isArabic ? '💡 بمجرد التسجيل، سيتم حساب التكلفة وإضافتها لفاتورة الطالب تلقائياً.' : '💡 Cost will be calculated and applied automatically.'}
                                     </p>
                                 </div>
 
