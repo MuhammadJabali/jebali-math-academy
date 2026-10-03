@@ -571,27 +571,28 @@
                 const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
                 const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
-                const academicDetails = topic ? `%0A📚 *التقرير الأكاديمي للحصة:*%0A• المجال: ${strand}%0A• المحور: ${topic}${skill ? `%0A• المهارة المعيارية: ${skill}` : ''}` : '';
+                // استخدام \n بدلاً من %0A ليتم تشفيرها بشكل صحيح لاحقاً
+                const academicDetails = topic ? `\n📚 *التقرير الأكاديمي للحصة:*\n• المجال: ${strand}\n• المحور: ${topic}${skill ? `\n• المهارة المعيارية: ${skill}` : ''}` : '';
 
                 const parentMsg = isArabic 
-                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة (${cost} EGP)${academicDetails}%0A%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0Aيمكنكم متابعة تفاصيل الحصص عبر بوابتكم:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
-                    : `Hello from Jebali Math Academy 📐%0A%0ASession logged for: *${student.student_name}*%0A• Duration: ${duration} hrs (${cost} EGP)%0A• Strand: ${strand}%0A• Topic: ${topic || 'N/A'}%0A• Skill: ${skill || 'N/A'}%0A%0A• Total Due: *${totalUnpaid} EGP*`;
+                    ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*\n• المدة: ${duration} ساعة (${cost} جنيه)${academicDetails}\n\n• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay أو المحافظ الإلكترونية، ويمكنكم متابعة تفاصيل الواجبات والحصص عبر رابط الأكاديمية:\nhttps://jebali-math-academy.pages.dev/parent.html`
+                    : `Hello from Jebali Math Academy 📐\n\nSession logged for: *${student.student_name}*\n• Duration: ${duration} hrs (${cost} EGP)${academicDetails}\n\n• Total Due: *${totalUnpaid} EGP*\n\nPay via InstaPay/Wallets. Parent Portal:\nhttps://jebali-math-academy.pages.dev/parent.html`;
 
                 const studentMsg = isArabic
-                    ? `مرحباً ${student.student_name} 📐%0Aتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}%0Aتأكد من تسليم واجبك لتصحيحه فوراً عبر بوابتك:%0Ahttps://jebali-math-academy.pages.dev/student.html`
-                    : `Hello ${student.student_name} 📐%0AYour session (${duration} hrs) is logged.%0A• Topic: ${topic || 'N/A'}`;
+                    ? `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}\nتأكد من تسليم واجبك لتصحيحه فوراً عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`
+                    : `Hello ${student.student_name} 📐\nYour session (${duration} hrs) is logged.${academicDetails}\nSubmit your homework via your portal:\nhttps://jebali-math-academy.pages.dev/student.html`;
 
                 if (target === 'parent') {
                     if (!parentPhone) return alert(isArabic ? 'رقم ولي الأمر غير مسجل!' : 'Parent phone not found!');
-                    window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                    window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
                 } else if (target === 'student') {
                     if (!studentPhone) return alert(isArabic ? 'رقم الطالب غير مسجل!' : 'Student phone not found!');
-                    window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank');
+                    window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank');
                 } else if (target === 'both') {
                     if (!parentPhone && !studentPhone) return alert(isArabic ? 'لا توجد أرقام مسجلة!' : 'No phone numbers registered!');
-                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${parentMsg}`, '_blank');
+                    if (parentPhone) window.open(`https://wa.me/${parentPhone}?text=${encodeURIComponent(parentMsg)}`, '_blank');
                     if (studentPhone) {
-                        setTimeout(() => window.open(`https://wa.me/${studentPhone}?text=${studentMsg}`, '_blank'), 500);
+                        setTimeout(() => window.open(`https://wa.me/${studentPhone}?text=${encodeURIComponent(studentMsg)}`, '_blank'), 500);
                     }
                 }
             };
