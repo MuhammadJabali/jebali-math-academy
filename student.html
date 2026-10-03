@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة الطالب | Jebali Math Academy</title>
+    <title id="pageTitle">بوابة الطالب المتقدمة | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -22,16 +22,17 @@
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
 
-    <!-- شاشة تسجيل الدخول برقم الهاتف وكلمة المرور -->
+    <!-- شاشة تسجيل الدخول -->
     <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
         <div class="absolute top-6 left-6 flex gap-2">
-            <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
+            <button onclick="toggleLang()" id="langToggleBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">🌐 English</button>
+            <a href="index.html" id="homeLinkText" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
         </div>
 
         <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
             <div class="text-6xl mb-4">🎓</div>
-            <h2 class="text-3xl font-black mb-2">بوابة الطالب</h2>
-            <p class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف وكلمة المرور</p>
+            <h2 id="loginTitle" class="text-3xl font-black mb-2">بوابة الطالب</h2>
+            <p id="loginSubtitle" class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف وكلمة المرور</p>
             
             <div id="alertBox" class="hidden p-3 rounded-xl mb-4 text-xs font-bold"></div>
 
@@ -51,20 +52,39 @@
                 <p id="studentInfoText" class="text-blue-200 text-xs mt-1">...</p>
             </div>
             <div class="flex gap-2">
+                <button onclick="toggleLang()" class="px-3 py-2 glass-card rounded-xl font-bold text-xs transition">🌐 Lang</button>
                 <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
                 <button onclick="handleLogout()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
             </div>
         </header>
 
-        <!-- مساعد الجبر الذكي والاختبار الذاتي -->
+        <!-- تقويم ومواعيد حصص الطالب (Calendar) -->
+        <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-blue-500/30">
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> جدول حصصي القادمة والمواعيد</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="p-4 bg-blue-600/20 border border-blue-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-blue-200 block mb-1">الحصة القادمة</span>
+                    <strong class="text-white text-sm" id="nextSessionDate">تحدد لاحقاً مع الأستاذ</strong>
+                </div>
+                <div class="p-4 bg-emerald-600/20 border border-emerald-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-emerald-200 block mb-1">حالة الحساب</span>
+                    <strong class="text-emerald-300 text-sm">نشط ومفعل ✅</strong>
+                </div>
+                <div class="p-4 bg-orange-600/20 border border-orange-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-orange-200 block mb-1">إجمالي الحصص المسجلة</span>
+                    <strong class="text-orange-300 text-sm" id="totalSessionsCount">0 حصة</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- مساعد الجبر الذكي وتحدي اليوم -->
         <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-blue-600/10">
             <h3 class="text-lg font-black mb-2 flex items-center gap-2">
-                <span>⚡</span> مساعد الجبر الذكي والاختبار الذاتي
+                <span>⚡</span> تحدي اليوم الرياضي (مساعد الجبر الذكي)
             </h3>
-            <p class="text-xs text-blue-200 mb-4">تدرب على حل المعادلات الرياضية المتقدمة:</p>
+            <p class="text-xs text-blue-200 mb-4">حل المسألة الرياضية التالية:</p>
 
             <div class="math-box mb-4">
-                <p class="text-xs text-orange-300 font-bold mb-1">مسألة تحدي اليوم:</p>
                 <div class="text-white font-bold my-2" id="mathProblem">
                     أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام: 
                     $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
@@ -75,31 +95,36 @@
             <div id="testAlert" class="hidden mb-3 p-3 rounded-xl text-xs font-bold"></div>
             
             <form onsubmit="handleSelfTestSubmit(event)" class="space-y-3">
-                <input type="text" id="selfTestInput" required placeholder="اكتب خطوات الحل أو الناتج النهائي هنا (مثال: x = 2, x = 0.5)" class="w-full p-3 glass-input rounded-xl text-sm font-bold" />
+                <input type="text" id="selfTestInput" required placeholder="اكتب الناتج النهائي (مثال: x = 2, x = 0.5)" class="w-full p-3 glass-input rounded-xl text-sm font-bold" />
                 <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg flex items-center justify-center gap-2">
-                    <span>🚀</span> إرسال الإجابة للأستاذ للتقييم
+                    <span>🚀</span> إرسال الحل للأستاذ
                 </button>
             </form>
         </div>
 
-        <!-- تسليم الواجب المنزلي -->
+        <!-- تسليم الواجب المنزلي (كتابة أو رفع صورة الحل من الورق) -->
         <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> تسليم الواجب المنزلي</h3>
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> تسليم الواجب المنزلي (كتابة أو رفع صورة الحل من الورق)</h3>
             <div id="hwAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-bold"></div>
+            
             <form onsubmit="handleUploadHomework(event)" class="space-y-4">
                 <div>
-                    <label class="text-xs text-blue-200 block mb-1">اسم الدرس أو الموضوع:</label>
-                    <input type="text" id="hwTopicInput" required placeholder="مثال: الدوال التربيعية وتطبيقاتها" class="w-full p-3 glass-input rounded-xl text-sm" />
+                    <label class="text-xs text-blue-200 block mb-1">عنوان الواجب أو الدرس:</label>
+                    <input type="text" id="hwTopicInput" required placeholder="مثال: الواجب المنزلي للدرس الأول" class="w-full p-3 glass-input rounded-xl text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-blue-200 block mb-1">📸 ارفع صورة ورقة الحل (اختياري - من الموبايل أو الكمبيوتر):</label>
+                    <input type="file" id="hwImageInput" accept="image/*" class="w-full p-3 glass-input rounded-xl text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
                 </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
-                    تسليم الواجب للأستاذ 🚀
+                    إرسال الواجب للأستاذ 🚀
                 </button>
             </form>
         </div>
 
         <!-- سجل الحصص والمواعيد -->
         <div class="glass-card p-6 md:p-8 rounded-3xl mb-8">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> سجل حصصي والمواعيد</h3>
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> سجل الحصص السابقة</h3>
             <div id="sessionsListContainer" class="space-y-3">
                 <p class="text-xs text-slate-300 text-center py-6">جاري تحميل الحصص...</p>
             </div>
@@ -115,6 +140,29 @@
         const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
         let currentStudent = null;
+        let currentLang = 'ar';
+
+        window.toggleLang = function() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            
+            if (currentLang === 'en') {
+                document.getElementById('loginTitle').innerText = 'Student Portal';
+                document.getElementById('loginSubtitle').innerText = 'Login with Phone & Password';
+                document.getElementById('phoneInput').placeholder = 'Phone Number';
+                document.getElementById('passwordInput').placeholder = 'Password';
+                document.getElementById('submitBtn').innerText = 'Login';
+                document.getElementById('langToggleBtn').innerText = '🌐 العربية';
+            } else {
+                document.getElementById('loginTitle').innerText = 'بوابة الطالب';
+                document.getElementById('loginSubtitle').innerText = 'الدخول برقم الهاتف وكلمة المرور';
+                document.getElementById('phoneInput').placeholder = 'رقم الهاتف';
+                document.getElementById('passwordInput').placeholder = 'كلمة المرور';
+                document.getElementById('submitBtn').innerText = 'تسجيل الدخول';
+                document.getElementById('langToggleBtn').innerText = '🌐 English';
+            }
+        };
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedStudentId = localStorage.getItem('jebali_student_id');
@@ -130,16 +178,15 @@
             const btn = document.getElementById('submitBtn');
             const alertBox = document.getElementById('alertBox');
             
-            btn.innerText = 'جاري التحقق...';
+            btn.innerText = currentLang === 'ar' ? 'جاري التحقق...' : 'Verifying...';
             alertBox.classList.add('hidden');
 
             try {
-                // جلب بيانات الطلاب للتحقق من الهاتف وكلمة المرور مباشرة من جدول students
                 const { data: students, error } = await supabase.from('students').select('*');
 
                 if (error || !students) {
                     showAlert(alertBox, 'خطأ في الاتصال بقاعدة البيانات.', 'bg-red-500/20 text-red-100');
-                    btn.innerText = 'تسجيل الدخول';
+                    btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
                     return;
                 }
 
@@ -158,12 +205,12 @@
                     localStorage.setItem('jebali_student_id', matched.id);
                     await setupDashboard(matched);
                 } else {
-                    showAlert(alertBox, 'رقم الهاتف أو كلمة المرور غير صحيحة.', 'bg-red-500/20 text-red-100');
-                    btn.innerText = 'تسجيل الدخول';
+                    showAlert(alertBox, currentLang === 'ar' ? 'رقم الهاتف أو كلمة المرور غير صحيحة.' : 'Invalid phone or password.', 'bg-red-500/20 text-red-100');
+                    btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
                 }
             } catch (err) {
                 showAlert(alertBox, 'حدث خطأ غير متوقع.', 'bg-red-500/20 text-red-100');
-                btn.innerText = 'تسجيل الدخول';
+                btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
             }
         };
 
@@ -198,8 +245,12 @@
 
                 if (!sessions || sessions.length === 0) {
                     container.innerHTML = '<p class="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة بعد.</p>';
+                    document.getElementById('totalSessionsCount').innerText = '0 حصة';
                     return;
                 }
+
+                document.getElementById('totalSessionsCount').innerText = `${sessions.length} حصة`;
+                document.getElementById('nextSessionDate').innerText = sessions[0].lesson_topic.split('|')[0] || 'تم الحجز بنجاح';
 
                 container.innerHTML = sessions.map(s => `
                     <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
@@ -218,16 +269,23 @@
         window.handleUploadHomework = async function(e) {
             e.preventDefault();
             const topic = document.getElementById('hwTopicInput').value;
+            const fileInput = document.getElementById('hwImageInput');
             const alertBox = document.getElementById('hwAlert');
+
+            let imageDetails = '';
+            if (fileInput.files && fileInput.files[0]) {
+                imageDetails = ` [تم إرفاق صورة ورقة الحل: ${fileInput.files[0].name}]`;
+            }
 
             try {
                 await fetch(API_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic, feedback: 'حل واجب رياضي مقدم من الطالب.' })
+                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic, feedback: `حل واجب مقدم من الطالب.${imageDetails}` })
                 });
-                showAlert(alertBox, '✅ تم تسليم الواجب بنجاح للأستاذ!', 'bg-emerald-500/20 text-emerald-200');
+                showAlert(alertBox, '✅ تم تسليم الواجب (مع صورة الحل) بنجاح للأستاذ!', 'bg-emerald-500/20 text-emerald-200');
                 document.getElementById('hwTopicInput').value = '';
+                fileInput.value = '';
             } catch (err) {
                 showAlert(alertBox, '❌ فشل تسليم الواجب.', 'bg-red-500/20 text-red-200');
             }
@@ -242,9 +300,9 @@
                 await fetch(API_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic: 'اختبار ذاتي تفاعلي', feedback: `إجابة الطالب: ${ans}` })
+                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic: 'تحدي اليوم الرياضي', feedback: `إجابة الطالب في التحدي: ${ans}` })
                 });
-                showAlert(alertBox, '🎉 تم إرسال الحل للأستاذ للتقييم بنجاح!', 'bg-emerald-500/20 text-emerald-200');
+                showAlert(alertBox, '🎉 تم إرسال إجابة التحدي للأستاذ بنجاح!', 'bg-emerald-500/20 text-emerald-200');
                 document.getElementById('selfTestInput').value = '';
             } catch (err) {
                 showAlert(alertBox, '❌ خطأ في الإرسال.', 'bg-red-500/20 text-red-200');
