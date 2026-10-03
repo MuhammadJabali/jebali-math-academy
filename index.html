@@ -5,110 +5,197 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>أكاديمية Jebali للرياضيات | Jebali Math Academy</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- خط Cairo -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
-    
-    <!-- React & Babel -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .glass-card { background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.15); }
+        .glass-card-hover:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); transform: translateY(-4px); }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen">
-    
+<body class="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 min-h-screen text-white selection:bg-blue-500 selection:text-white">
+
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel">
         const { useState } = React;
 
         function LandingPage() {
             const [isArabic, setIsArabic] = useState(true);
 
             return (
-                <div className={`flex flex-col items-center justify-center min-h-screen text-slate-800 p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+                <div className={`min-h-screen flex flex-col justify-between ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     
-                    {/* زر تغيير اللغة */}
-                    <div className="absolute top-6 left-6 right-6 flex justify-end">
-                        <button 
-                            onClick={() => setIsArabic(!isArabic)} 
-                            className="px-6 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold rounded-full border border-white/20 transition-all shadow-lg">
-                            {isArabic ? 'English' : 'العربية'}
-                        </button>
-                    </div>
-
-                    <div className="max-w-6xl w-full mt-16 md:mt-0">
-                        {/* الترويسة */}
-                        <div className="text-center mb-16">
-                            <div className="inline-block p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-6 border border-white/20 shadow-2xl">
-                                <span className="text-6xl">📐</span>
+                    {/* شريط الملاحة العلوي */}
+                    <header className="max-w-6xl w-full mx-auto p-4 md:p-6 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-blue-500/30">
+                                📐
                             </div>
-                            <h1 className="text-4xl md:text-6xl font-black text-white mb-4 drop-shadow-lg">
-                                {isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}
-                            </h1>
-                            <p className="text-xl text-blue-200 font-bold max-w-2xl mx-auto leading-relaxed">
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-black tracking-tight">
+                                    {isArabic ? 'أكاديمية Jebali للرياضيات' : 'Jebali Math Academy'}
+                                </h1>
+                                <p className="text-xs text-blue-300 font-bold">
+                                    {isArabic ? 'المناهج الدولية واللغات' : 'International Math Curricula'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setIsArabic(!isArabic)} 
+                                className="px-5 py-2 glass-card hover:bg-white/20 rounded-full font-bold text-xs md:text-sm transition shadow-md"
+                            >
+                                {isArabic ? 'English' : 'العربية'}
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* القسم الرئيسي الترحيبي */}
+                    <main className="max-w-6xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
+                        <div className="text-center max-w-3xl mx-auto mb-12">
+                            <span className="inline-block px-4 py-1.5 glass-card rounded-full text-xs font-black text-blue-300 mb-4 border border-blue-400/30 shadow-sm">
+                                ✨ {isArabic ? 'منظومة تعليمية متكاملة مدعومة بالذكاء الاصطناعي' : 'Next-Gen AI-Powered Math Learning'}
+                            </span>
+                            <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
+                                {isArabic ? (
+                                    <>
+                                        نحو تفوق استثنائي في <br />
+                                        <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">
+                                            الرياضيات الدولية
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        Master International <br />
+                                        <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">
+                                            Mathematics with Confidence
+                                        </span>
+                                    </>
+                                )}
+                            </h2>
+                            <p className="text-base md:text-lg text-slate-300 font-medium leading-relaxed">
                                 {isArabic 
-                                    ? 'المنصة التعليمية الأولى التي تدمج الذكاء الاصطناعي مع المتابعة الشخصية لضمان تفوقك في الرياضيات.' 
-                                    : 'The premier educational platform integrating AI with personalized tracking to ensure your excellence in mathematics.'}
+                                    ? 'برامج متخصصة لطلاب IGCSE، IB، والدبلومة الأمريكية. متابعة أكاديمية دقيقة، تصحيح ذكي للواجبات وفق معايير الاختبارات، وتقارير تفصيلية مستمرة لأولياء الأمور.' 
+                                    : 'Specialized programs for IGCSE, IB, and American Diploma. Precision syllabus tracking, instant exam-standard homework evaluation, and transparent parental reporting.'}
                             </p>
                         </div>
 
-                        {/* بوابات الدخول الثلاث */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* بوابات الدخول السريع */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
                             
-                            {/* 1. بوابة الطالب */}
-                            <a href="/student.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-500/30 group cursor-pointer text-center relative overflow-hidden block">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
-                                <div className="relative z-10">
-                                    <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👨‍🎓</div>
-                                    <h2 className="text-2xl font-black mb-3 text-slate-900">{isArabic ? 'بوابة الطلاب' : 'Student Portal'}</h2>
-                                    <p className="text-slate-600 font-bold mb-6 text-sm h-10">
-                                        {isArabic ? 'رفع الواجبات، تقييم الذكاء الاصطناعي، ومتابعة المنهج.' : 'Upload homework, AI evaluation, and curriculum progress.'}
+                            {/* بوابة الطالب */}
+                            <a href="student.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
+                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500`}></div>
+                                <div>
+                                    <div className="w-14 h-14 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
+                                        👨‍🎓
+                                    </div>
+                                    <h3 className="text-2xl font-black mb-3">
+                                        {isArabic ? 'بوابة الطلاب' : 'Student Portal'}
+                                    </h3>
+                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                                        {isArabic 
+                                            ? 'رفع الواجبات وتصحيحها فورياً بالذكاء الاصطناعي، ومتابعة درجات المهارات والوحدات.' 
+                                            : 'Submit homework, get instant AI evaluation with mark scheme tips, and track unit progress.'}
                                     </p>
-                                    <span className="inline-block bg-blue-100 text-blue-700 px-6 py-2 rounded-full font-black text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                        {isArabic ? 'دخول الطلاب \u2190' : 'Student Login \u2192'}
-                                    </span>
+                                </div>
+                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-blue-300 group-hover:gap-3 transition-all">
+                                    <span>{isArabic ? 'دخول الطالب' : 'Access Portal'}</span>
+                                    <span>{isArabic ? '←' : '→'}</span>
                                 </div>
                             </a>
 
-                            {/* 2. بوابة ولي الأمر */}
-                            <a href="/parent.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-500/30 group cursor-pointer text-center relative overflow-hidden block">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
-                                <div className="relative z-10">
-                                    <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👨‍👩‍👦</div>
-                                    <h2 className="text-2xl font-black mb-3 text-slate-900">{isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}</h2>
-                                    <p className="text-slate-600 font-bold mb-6 text-sm h-10">
-                                        {isArabic ? 'الكشوفات المالية، تقارير الأداء، ومتابعة الحصص.' : 'Financial statements, performance reports, and session tracking.'}
+                            {/* بوابة ولي الأمر */}
+                            <a href="parent.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
+                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500`}></div>
+                                <div>
+                                    <div className="w-14 h-14 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
+                                        👨‍👩‍👦
+                                    </div>
+                                    <h3 className="text-2xl font-black mb-3">
+                                        {isArabic ? 'بوابة أولياء الأمور' : 'Parent Portal'}
+                                    </h3>
+                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                                        {isArabic 
+                                            ? 'تقرير موجز لنقاط القوة والضعف وخطة العلاج، وسجل الحصص، والمستحقات مع إمكانية طباعة PDF.' 
+                                            : 'Executive summaries of strengths and weaknesses, session logs, and printable official PDF reports.'}
                                     </p>
-                                    <span className="inline-block bg-emerald-100 text-emerald-700 px-6 py-2 rounded-full font-black text-sm group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                                        {isArabic ? 'متابعة الأداء \u2190' : 'Track Performance \u2192'}
-                                    </span>
+                                </div>
+                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-emerald-300 group-hover:gap-3 transition-all">
+                                    <span>{isArabic ? 'دخول ولي الأمر' : 'Access Portal'}</span>
+                                    <span>{isArabic ? '←' : '→'}</span>
                                 </div>
                             </a>
 
-                            {/* 3. بوابة المعلم والإدارة */}
-                            <a href="/admin.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-orange-500/30 group cursor-pointer text-center relative overflow-hidden block">
-                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
-                                <div className="relative z-10">
-                                    <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👨‍🏫</div>
-                                    <h2 className="text-2xl font-black mb-3 text-slate-900">{isArabic ? 'الإدارة والمعلم' : 'Teacher & Admin'}</h2>
-                                    <p className="text-slate-600 font-bold mb-6 text-sm h-10">
-                                        {isArabic ? 'إدارة الحسابات، تسجيل الحصص، ومراقبة النظام.' : 'Account management, session logging, and system monitoring.'}
+                            {/* بوابة المعلم والإدارة */}
+                            <a href="admin.html" className="glass-card glass-card-hover p-8 rounded-3xl transition duration-300 flex flex-col justify-between group relative overflow-hidden">
+                                <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
+                                <div>
+                                    <div className="w-14 h-14 bg-orange-500/20 text-orange-300 border border-orange-400/30 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition duration-300">
+                                        🛡️
+                                    </div>
+                                    <h3 className="text-2xl font-black mb-3">
+                                        {isArabic ? 'لوحة الإدارة والمعلم' : 'Admin & Tutor'}
+                                    </h3>
+                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                                        {isArabic 
+                                            ? 'تسجيل الحصص والمهارات الأكاديمية، اعتماد وتعديل درجات الواجبات، ومتابعة الحسابات والفواتير.' 
+                                            : 'Log academic strand & skills, endorse homework scores, and manage finances and students.'}
                                     </p>
-                                    <span className="inline-block bg-orange-100 text-orange-700 px-6 py-2 rounded-full font-black text-sm group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                                        {isArabic ? 'لوحة التحكم \u2190' : 'Dashboard \u2192'}
-                                    </span>
+                                </div>
+                                <div className="mt-8 flex items-center gap-2 text-sm font-black text-orange-300 group-hover:gap-3 transition-all">
+                                    <span>{isArabic ? 'دخول المعلم' : 'Admin Login'}</span>
+                                    <span>{isArabic ? '←' : '→'}</span>
                                 </div>
                             </a>
 
                         </div>
-                    </div>
+
+                        {/* المناهج والأنظمة المغطاة */}
+                        <div className="glass-card p-8 rounded-3xl mb-8">
+                            <h4 className="text-center text-sm font-black uppercase tracking-wider text-blue-300 mb-6">
+                                {isArabic ? 'المناهج التعليمية الدولية المعتمدة' : 'Accredited Curricula Covered'}
+                            </h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
+                                    🇬🇧 IGCSE (Cambridge / Edexcel)
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
+                                    🌐 IB Diploma (AA & AI)
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
+                                    🇺🇸 American Diploma (SAT / ACT)
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 font-black text-sm">
+                                    🇪🇬 National & Language Schools
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* شريط التواصل السريع عبر واتساب */}
+                        <div className="text-center">
+                            <a 
+                                href="https://wa.me/201011111111" 
+                                target="_blank" 
+                                className="inline-flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition shadow-lg shadow-emerald-600/30 text-sm md:text-base"
+                            >
+                                <span className="text-xl">💬</span>
+                                <span>{isArabic ? 'تواصل مباشرة عبر WhatsApp للحجز والاستفسار' : 'Contact via WhatsApp for Inquiries'}</span>
+                            </a>
+                        </div>
+                    </main>
+
+                    {/* التذييل السفلي */}
+                    <footer className="max-w-6xl w-full mx-auto p-6 text-center text-xs text-slate-400 font-bold border-t border-white/10 mt-12">
+                        <p>© 2026 {isArabic ? 'أكاديمية Jebali للرياضيات — جميع الحقوق محفوظة.' : 'Jebali Math Academy — All Rights Reserved.'}</p>
+                    </footer>
+
                 </div>
             );
         }
