@@ -41,7 +41,6 @@
             const [isLoading, setIsLoading] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
 
-            // البحث بأي من الرقمين: هاتف ولي الأمر أو هاتف الطالب
             const handleSearchByPhone = async (e) => {
                 e.preventDefault();
                 setIsLoading(true);
@@ -61,7 +60,7 @@
                 }
 
                 if (!data || data.length === 0) {
-                    setErrorMessage(isArabic ? 'عفواً، لا يوجد حساب مسجل بهذا الرقم (سواء هاتف ولي الأمر أو الطالب).' : 'No records found matching this phone number.');
+                    setErrorMessage(isArabic ? 'عفواً، لا يوجد حساب مسجل بهذا الرقم.' : 'No records found matching this phone number.');
                     return;
                 }
 
@@ -76,7 +75,6 @@
                 setIsLoading(true);
                 setSelectedStudent(student);
 
-                // جلب الحصص
                 const { data: sessionData } = await supabase
                     .from('sessions')
                     .select('*')
@@ -84,7 +82,6 @@
                     .order('created_at', { ascending: false });
                 setSessions(sessionData || []);
 
-                // جلب أرشيف تقييمات الواجبات
                 const { data: submissionData } = await supabase
                     .from('homework_submissions')
                     .select('*')
@@ -95,10 +92,10 @@
                 setIsLoading(false);
             };
 
-            const totalDue = sessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
+            // حساب المستحقات للحصص غير المدفوعة فقط
+            const totalDue = sessions.filter(s => !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0);
             const totalHours = sessions.reduce((sum, s) => sum + (s.duration_hours || 0), 0);
 
-            // 1. شاشة الدخول برقم الهاتف
             if (!selectedStudent && myKids.length <= 1) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -140,7 +137,6 @@
                 );
             }
 
-            // 2. شاشة اختيار الابن في حال وجود أكثر من حساب مسجل بنفس الرقم
             if (!selectedStudent && myKids.length > 1) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
@@ -168,7 +164,6 @@
                 );
             }
 
-            // 3. تقرير الطالب المختار
             return (
                 <div className={`p-4 md:p-8 max-w-6xl mx-auto ${isArabic ? 'font-cairo' : 'font-sans'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                     <header className="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 gap-4 shadow-xl">
@@ -192,10 +187,9 @@
                         </div>
                     </header>
 
-                    {/* الإحصائيات العامة */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                         <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
-                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{isArabic ? 'المستحقات الحالية' : 'Current Dues'}</span>
+                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">{isArabic ? 'المستحقات المعلقة' : 'Pending Dues'}</span>
                             <h3 className="text-3xl font-black mt-4 text-white">{totalDue} <span className="text-lg text-blue-200">EGP</span></h3>
                             <a href="https://ipn.eg" target="_blank" className="block text-center py-2.5 mt-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition text-xs">
                                 {isArabic ? 'سداد عبر InstaPay' : 'Pay via InstaPay'}
@@ -221,7 +215,6 @@
                         </div>
                     </div>
 
-                    {/* تقرير الواجبات الأكاديمي */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
                         <div className="flex items-center justify-between mb-6">
                             <div>
@@ -252,7 +245,6 @@
                         )}
                     </div>
 
-                    {/* تفاصيل الحصص والمحاسبة */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl">
                         <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '🗓️ سجل الحصص والمحاسبة التفصيلي' : '🗓️ Session Breakdown'}</h3>
                         {sessions.length === 0 ? (
@@ -265,7 +257,7 @@
                                             <th className="pb-3 px-4">{isArabic ? 'التاريخ' : 'Date'}</th>
                                             <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
                                             <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
-                                            <th className="pb-3 px-4">{isArabic ? 'الحالة' : 'Status'}</th>
+                                            <th className="pb-3 px-4">{isArabic ? 'حالة السداد' : 'Payment Status'}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5 font-bold">
@@ -275,9 +267,15 @@
                                                 <td className="py-4 px-4">{session.duration_hours} {isArabic ? 'ساعة' : 'hrs'}</td>
                                                 <td className="py-4 px-4 text-orange-300">{session.calculated_cost} EGP</td>
                                                 <td className="py-4 px-4">
-                                                    <span className="px-3 py-1 rounded-full text-xs bg-orange-500/20 text-orange-200 border border-orange-500/30">
-                                                        {isArabic ? 'مستحق' : 'Unpaid'}
-                                                    </span>
+                                                    {session.is_paid ? (
+                                                        <span className="px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                                            {isArabic ? '✅ تم السداد' : '✅ Paid'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-3 py-1 rounded-full text-xs bg-orange-500/20 text-orange-200 border border-orange-500/30">
+                                                            {isArabic ? '⏳ معلق (مستحق)' : '⏳ Unpaid'}
+                                                        </span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
