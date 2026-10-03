@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة الإدارة الاحترافية | أكاديمية Jebali</title>
+    <title>لوحة الإدارة المتكاملة | Jebali Math Academy</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -24,8 +24,7 @@
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.2); 
             color: white; 
-            padding-right: 14px;
-            padding-left: 14px;
+            padding: 12px;
             text-overflow: ellipsis;
         }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
@@ -34,10 +33,9 @@
 
         .katex { direction: ltr !important; display: inline-block; unicode-bidi: isolate; font-size: 1.1em; }
         .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-align: left; }
-
-        /* تخصيص قائمة التحديد المتعدد للمهارات الدولية */
-        select[multiple] { height: 160px; }
-        select[multiple] option { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        
+        select[multiple] { height: 150px; }
+        select[multiple] option { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         select[multiple] option:checked { background-color: #f97316 !important; color: white !important; font-weight: bold; }
     </style>
 </head>
@@ -80,8 +78,6 @@
             
             const [students, setStudents] = useState([]);
             const [sessionsList, setSessionsList] = useState([]);
-            
-            // جداول المناهج
             const [egyptianLessons, setEgyptianLessons] = useState([]);
             const [internationalSkills, setInternationalSkills] = useState([]);
             
@@ -91,8 +87,10 @@
             
             const [newSession, setNewSession] = useState({ 
                 student_id: '', 
-                duration: '', 
-                eg_term: '', eg_branch: '', eg_unit: '', eg_lesson: '',
+                duration: '1.5', 
+                // حقول المنهج المصري الخطي
+                eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '',
+                // حقول المنهج الدولي المهاري
                 int_strand: '', int_skills: []
             });
 
@@ -134,53 +132,38 @@
             }
 
             async function fetchInternationalCurriculum() {
-                const { data, error } = await supabase.from('international_skills').select('*');
-                if (error) {
-                    console.error("Error fetching international skills:", error);
-                }
-                if (data) {
-                    console.log("International Skills Data Loaded:", data); // للتحقق من البيانات في المتصفح
-                    setInternationalSkills(data);
-                }
+                const { data } = await supabase.from('international_skills').select('*');
+                if (data) setInternationalSkills(data);
             }
 
-            // --- منطق الواجهة المزدوجة والتصفية الذكية ---
+            // تحديد الطالب المختار والتحقق هل هو نظام مصري أم دولي
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
-            const isEgyptianMode = selectedStudentObj && selectedStudentObj.curriculum_system.includes('National');
+            const isEgyptianMode = selectedStudentObj && (selectedStudentObj.curriculum_system.toLowerCase().includes('national') || selectedStudentObj.curriculum_system.toLowerCase().includes('مصري'));
 
-            // 1. تصفية المنهج المصري
-            const filteredEg = egyptianLessons.filter(item => selectedStudentObj && item.grade === selectedStudentObj.grade_level);
-            const egTerms = [...new Set(filteredEg.map(i => i.term))];
-            const egBranches = [...new Set(filteredEg.filter(i => i.term === newSession.eg_term).map(i => i.branch))];
-            const egUnits = [...new Set(filteredEg.filter(i => i.term === newSession.eg_term && i.branch === newSession.eg_branch).map(i => i.unit))];
-            const egLessons = filteredEg.filter(i => i.term === newSession.eg_term && i.branch === newSession.eg_branch && i.unit === newSession.eg_unit);
+            // قوائم تصفية المنهج المصري
+            const egGrades = [...new Set(egyptianLessons.map(i => i.grade))];
+            const filteredEgByGrade = egyptianLessons.filter(i => i.grade === newSession.eg_grade);
+            const egTerms = [...new Set(filteredEgByGrade.map(i => i.term))];
+            const filteredEgByTerm = filteredEgByGrade.filter(i => i.term === newSession.eg_term);
+            const egBranches = [...new Set(filteredEgByTerm.map(i => i.branch))];
+            const egLessons = filteredEgByTerm.filter(i => i.branch === newSession.eg_branch);
 
-            // 2. تصفية المنهج الدولي (استخدام ذكي لأسماء الأعمدة المحتملة)
+            // قوائم تصفية المنهج الدولي
             const filteredInt = internationalSkills.filter(item => {
                 if (!selectedStudentObj) return false;
-                
-                const studentSys = selectedStudentObj.curriculum_system.toLowerCase().split(' ')[0]; // american أو igcse أو ib
-                
-                // البحث في أي عمود قد يحتوي على الوسم (Tag)
-                const recordTag = (item.tags || item.tag || item.system_tag || item.system || item.curriculum || '').toLowerCase();
-                
-                // إذا لم يكن هناك أي وسم مسجل بالخطأ في القاعدة، اعرض المهارة احتياطياً، أو فلترها بدقة
-                if(recordTag === '') return true; 
-                
-                return recordTag.includes(studentSys);
+                const studentSys = selectedStudentObj.curriculum_system.toLowerCase();
+                const itemTag = (item.system_tag || item.tags || item.tag || '').toLowerCase();
+                if (!itemTag) return true;
+                return itemTag.includes(studentSys.split(' ')[0]);
             });
-
-            // جلب المجالات (Strands) بذكاء من أي عمود محتمل
-            const intStrands = [...new Set(filteredInt.map(i => i.strands || i.strand || i.strand_name))].filter(Boolean);
-            
-            // تصفية المهارات (Skills) بناءً على المجال المختار
-            const availableIntSkills = filteredInt.filter(i => (i.strands || i.strand || i.strand_name) === newSession.int_strand);
+            const intStrands = [...new Set(filteredInt.map(i => i.strand || i.strands))].filter(Boolean);
+            const availableIntSkills = filteredInt.filter(i => (i.strand || i.strands) === newSession.int_strand);
 
             async function handleLogin(e) {
                 e.preventDefault();
                 setLoginError('');
                 const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) setLoginError(isArabic ? 'بيانات الدخول غير صحيحة.' : 'Invalid credentials.');
+                if (error) setLoginError('بيانات الدخول غير صحيحة.');
             }
 
             async function handleLogout() {
@@ -189,9 +172,9 @@
 
             async function handleAddStudent(e) {
                 e.preventDefault();
-                setMsg('⏳ جاري الإضافة...');
+                setMsg('⏳ جاري إضافة الطالب...');
                 const { error } = await supabase.from('students').insert([{
-                    student_name: newStudent.name,
+                    student_name: newStudent.name.trim(),
                     student_phone: newStudent.student_phone.trim(),
                     parent_phone: newStudent.parent_phone.trim(),
                     curriculum_system: newStudent.system,
@@ -204,7 +187,7 @@
                     fetchStudents();
                     setNewStudent({ name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: '' });
                 } else {
-                    setMsg('❌ Error: ' + error.message);
+                    setMsg('❌ خطأ: ' + error.message);
                 }
                 setTimeout(() => setMsg(''), 4000);
             }
@@ -219,22 +202,20 @@
                 let skillsCovered = '';
 
                 if (isEgyptianMode) {
-                    strandName = newSession.eg_branch; 
-                    lessonTopic = newSession.eg_unit;  
-                    skillsCovered = newSession.eg_lesson; 
+                    const selectedLessonObj = egyptianLessons.find(l => l.id.toString() === newSession.eg_lesson);
+                    strandName = newSession.eg_branch;
+                    lessonTopic = selectedLessonObj ? selectedLessonObj.unit_title : 'الوحدة الدراسية';
+                    skillsCovered = selectedLessonObj ? selectedLessonObj.lesson_title : 'الدرس';
                 } else {
                     strandName = newSession.int_strand;
-                    lessonTopic = 'International Module';
-                    
-                    // جلب أسماء المهارات بذكاء أياً كان اسم العمود
+                    lessonTopic = 'International Core Topic';
                     const selectedSkillNames = availableIntSkills
                         .filter(s => newSession.int_skills.includes(s.id.toString()))
-                        .map(s => s.skills || s.skill || s.skill_name || s.name);
-                    
+                        .map(s => s.skill_name || s.skills || s.name);
                     skillsCovered = selectedSkillNames.join(' | ');
                 }
 
-                // حفظ الحصة
+                // 1. إدراج الحصة في جدول sessions الرئيسي المتوافق مع النظام
                 const { data: sessionData, error: sessionError } = await supabase.from('sessions').insert([{
                     student_id: newSession.student_id,
                     duration_hours: duration,
@@ -245,24 +226,22 @@
                 }]).select();
                 
                 if (sessionError) {
-                    setMsg('❌ خطأ في تسجيل الحصة: ' + sessionError.message);
+                    setMsg('❌ خطأ في حفظ الحصة: ' + sessionError.message);
                     return setTimeout(() => setMsg(''), 4000);
                 }
 
                 const insertedSessionId = sessionData[0].id;
 
-                // ربط المهارات المتعددة دولياً
+                // 2. إذا كان دولي، ربط المهارات المتعددة بجدول session_international_skills
                 if (!isEgyptianMode && newSession.int_skills.length > 0) {
                     const skillLinks = newSession.int_skills.map(skillId => ({
                         session_id: insertedSessionId,
                         skill_id: skillId
                     }));
-                    
-                    const { error: linkError } = await supabase.from('session_international_skills').insert(skillLinks);
-                    if (linkError) console.error("Error linking skills:", linkError);
+                    await supabase.from('session_international_skills').insert(skillLinks);
                 }
                 
-                setMsg('✅ تم توثيق الحصة الأكاديمية بنجاح!');
+                setMsg('✅ تم توثيق الحصة وتحديث السجلات بنجاح!');
                 setLastLoggedInfo({
                     student: selectedStudentObj,
                     duration: duration,
@@ -273,7 +252,7 @@
                     isEgyptian: isEgyptianMode
                 });
                 
-                setNewSession({ student_id: '', duration: '', eg_term: '', eg_branch: '', eg_unit: '', eg_lesson: '', int_strand: '', int_skills: [] });
+                setNewSession({ student_id: '', duration: '1.5', eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: [] });
                 fetchSessions();
                 setTimeout(() => setMsg(''), 4000);
             }
@@ -291,14 +270,12 @@
                 const studentPhone = formatPhone(student.student_phone);
                 const totalUnpaid = sessionsList.filter(s => s.student_id === student.id && !s.is_paid).reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
-                let academicDetails = '';
-                if (isEgyptian) {
-                    academicDetails = `\n📚 *التقرير الأكاديمي:*\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`;
-                } else {
-                    academicDetails = `\n📚 *التقرير الأكاديمي:*\n• Strand: ${strand}\n• Skills Covered:\n- ${skill.replace(/ \| /g, '\n- ')}`;
-                }
+                let academicDetails = isEgyptian 
+                    ? `\n📚 *التقرير الأكاديمي:*\n• الفرع: ${strand}\n• الوحدة: ${topic}\n• الدرس: ${skill}`
+                    : `\n📚 *التقرير الأكاديمي:*\n• Strand: ${strand}\n• Skills Covered:\n- ${skill.replace(/ \| /g, '\n- ')}`;
 
-                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*\n• المدة: ${duration} ساعة (${cost} جنيه مصري)${academicDetails}\n\n• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay أو المحافظ الإلكترونية، ويمكنكم متابعة تفاصيل الواجبات عبر رابط الأكاديمية:\nhttps://jebali-math-academy.pages.dev/parent.html`;
+                const parentMsg = `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐\n\nتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*\n• المدة: ${duration} ساعة (${cost} جنيه مصري)${academicDetails}\n\n• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه مصري*\n\nللسداد عبر InstaPay أو المحافظ الإلكترونية، ومتابعة الواجبات عبر رابط الأكاديمية:\nhttps://jebali-math-academy.pages.dev/parent.html`;
+                
                 const studentMsg = `مرحباً ${student.student_name} 📐\nتم تسجيل حصتك اليوم بنجاح (${duration} ساعة).${academicDetails}\nتأكد من تسليم واجبك لتصحيحه فوراً عبر بوابتك:\nhttps://jebali-math-academy.pages.dev/student.html`;
 
                 if (target === 'parent') {
@@ -330,13 +307,13 @@
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
                                 <div className="text-6xl mb-4">👨‍🏫</div>
-                                <h2 className="text-3xl font-black">تسجيل الدخول</h2>
+                                <h2 className="text-3xl font-black">لوحة الإدارة</h2>
                             </div>
                             {loginError && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 font-bold text-center">{loginError}</p>}
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <input type="email" placeholder="البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold" value={email} onChange={e => setEmail(e.target.value)} />
                                 <input type="password" placeholder="كلمة المرور" required className="w-full p-4 glass-input rounded-xl font-bold" value={password} onChange={e => setPassword(e.target.value)} />
-                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">دخول</button>
+                                <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl">تسجيل الدخول</button>
                             </form>
                         </div>
                     </div>
@@ -350,144 +327,144 @@
                 <div className="p-4 md:p-8 max-w-6xl mx-auto font-cairo" dir="rtl">
                     <header className="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl">🛡️</div>
+                            <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg">📐</div>
                             <div>
-                                <h1 className="text-2xl font-black">لوحة الإدارة (Dual-Mode Architecture)</h1>
-                                <p className="text-blue-200 font-bold text-sm">متصل بـ Supabase بنجاح 🟢</p>
+                                <h1 className="text-2xl font-black">Jebali Math Academy | لوحة التحكم</h1>
+                                <p className="text-blue-200 font-bold text-sm">إدارة الحصص والمناهج المزدوجة (مصري ودولي)</p>
                             </div>
                         </div>
-                        <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold">خروج</button>
+                        <button onClick={handleLogout} className="px-5 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-xl font-bold transition">خروج</button>
                     </header>
+
+                    {/* الإحصائيات المالية */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-emerald-500">
+                            <span className="text-xs font-bold text-emerald-200 bg-emerald-500/20 px-3 py-1 rounded-full">المبالغ المحصلة</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalCollected} <span className="text-xl text-blue-200">EGP</span></h3>
+                        </div>
+                        <div className="glass-card p-6 rounded-3xl border-t-4 border-orange-500">
+                            <span className="text-xs font-bold text-orange-200 bg-orange-500/20 px-3 py-1 rounded-full">المستحقات المعلقة</span>
+                            <h3 className="text-4xl font-black mt-4 text-white">{totalPending} <span className="text-xl text-blue-200">EGP</span></h3>
+                        </div>
+                    </div>
 
                     {msg && <div className="mb-8 p-4 font-black rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-100">{msg}</div>}
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        {/* إضافة طالب */}
+                        {/* 1. إضافة طالب جديد */}
                         <div className="glass-card p-8 rounded-3xl relative">
                             <div className="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
                             <h3 className="text-2xl font-black mb-6">👤 إضافة طالب جديد</h3>
                             <form onSubmit={handleAddStudent} className="space-y-4">
-                                <input type="text" placeholder="اسم الطالب" required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                                <input type="text" placeholder="اسم الطالب بالكامل" required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
                                 <div className="grid grid-cols-2 gap-4">
                                     <input type="tel" placeholder="هاتف الطالب" className="w-full p-3 glass-input rounded-xl" value={newStudent.student_phone} onChange={e => setNewStudent({...newStudent, student_phone: e.target.value})} />
                                     <input type="tel" placeholder="هاتف ولي الأمر" required className="w-full p-3 glass-input rounded-xl" value={newStudent.parent_phone} onChange={e => setNewStudent({...newStudent, parent_phone: e.target.value})} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.system} onChange={e => setNewStudent({...newStudent, system: e.target.value, grade: ''})}>
-                                        <option value="" disabled>-- النظام --</option>
-                                        <option value="National (Egyptian)">National (مصري عربي/لغات)</option>
+                                        <option value="" disabled>-- النظام التعليمي --</option>
+                                        <option value="National (Egyptian)">النظام المصري (National)</option>
                                         <option value="IGCSE">IGCSE (British)</option>
                                         <option value="American Diploma">American Diploma</option>
-                                        <option value="IB">IB</option>
+                                        <option value="IB">IB (International)</option>
                                     </select>
                                     <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.grade} onChange={e => setNewStudent({...newStudent, grade: e.target.value})}>
-                                        <option value="" disabled>-- الصف --</option>
-                                        {newStudent.system === 'National (Egyptian)' && (
+                                        <option value="" disabled>-- الصف الدراسي --</option>
+                                        {newStudent.system.includes('National') && (
                                             <>
                                                 <option value="Grade 10">الصف الأول الثانوي</option>
                                                 <option value="Grade 11">الصف الثاني الثانوي</option>
                                                 <option value="Grade 12">الصف الثالث الثانوي</option>
                                             </>
                                         )}
-                                        {newStudent.system === 'IGCSE' && (
-                                            <><option value="Year 9">Year 9</option><option value="Year 10">Year 10</option><option value="Year 11">Year 11</option></>
-                                        )}
-                                        {newStudent.system === 'American Diploma' && (
-                                            <><option value="Grade 9">Grade 9</option><option value="Grade 10">Grade 10</option><option value="Grade 11">Grade 11</option><option value="Grade 12">Grade 12</option></>
+                                        {!newStudent.system.includes('National') && newStudent.system && (
+                                            <>
+                                                <option value="Grade 9">Grade 9 / Year 9</option>
+                                                <option value="Grade 10">Grade 10 / Year 10</option>
+                                                <option value="Grade 11">Grade 11 / Year 11</option>
+                                                <option value="Grade 12">Grade 12 / Year 12</option>
+                                            </>
                                         )}
                                     </select>
                                 </div>
                                 <input type="number" placeholder="سعر الساعة (EGP)" required className="w-full p-3 glass-input rounded-xl font-bold" value={newStudent.rate} onChange={e => setNewStudent({...newStudent, rate: e.target.value})} />
-                                <button type="submit" className="w-full bg-blue-500 text-white font-black py-4 rounded-xl">حفظ الطالب</button>
+                                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-xl transition">حفظ ملف الطالب</button>
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة المزدوج الذكاء */}
+                        {/* 2. تسجيل الحصة بالوضع التلقائي المزدوج */}
                         <div className="glass-card p-8 rounded-3xl relative flex flex-col justify-between">
                             <div className="absolute top-0 right-0 w-2 h-full bg-orange-500"></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6">⏱️ توثيق حصة (الوضع التلقائي)</h3>
+                                <h3 className="text-2xl font-black mb-6">⏱️ توثيق حصة (الوضع المزدوج الذكي)</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_term: '', int_strand: '', int_skills: []})}>
-                                            <option value="" disabled>1. اختر الطالب (يتحدد المنهج تلقائياً)</option>
+                                        <select required className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value, eg_grade: '', eg_term: '', eg_branch: '', eg_lesson: '', int_strand: '', int_skills: []})}>
+                                            <option value="" disabled>1. اختر الطالب (يتحدد منهجه)</option>
                                             {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
                                         </select>
-                                        <input type="number" step="0.25" required placeholder="المدة بالساعات" className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
+                                        <input type="number" step="0.25" required placeholder="المدة (ساعات)" className="w-full p-3 glass-input rounded-xl font-bold" value={newSession.duration} onChange={e => setNewSession({...newSession, duration: e.target.value})} />
                                     </div>
 
-                                    {/* حقول النظام المصري */}
+                                    {/* تفاصيل النظام المصري الخطي */}
                                     {selectedStudentObj && isEgyptianMode && (
-                                        <div className="space-y-4 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
-                                            <p className="text-xs font-bold text-blue-200">🟢 منهج مصري خطي:</p>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <select required className="w-full p-3 glass-input rounded-xl" value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: ''})}>
-                                                    <option value="" disabled>-- اختر الترم --</option>
+                                        <div className="space-y-3 p-4 border border-blue-500/30 bg-blue-500/10 rounded-xl">
+                                            <p className="text-xs font-bold text-blue-200">🟢 تفعيل المنهج الخطي المصري:</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" value={newSession.eg_grade} onChange={e => setNewSession({...newSession, eg_grade: e.target.value, eg_term: '', eg_branch: '', eg_lesson: ''})}>
+                                                    <option value="" disabled>-- الصف --</option>
+                                                    {egGrades.map(g => <option key={g} value={g}>{g}</option>)}
+                                                </select>
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_grade} value={newSession.eg_term} onChange={e => setNewSession({...newSession, eg_term: e.target.value, eg_branch: '', eg_lesson: ''})}>
+                                                    <option value="" disabled>-- الترم --</option>
                                                     {egTerms.map(t => <option key={t} value={t}>{t}</option>)}
                                                 </select>
-                                                <select required className="w-full p-3 glass-input rounded-xl" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_unit: ''})}>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_term} value={newSession.eg_branch} onChange={e => setNewSession({...newSession, eg_branch: e.target.value, eg_lesson: ''})}>
                                                     <option value="" disabled>-- الفرع --</option>
                                                     {egBranches.map(b => <option key={b} value={b}>{b}</option>)}
                                                 </select>
+                                                <select required className="w-full p-2.5 glass-input rounded-xl text-sm" disabled={!newSession.eg_branch} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
+                                                    <option value="" disabled>-- الدرس المحدد --</option>
+                                                    {egLessons.map(l => <option key={l.id} value={l.id}>[الوحدة: {l.unit_title}] {l.lesson_title}</option>)}
+                                                </select>
                                             </div>
-                                            <select required className="w-full p-3 glass-input rounded-xl" disabled={!newSession.eg_branch} value={newSession.eg_unit} onChange={e => setNewSession({...newSession, eg_unit: e.target.value, eg_lesson: ''})}>
-                                                <option value="" disabled>-- الوحدة --</option>
-                                                {egUnits.map(u => <option key={u} value={u}>{u}</option>)}
-                                            </select>
-                                            <select required className="w-full p-3 glass-input rounded-xl" disabled={!newSession.eg_unit} value={newSession.eg_lesson} onChange={e => setNewSession({...newSession, eg_lesson: e.target.value})}>
-                                                <option value="" disabled>-- الدرس (المهارة) --</option>
-                                                {egLessons.map(l => <option key={l.id} value={l.lesson_name}>{l.lesson_name}</option>)}
-                                            </select>
                                         </div>
                                     )}
 
-                                    {/* حقول النظام الدولي */}
+                                    {/* تفاصيل النظام الدولي المهاري */}
                                     {selectedStudentObj && !isEgyptianMode && (
-                                        <div className="space-y-4 p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl">
-                                            <p className="text-xs font-bold text-emerald-200">🟣 منهج دولي مهاري (Many-to-Many):</p>
-                                            {intStrands.length === 0 ? (
-                                                <div className="text-xs text-orange-300 p-2 text-center bg-black/20 rounded">
-                                                    لا توجد مهارات مطابقة لنظام ({selectedStudentObj.curriculum_system}) في قاعدة البيانات حالياً.
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <select required className="w-full p-3 glass-input rounded-xl" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
-                                                        <option value="" disabled>-- اختر المجال (Strand) --</option>
-                                                        {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </select>
-                                                    
-                                                    <div>
-                                                        <label className="text-xs text-emerald-200 mb-1 block">-- حدد المهارة أو المهارات (استخدم زر Ctrl أو السحب للتحديد المتعدد) --</label>
-                                                        <select 
-                                                            multiple 
-                                                            required 
-                                                            disabled={!newSession.int_strand}
-                                                            className="w-full glass-input rounded-xl font-bold" 
-                                                            value={newSession.int_skills} 
-                                                            onChange={e => {
-                                                                const values = Array.from(e.target.selectedOptions, option => option.value);
-                                                                setNewSession({...newSession, int_skills: values});
-                                                            }}
-                                                        >
-                                                            {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skills || sk.skill || sk.skill_name || sk.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </>
-                                            )}
+                                        <div className="space-y-3 p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl">
+                                            <p className="text-xs font-bold text-emerald-200">🟣 تفعيل بنك المهارات الدولي (متعدد التحديد):</p>
+                                            <select required className="w-full p-3 glass-input rounded-xl text-sm" value={newSession.int_strand} onChange={e => setNewSession({...newSession, int_strand: e.target.value, int_skills: []})}>
+                                                <option value="" disabled>-- اختر المجال (Strand) --</option>
+                                                {intStrands.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <div>
+                                                <label className="text-xs text-emerald-200 mb-1 block">-- حدد المهارة أو المهارات (اضغط Ctrl أو اسحب للتحديد المتعدد) --</label>
+                                                <select multiple required disabled={!newSession.int_strand} className="w-full glass-input rounded-xl font-bold text-sm" value={newSession.int_skills} onChange={e => {
+                                                    const values = Array.from(e.target.selectedOptions, option => option.value);
+                                                    setNewSession({...newSession, int_skills: values});
+                                                }}>
+                                                    {availableIntSkills.map(sk => <option key={sk.id} value={sk.id}>{sk.skill_name || sk.skills || sk.name}</option>)}
+                                                </select>
+                                            </div>
                                         </div>
                                     )}
 
-                                    <button type="submit" disabled={!selectedStudentObj || (!isEgyptianMode && intStrands.length === 0)} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl mt-4 disabled:opacity-50">
+                                    <button type="submit" disabled={!selectedStudentObj} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition mt-4 disabled:opacity-50 shadow-lg">
                                         وثّق الحصة في Supabase
                                     </button>
                                 </form>
                             </div>
 
-                            {/* أزرار الواتساب */}
+                            {/* إرسال الواتساب */}
                             <div className="mt-6 pt-4 border-t border-white/10">
                                 {lastLoggedInfo ? (
                                     <div>
-                                        <h4 className="text-sm font-black text-blue-200 mb-2">إرسال الفاتورة والتقرير (بدون تقطيع النص):</h4>
+                                        <h4 className="text-sm font-black text-blue-200 mb-2">إرسال التقرير والفاتورة عبر WhatsApp:</h4>
                                         <div className="flex gap-2">
                                             <button onClick={() => sendWhatsApp('parent')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black transition">👨‍👩‍👦 ولي الأمر</button>
                                             <button onClick={() => sendWhatsApp('student')} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black transition">👨‍🎓 الطالب</button>
@@ -495,48 +472,51 @@
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-center text-blue-200">سجل حصة لتظهر خيارات الإرسال.</p>
+                                    <p className="text-xs text-center text-blue-200">سجل حصة لتظهر خيارات الإرسال الفوري.</p>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* سجل الحصص */}
+                    {/* سجل الحصص والماليات */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white">💳 سجل الحصص من Supabase</h3>
+                        <h3 className="text-xl font-black mb-6 text-white">💳 سجل الحصص والمدفوعات</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right">
                                 <thead>
                                     <tr className="border-b border-white/10 text-blue-200 text-sm">
                                         <th className="pb-3 px-4">الطالب</th>
-                                        <th className="pb-3 px-4">التفاصيل / المهارات</th>
+                                        <th className="pb-3 px-4">التفاصيل / المهارات الموثقة</th>
                                         <th className="pb-3 px-4">التكلفة</th>
-                                        <th className="pb-3 px-4">الحالة</th>
-                                        <th className="pb-3 px-4">حذف</th>
+                                        <th className="pb-3 px-4">حالة السداد</th>
+                                        <th className="pb-3 px-4 text-center">حذف</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {sessionsList.map(s => (
                                         <tr key={s.id} className="border-b border-white/5 hover:bg-white/5 transition">
                                             <td className="py-4 px-4 font-bold">{s.students?.student_name}</td>
-                                            <td className="py-4 px-4 text-xs max-w-xs truncate">
+                                            <td className="py-4 px-4 text-xs max-w-sm truncate">
                                                 <div className="font-bold text-white">{s.lesson_topic}</div>
                                                 <div className="text-blue-300">{s.strand}</div>
                                                 <div className="text-emerald-300">{s.skills_covered}</div>
                                             </td>
                                             <td className="py-4 px-4 font-black text-orange-300">{s.calculated_cost} EGP</td>
                                             <td className="py-4 px-4">
-                                                <button onClick={() => togglePaymentStatus(s.id, s.is_paid)} className={`px-3 py-1 rounded-xl text-xs font-black shadow-md ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-orange-500 text-white'}`}>
-                                                    {s.is_paid ? '✅ مسددة' : '💵 تأكيد'}
+                                                <button onClick={() => togglePaymentStatus(s.id, s.is_paid)} className={`px-3 py-1 rounded-xl text-xs font-black transition ${s.is_paid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-orange-500 text-white'}`}>
+                                                    {s.is_paid ? '✅ مسددة' : '💵 تأكيد السداد'}
                                                 </button>
                                             </td>
-                                            <td className="py-4 px-4"><button onClick={() => deleteSession(s.id)} className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition">🗑</button></td>
+                                            <td className="py-4 px-4 text-center">
+                                                <button onClick={() => deleteSession(s.id)} className="p-2 hover:bg-red-500/30 text-red-300 rounded-lg transition">🗑</button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+
                 </div>
             );
         }
