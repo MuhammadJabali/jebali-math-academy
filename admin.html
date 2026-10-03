@@ -77,11 +77,10 @@
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
             const [msg, setMsg] = useState('');
 
-            // تم تصحيح الترجمة هنا لتصبح "الرئيسية (Home)" بدلاً من منزل الطالب
             const t = {
                 ar: {
                     title: "لوحة التحكم | Jebali Math Academy",
-                    subtitle: "نظام الإدارة الشامل",
+                    subtitle: "نظام الإدارة الشامل والربط الدقيق للأنظمة",
                     home: "الرئيسية (Home)",
                     logout: "خروج",
                     collected: "المبالغ المحصلة",
@@ -193,37 +192,47 @@
                 if (ibData) setIbSkillsList(ibData);
             }
 
+            // ربط دقيق وشامل لصفوف المراحل المصرية (عربي ولغات)
             const getEgyptianGradesList = () => {
                 const isLang = newStudent.systemType === 'egyptian_languages';
                 const stage = newStudent.schoolStage;
                 if (stage === 'primary') {
-                    return isLang ? ['Primary 1 (Languages)', 'Primary 2 (Languages)', 'Primary 3 (Languages)', 'Primary 4 (Languages)', 'Primary 5 (Languages)', 'Primary 6 (Languages)'] 
-                                  : ['الصف الأول الابتدائي (عربي)', 'الصف الثاني الابتدائي (عربي)', 'الصف الثالث الابتدائي (عربي)', 'الصف الرابع الابتدائي (عربي)', 'الصف الخامس الابتدائي (عربي)', 'الصف السادس الابتدائي (عربي)'];
+                    return isLang ? ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'] 
+                                  : ['الصف الأول الابتدائي', 'الصف الثاني الابتدائي', 'الصف الثالث الابتدائي', 'الصف الرابع الابتدائي', 'الصف الخامس الابتدائي', 'الصف السادس الابتدائي'];
                 } else if (stage === 'prep') {
-                    return isLang ? ['Prep 1 (Languages)', 'Prep 2 (Languages)', 'Prep 3 (Languages)'] 
-                                  : ['الصف الأول الإعدادي (عربي)', 'الصف الثاني الإعدادي (عربي)', 'الصف الثالث الإعدادي (عربي)'];
+                    return isLang ? ['Prep 1', 'Prep 2', 'Prep 3'] 
+                                  : ['الصف الأول الإعدادي', 'الصف الثاني الإعدادي', 'الصف الثالث الإعدادي'];
                 } else {
-                    return isLang ? ['Secondary 1 (Languages)', 'Secondary 2 (Languages)', 'Secondary 3 (Languages)'] 
-                                  : ['الصف الأول الثانوي (عربي)', 'الصف الثاني الثانوي (عربي)', 'الصف الثالث الثانوي (عربي)'];
+                    return isLang ? ['Secondary 1', 'Secondary 2', 'Secondary 3'] 
+                                  : ['الصف الأول الثانوي', 'الصف الثاني الثانوي', 'الصف الثالث الثانوي'];
                 }
             };
 
             const selectedStudentObj = students.find(s => s.id === newSession.student_id);
             const studentSysText = selectedStudentObj ? selectedStudentObj.curriculum_system.toLowerCase() : '';
-            const isArabicMode = studentSysText.includes('عربي') || studentSysText.includes('مصري عربي');
+            
+            // تحديد دقيق للنظام التعليمي المرتبط بالطالب
+            const isArabicMode = studentSysText.includes('عربي') || studentSysText.includes('egyptian_arabic');
             const isLanguagesMode = studentSysText.includes('لغات') || studentSysText.includes('languages');
             const isIgcseMode = studentSysText.includes('igcse');
             const isAmericanMode = studentSysText.includes('american');
             const isIbMode = studentSysText.includes('ib');
 
+            // ربط دروس المنهج المصري بالجدول المستقل الصحيح مع فلترة الصف بدقة
             const activeLessonsTable = isArabicMode ? arabicLessons : (isLanguagesMode ? languagesLessons : []);
             const studentGradeLevel = selectedStudentObj ? selectedStudentObj.grade_level : '';
-            const filteredEgByGrade = activeLessonsTable.filter(i => i.grade === studentGradeLevel);
+            
+            const filteredEgByGrade = activeLessonsTable.filter(i => {
+                if (!i.grade || !studentGradeLevel) return false;
+                return i.grade.trim().toLowerCase() === studentGradeLevel.trim().toLowerCase();
+            });
+
             const egTerms = [...new Set(filteredEgByGrade.map(i => i.term))];
             const filteredEgByTerm = filteredEgByGrade.filter(i => i.term === newSession.eg_term);
             const egBranches = [...new Set(filteredEgByTerm.map(i => i.branch))];
             const egLessons = filteredEgByTerm.filter(i => i.branch === newSession.eg_branch);
 
+            // ربط المهارات الدولية بجداولها المستقلة
             const activeIntList = isIgcseMode ? igcseSkillsList : (isAmericanMode ? americanSkillsList : (isIbMode ? ibSkillsList : []));
             const intStrands = [...new Set(activeIntList.map(i => i.strand))].filter(Boolean);
             const availableIntSkills = activeIntList.filter(i => i.strand === newSession.int_strand);
@@ -695,7 +704,7 @@
                                         <h4 className="text-sm font-black text-blue-200 mb-2">إرسال التقرير والفاتورة عبر WhatsApp:</h4>
                                         <div className="flex gap-2">
                                             <button onClick={() => sendWhatsApp('parent')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-black transition">👨‍👩‍👦 ولي الأمر</button>
-                                            <button onClick={() => sendWhatsApp('student')} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black transition">👨‍🎓 الطالب</button>
+                                            <button onClick={() => sendWhatsApp('student')} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-black transition">👨‍‍🎓 الطالب</button>
                                             <button onClick={() => sendWhatsApp('both')} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-black transition">👥 معاً</button>
                                         </div>
                                     </div>
