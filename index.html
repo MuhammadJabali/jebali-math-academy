@@ -10,20 +10,26 @@
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
-        /* خلفية زرقاء أنيقة وساطعة بدرجة أفتح ومريحة جداً للعين */
-        .blue-glass-panel { background: rgba(30, 58, 95, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+        
+        /* خلفية متوازنة: المنتصف مضيء والأطراف (بما فيها أسفل اليمين وأعلى اليسار) داكنة وعميقة */
+        body {
+            background: radial-gradient(circle at 50% 40%, #1e3a8a 0%, #111827 60%, #030712 100%);
+        }
+
+        .blue-glass-panel { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
         .blue-card { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .blue-card:hover { transform: translateY(-6px); border-color: rgba(249, 115, 22, 0.8); box-shadow: 0 20px 40px -10px rgba(249, 115, 22, 0.3); background: rgba(255, 255, 255, 0.13); }
-        .blue-glow { position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(59, 130, 246, 0.28) 0%, rgba(249, 115, 22, 0.1) 50%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; }
+        
+        /* إضاءة مركزية متوازنة */
+        .center-glow { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 650px; height: 650px; background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-800 via-blue-900 to-slate-850 min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
+<body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
 
-    <!-- إضاءات خلفية جمالية ساطعة وناعمة -->
-    <div class="blue-glow top-[-150px] right-[-150px]"></div>
-    <div class="blue-glow bottom-[-150px] left-[-150px]"></div>
+    <!-- الإضاءة المركزية المتوازنة -->
+    <div class="center-glow"></div>
 
-    <div class="relative max-w-6xl mx-auto px-4 py-6 min-h-screen flex flex-col justify-between">
+    <div class="relative z-10 max-w-6xl mx-auto px-4 py-6 min-h-screen flex flex-col justify-between">
         
         <!-- الهيدر الأنيق -->
         <header class="flex justify-between items-center blue-glass-panel px-6 py-4 rounded-2xl shadow-xl">
@@ -97,13 +103,13 @@
                     <h3 id="adminPortalTitle" class="text-xl font-black mb-2 text-white group-hover:text-orange-300 transition">لوحة الإدارة</h3>
                     <p id="adminPortalDesc" class="text-sm text-slate-200 mb-8 leading-relaxed">نظام التحكم الشامل، توثيق الحصص بدقة الأرباع ساعة، وتقارير الواتساب الفورية.</p>
                     <span class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-400 text-white text-sm font-black rounded-xl transition shadow-lg shadow-orange-500/30 w-full group-hover:translate-y-[-2px]">
-                        <span id="adminBtnText">إدارة الأكاديمية</span> ⚙️️
+                        <span id="adminBtnText">إدارة الأكاديمية</span> ⚙️
                     </span>
                 </a>
 
             </div>
 
-            <!-- الصف الأول من البطاقات السفلية (البيانات الرقمية البارزة) -->
+            <!-- الصف الأول من البطاقات السفلية -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto mb-4">
                 <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/15">
                     <div class="text-xl md:text-2xl font-black text-orange-300 mb-1">5+</div>
@@ -123,7 +129,7 @@
                 </div>
             </div>
 
-            <!-- الصف الثاني من البطاقات السفلية (الميزات الإضافية) -->
+            <!-- الصف الثاني من البطاقات السفلية -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
                 <div class="blue-glass-panel p-4 rounded-2xl text-center border border-white/15">
                     <div id="feat1Head" class="text-base md:text-lg font-black text-amber-300 mb-1">KaTeX Math</div>
