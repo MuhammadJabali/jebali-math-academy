@@ -33,7 +33,7 @@
             const [authSession, setAuthSession] = useState(null);
             const [studentData, setStudentData] = useState(null);
             
-            const [email, setEmail] = useState('');
+            const [loginInput, setLoginInput] = useState(''); // يقبل هاتف ولي الأمر، هاتف الابن، أو الإيميل
             const [password, setPassword] = useState('');
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
@@ -89,18 +89,46 @@
                 e.preventDefault();
                 setLoading(true);
                 setErrorMsg('');
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في البريد أو كلمة المرور.' : 'Invalid credentials.');
+
+                let targetEmail = loginInput.trim();
+
+                // إذا كان المُدخل رقماً (هاتف ولي الأمر أو هاتف الطالب)، نبحث عن إيميله في الجدول
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord, error: stError } = await supabase
+                        .from('students')
+                        .select('email')
+                        .or(`parent_phone.ilike.%${cleanPhone}%,student_phone.ilike.%${cleanPhone}%`)
+                        .single();
+
+                    if (stError || !stRecord || !stRecord.email) {
+                        setErrorMsg(lang === 'ar' ? 'لم يتم العثور على بريد إلكتروني مسجل لهذا الرقم.' : 'No email found for this phone.');
+                        setLoading(false);
+                        return;
+                    }
+                    targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                if (error) setErrorMsg(lang === 'ar' ? 'خطأ في بيانات الدخول.' : 'Invalid credentials.');
                 setLoading(false);
             }
 
             async function handleForgotPassword(e) {
                 e.preventDefault();
-                if (!email) return;
+                if (!loginInput) return;
                 setLoading(true);
                 setErrorMsg('');
                 setSuccessMsg('');
-                const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+
+                let targetEmail = loginInput.trim();
+                if (!targetEmail.includes('@')) {
+                    const cleanPhone = targetEmail.replace(/\D/g, '');
+                    const { data: stRecord } = await supabase.from('students').select('email').or(`parent_phone.ilike.%${cleanPhone}%,student_phone.ilike.%${cleanPhone}%`).single();
+                    if (stRecord && stRecord.email) targetEmail = stRecord.email;
+                }
+
+                const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo: window.location.href });
                 if (error) setErrorMsg('Error: ' + error.message);
                 else setSuccessMsg(lang === 'ar' ? '📬 تم إرسال رابط استعادة كلمة المرور إلى بريدك!' : '📬 Reset link sent!');
                 setLoading(false);
@@ -125,14 +153,14 @@
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
                             <div className="text-6xl mb-4">👨‍👩‍👦</div>
                             <h2 className="text-3xl font-black mb-2">{lang === 'ar' ? 'بوابة ولي الأمر' : 'Parent Portal'}</h2>
-                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'المتابعة الآمنة عبر مصادقة Supabase' : 'Secure Supabase Auth'}</p>
+                            <p className="text-blue-200 text-xs mb-6">{lang === 'ar' ? 'الدخول برقم ولي الأمر أو الابن أو البريد' : 'Login via Parent/Student Phone or Email'}</p>
                             
                             {errorMsg && <p className="bg-red-500/20 text-red-100 p-3 rounded-xl mb-4 text-xs font-bold">{errorMsg}</p>}
                             {successMsg && <p className="bg-emerald-500/20 text-emerald-100 p-3 rounded-xl mb-4 text-xs font-bold">{successMsg}</p>}
 
                             {authMode === 'login' && (
                                 <form onSubmit={handleLogin} className="space-y-4">
-                                    <input type="email" placeholder={lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={email} onChange={e => setEmail(e.target.value)} />
+                                    <input type="text" placeholder={lang === 'ar' ? 'هاتف ولي الأمر، هاتف الابن، أو الإيميل' : 'Phone or Email'} required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
                                     <input type="password" placeholder={lang === 'ar' ? 'كلمة المرور' : 'Password'} required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={password} onChange={e => setPassword(e.target.value)} />
                                     <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">
                                         {loading ? '...' : (lang === 'ar' ? 'دخول بوابة ولي الأمر' : 'Login')}
@@ -145,8 +173,8 @@
 
                             {authMode === 'forgot' && (
                                 <form onSubmit={handleForgotPassword} className="space-y-4">
-                                    <p className="text-xs text-blue-200">أدخل بريدك الإلكتروني لاستلام رابط تعيين كلمة المرور:</p>
-                                    <input type="email" placeholder="البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center" value={email} onChange={e => setEmail(e.target.value)} />
+                                    <p className="text-xs text-blue-200">أدخل رقم الهاتف أو البريد لاستلام رابط الاستعادة:</p>
+                                    <input type="text" placeholder="الهاتف أو البريد الإلكتروني" required className="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" value={loginInput} onChange={e => setLoginInput(e.target.value)} />
                                     <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 rounded-xl transition text-sm">
                                         {loading ? '...' : 'إرسال رابط الاستعادة 📬'}
                                     </button>
