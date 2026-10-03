@@ -41,7 +41,6 @@
             const [studentPhone, setStudentPhone] = useState('');
             const [studentData, setStudentData] = useState(null);
             const [sessions, setSessions] = useState([]);
-            const [homeworks, setHomeworks] = useState([]);
             const [loading, setLoading] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
 
@@ -80,13 +79,6 @@
                     .eq('student_id', studentId)
                     .order('created_at', { ascending: false });
                 if (sessData) setSessions(sessData);
-
-                const { data: hwData } = await supabase
-                    .from('homework_submissions')
-                    .select('*')
-                    .eq('student_id', studentId)
-                    .order('created_at', { ascending: false });
-                if (hwData) setHomeworks(hwData);
             }
 
             async function handleUploadHomework(e) {
@@ -173,7 +165,7 @@
                         </div>
                     </header>
 
-                    {/* تسليم الواجب المنزلي */}
+                    {/* تسليم الواجب المنزلي (زر عربي بالكامل) */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
                         <h3 className="text-lg font-black mb-4 flex items-center gap-2">
                             <span>📝</span> تسليم الواجب المنزلي للأستاذ
@@ -187,7 +179,15 @@
                             </div>
                             <div>
                                 <label className="text-xs text-blue-200 block mb-1">صورة الحل أو التفاصيل:</label>
-                                <input type="file" accept="image/*" onChange={e => setHwImage(e.target.files[0])} className="w-full p-2 glass-input rounded-xl text-xs file:bg-blue-600 file:text-white file:rounded file:border-0 file:px-3 file:py-1" />
+                                <div className="flex items-center gap-3 bg-white/5 border border-white/20 rounded-xl p-2">
+                                    <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-black transition shadow">
+                                        📁 اختر ملف الحل
+                                        <input type="file" accept="image/*" onChange={e => setHwImage(e.target.files[0])} className="hidden" />
+                                    </label>
+                                    <span className="text-xs text-blue-200 font-bold">
+                                        {hwImage ? hwImage.name : 'لم يتم اختيار ملف بعد'}
+                                    </span>
+                                </div>
                             </div>
                             <button type="submit" disabled={submittingHw} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
                                 {submittingHw ? 'جاري الرفع والتسليم...' : 'تسليم الواجب للأستاذ 🚀'}
