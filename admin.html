@@ -173,13 +173,14 @@
             const [students, setStudents] = useState([]);
             const [sessionsList, setSessionsList] = useState([]);
             const [homeworkList, setHomeworkList] = useState([]);
+            const [taxonomyList, setTaxonomyList] = useState([]);
             
             const [newStudent, setNewStudent] = useState({ 
                 name: '', student_phone: '', parent_phone: '', system: '', grade: '', rate: ''
             });
             
             const [newSession, setNewSession] = useState({ 
-                student_id: '', duration: '', strand: 'Geometry & Trigonometry', lesson_topic: '', targeted_skill: '' 
+                student_id: '', duration: '', strand: 'Geometry & Measure', lesson_topic: '', targeted_skill: '' 
             });
 
             const [lastLoggedInfo, setLastLoggedInfo] = useState(null);
@@ -209,6 +210,7 @@
                 fetchStudents();
                 fetchSessions();
                 fetchHomeworks();
+                fetchTaxonomy();
             }
 
             async function fetchStudents() {
@@ -233,6 +235,22 @@
                     .limit(25);
                 if (data) setHomeworkList(data);
             }
+
+            async function fetchTaxonomy() {
+                const { data } = await supabase.from('curriculum_taxonomy').select('*');
+                if (data) setTaxonomyList(data);
+            }
+
+            // تصفية القوائم بناءً على النظام والمرحلة الخاصة بالطالب المختار
+            const selectedStudentObj = students.find(s => s.id === newSession.student_id);
+            const filteredTaxonomy = taxonomyList.filter(item => {
+                if (!selectedStudentObj) return true;
+                return item.curriculum_system === selectedStudentObj.curriculum_system && 
+                       item.grade_level === selectedStudentObj.grade_level;
+            });
+
+            const uniqueTopics = [...new Set(filteredTaxonomy.map(i => i.core_topic))];
+            const uniqueSkills = [...new Set(filteredTaxonomy.map(i => i.micro_skill))];
 
             const hasArabicLetters = (txt) => /[\u0600-\u06FF]/.test(txt || '');
 
@@ -504,7 +522,7 @@
                 }]);
                 
                 if (!error) {
-                    setMsg(isArabic ? '✅ تم تسجيل الحصة والمهارات الأكاديمية بنجاح!' : '✅ Session and instructional metadata logged!');
+                    setMsg(isArabic ? '✅ تم تسجيل الحصة والمهارات بنجاح!' : '✅ Session and taxonomy logged!');
                     setLastLoggedInfo({
                         student: selectedStudent,
                         duration: duration,
@@ -513,7 +531,7 @@
                         topic: newSession.lesson_topic.trim(),
                         skill: newSession.targeted_skill.trim()
                     });
-                    setNewSession({ student_id: '', duration: '', strand: 'Geometry & Trigonometry', lesson_topic: '', targeted_skill: '' });
+                    setNewSession({ student_id: '', duration: '', strand: 'Geometry & Measure', lesson_topic: '', targeted_skill: '' });
                     fetchSessions();
                 } else {
                     setMsg('❌ Error: ' + error.message);
@@ -538,7 +556,7 @@
                 const studentUnpaidSessions = sessionsList.filter(s => s.student_id === student.id && !s.is_paid);
                 const totalUnpaid = studentUnpaidSessions.reduce((sum, s) => sum + (s.calculated_cost || 0), 0) + cost;
 
-                const academicDetails = topic ? `%0A📚 *التقرير الأكاديمي للحصة:*%0A• المجال: ${strand}%0A• الدرس: ${topic}${skill ? `%0A• المهارة المستهدفة: ${skill}` : ''}` : '';
+                const academicDetails = topic ? `%0A📚 *التقرير الأكاديمي للحصة:*%0A• المجال: ${strand}%0A• المحور: ${topic}${skill ? `%0A• المهارة المعيارية: ${skill}` : ''}` : '';
 
                 const parentMsg = isArabic 
                     ? `مرحباً بحضرتك، من أكاديمية Jebali للرياضيات 📐%0A%0Aتم تسجيل حصة جديدة للطالب/ة: *${student.student_name}*%0A• المدة: ${duration} ساعة (${cost} EGP)${academicDetails}%0A%0A• إجمالي المستحقات غير المسددة: *${totalUnpaid} جنيه*%0Aيمكنكم متابعة تفاصيل الحصص عبر بوابتكم:%0Ahttps://jebali-math-academy.pages.dev/parent.html`
@@ -580,7 +598,7 @@
                         
                         <div className="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl">
                             <div className="text-center mb-8">
-                                <div className="text-6xl mb-4">👨‍🏫</div>
+                                <div className="text-6xl mb-4">👨‍‍🏫</div>
                                 <h2 className="text-3xl font-black">{isArabic ? 'لوحة الإدارة الاحترافية' : 'Admin Portal'}</h2>
                                 <p className="text-blue-200 font-bold mt-2 text-sm">{isArabic ? 'أدخل بيانات الاعتماد للمتابعة' : 'Enter credentials to proceed'}</p>
                             </div>
@@ -605,7 +623,7 @@
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-orange-500/50">🛡️</div>
                             <div>
-                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة والتصميم التعليمي' : 'Instructional Management & Finance'}</h1>
+                                <h1 className="text-2xl font-black text-white">{isArabic ? 'مركز الإدارة وقاعدة المعايير بـ Supabase' : 'Supabase Taxonomy Management'}</h1>
                                 <p className="text-blue-200 font-bold text-sm">mr.gebally@gmail.com</p>
                             </div>
                         </div>
@@ -677,8 +695,6 @@
                                             <option value="IGCSE">IGCSE (British)</option>
                                             <option value="IB">IB (International Baccalaureate)</option>
                                             <option value="American Diploma">American Diploma</option>
-                                            <option value="National (Languages)">National (Languages / لغات)</option>
-                                            <option value="National (Arabic)">National (Arabic / عربي)</option>
                                         </select>
                                     </div>
                                     <div>
@@ -698,34 +714,20 @@
                                             
                                             {newStudent.system === 'IGCSE' && (
                                                 <>
-                                                    <option value="Year 1">Year 1</option>
-                                                    <option value="Year 2">Year 2</option>
-                                                    <option value="Year 3">Year 3</option>
-                                                    <option value="Year 4">Year 4</option>
-                                                    <option value="Year 5">Year 5</option>
-                                                    <option value="Year 6">Year 6</option>
                                                     <option value="Year 7">Year 7</option>
                                                     <option value="Year 8">Year 8 (Pre-IG)</option>
                                                     <option value="Year 9">Year 9 (Pre-IG)</option>
                                                     <option value="Year 10">Year 10 (IGCSE / O-Level)</option>
                                                     <option value="Year 11">Year 11 (IGCSE / O-Level)</option>
-                                                    <option value="Year 12">Year 12 (AS-Level)</option>
-                                                    <option value="Year 13">Year 13 (A2-Level)</option>
                                                 </>
                                             )}
                                             
                                             {newStudent.system && newStudent.system !== 'IGCSE' && (
                                                 <>
-                                                    <option value="Grade 1">Grade 1</option>
-                                                    <option value="Grade 2">Grade 2</option>
-                                                    <option value="Grade 3">Grade 3</option>
-                                                    <option value="Grade 4">Grade 4</option>
-                                                    <option value="Grade 5">Grade 5</option>
-                                                    <option value="Grade 6">Grade 6</option>
                                                     <option value="Grade 7">Grade 7</option>
                                                     <option value="Grade 8">Grade 8</option>
                                                     <option value="Grade 9">Grade 9</option>
-                                                    <option value="Grade 10">Grade 10</option>
+                                                    <option value="Grade 10">Grade 10 (High School)</option>
                                                     <option value="Grade 11">Grade 11</option>
                                                     <option value="Grade 12">Grade 12</option>
                                                 </>
@@ -744,18 +746,18 @@
                             </form>
                         </div>
 
-                        {/* تسجيل الحصة وتوثيق التصميم التعليمي بالحقول الذكية (Datalist) */}
+                        {/* تسجيل الحصة بقاعدة بيانات Supabase المعيارية */}
                         <div className="glass-card p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between">
                             <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500`}></div>
                             <div>
-                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة (حقول ذكية مقترحة)' : '⏱️ Log Session with Smart Datalist'}</h3>
+                                <h3 className="text-2xl font-black mb-6 text-white">{isArabic ? '⏱️ تسجيل الحصة (من Supabase)' : '⏱️️ Log Session via Supabase Taxonomy'}</h3>
                                 <form onSubmit={handleAddSession} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب' : 'Select Student'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'اختر الطالب (لتحديد منهجه)' : 'Select Student (for curriculum)'}</label>
                                             <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.student_id} onChange={e => setNewSession({...newSession, student_id: e.target.value})}>
                                                 <option value="" disabled>{isArabic ? '-- اضغط للاختيار --' : '-- Select Student --'}</option>
-                                                {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system})</option>)}
+                                                {students.map(s => <option key={s.id} value={s.id}>{s.student_name} ({s.curriculum_system} - {s.grade_level})</option>)}
                                             </select>
                                         </div>
                                         <div>
@@ -766,78 +768,50 @@
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المجال الرياضي (Strand)' : 'Strand'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المجال العام (Global Strand)' : 'Global Strand'}</label>
                                             <select required className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" value={newSession.strand} onChange={e => setNewSession({...newSession, strand: e.target.value})}>
-                                                <option value="Geometry & Trigonometry">Geometry & Trigonometry (الهندسة وحساب المثلثات)</option>
+                                                <option value="Geometry & Measure">Geometry & Measure (الهندسة والقياس)</option>
                                                 <option value="Algebra & Functions">Algebra & Functions (الجبر والدوال)</option>
+                                                <option value="Number & Arithmetic">Number & Arithmetic (الأعداد والحساب)</option>
                                                 <option value="Statistics & Probability">Statistics & Probability (الإحصاء والاحتمالات)</option>
-                                                <option value="Number & Exponents">Number & Exponents (الأعداد والأسس)</option>
+                                                <option value="Trigonometry">Trigonometry (حساب المثلثات)</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'الدرس / الوحدة (اختر أو اكتب بحرية)' : 'Lesson / Topic (Select or Type)'}</label>
+                                            <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المحور الموضوعي (Core Topic)' : 'Core Topic (From Supabase)'}</label>
                                             <input 
                                                 type="text" 
                                                 list="topics-list" 
                                                 required 
-                                                placeholder="اختر أو اكتب اسم الدرس..." 
+                                                placeholder={isArabic ? 'اختر أو اكتب المحور...' : 'Select or type topic...'} 
                                                 className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
                                                 value={newSession.lesson_topic} 
                                                 onChange={e => setNewSession({...newSession, lesson_topic: e.target.value})} 
                                             />
                                             <datalist id="topics-list">
-                                                <option value="Relationships in Triangles" />
-                                                <option value="Quadrilaterals" />
-                                                <option value="Similarity" />
-                                                <option value="Right Triangles and Trigonometry" />
-                                                <option value="Circles" />
-                                                <option value="Measurement" />
-                                                <option value="Probability" />
-                                                <option value="Relations and Functions" />
-                                                <option value="Linear Equations and Systems" />
-                                                <option value="Exponents and Roots" />
-                                                <option value="Polynomials" />
-                                                <option value="Quadratic Functions" />
-                                                <option value="Trigonometric Identities" />
+                                                {uniqueTopics.map((top, idx) => <option key={idx} value={top} />)}
                                             </datalist>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (اختر مقترحاً أو اكتب يديك)' : 'Targeted Micro-Skill (Select or Type)'}</label>
+                                        <label className="text-xs font-bold text-blue-200 block mb-1">{isArabic ? 'المهارة الدقيقة (Micro-Skill)' : 'Micro-Skill (From Supabase)'}</label>
                                         <input 
                                             type="text" 
                                             list="skills-list" 
                                             required 
-                                            placeholder="اختر أو اكتب المهارة المستهدفة..." 
+                                            placeholder={isArabic ? 'اختر أو اكتب المهارة المعيارية...' : 'Select or type micro-skill...'} 
                                             className="w-full p-3 glass-input rounded-xl font-bold outline-none focus:border-orange-400" 
                                             value={newSession.targeted_skill} 
                                             onChange={e => setNewSession({...newSession, targeted_skill: e.target.value})} 
                                         />
                                         <datalist id="skills-list">
-                                            <option value="Applying the Circumcenter Theorem" />
-                                            <option value="Applying the Incenter Theorem" />
-                                            <option value="Using the Centroid Theorem" />
-                                            <option value="Finding an Orthocenter" />
-                                            <option value="Properties of Parallelograms" />
-                                            <option value="Properties of Rectangles" />
-                                            <option value="Properties of Rhombi and Squares" />
-                                            <option value="Midsegment of a Trapezoid" />
-                                            <option value="Properties of Kites" />
-                                            <option value="Dilations and Scale Factor" />
-                                            <option value="AA Similarity Postulate" />
-                                            <option value="SSS and SAS Similarity Theorems" />
-                                            <option value="Triangle Proportionality Theorem" />
-                                            <option value="Geometric Mean in Right Triangles" />
-                                            <option value="Pythagorean Theorem and Converse" />
-                                            <option value="Trigonometric Ratios (Sine, Cosine, Tangent)" />
-                                            <option value="Completing the Square" />
-                                            <option value="Quadratic Formula" />
+                                            {uniqueSkills.map((sk, idx) => <option key={idx} value={sk} />)}
                                         </datalist>
                                     </div>
 
                                     <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-xl transition shadow-lg shadow-orange-500/30 mt-4">
-                                        {isArabic ? 'تسجيل الحصة واعتماد المعايير الأكاديمية' : 'Log Session & Taxonomy'}
+                                        {isArabic ? 'تسجيل الحصة واعتماد معايير Supabase' : 'Log Session & Supabase Taxonomy'}
                                     </button>
                                 </form>
                             </div>
@@ -894,13 +868,13 @@
 
                     {/* إدارة الحصص وتأكيد السداد */}
                     <div className="glass-card p-6 md:p-8 rounded-3xl mb-8">
-                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمحتوى الأكاديمي' : '💳 Sessions & Taxonomy Log'}</h3>
+                        <h3 className="text-xl font-black mb-6 text-white">{isArabic ? '💳 سجل الحصص والمعايير الدولية' : '💳 Sessions & Taxonomy Log'}</h3>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right" dir={isArabic ? 'rtl' : 'ltr'}>
                                 <thead>
                                     <tr className="border-b border-white/10 text-blue-200 text-sm">
                                         <th className="pb-3 px-4">{isArabic ? 'الطالب' : 'Student'}</th>
-                                        <th className="pb-3 px-4">{isArabic ? 'المجال والدرس والمهارة (Taxonomy)' : 'Taxonomy Details'}</th>
+                                        <th className="pb-3 px-4">{isArabic ? 'المجال والمحور والمهارة' : 'Taxonomy Details'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'المدة' : 'Duration'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'التكلفة' : 'Cost'}</th>
                                         <th className="pb-3 px-4">{isArabic ? 'حالة السداد' : 'Payment Status'}</th>
@@ -1124,7 +1098,7 @@
                                             onClick={() => setEditingHw(null)}
                                             className="px-5 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition text-sm"
                                         >
-                                            {isArabic ? 'إلغاء' : 'Cancel'}
+                                            {isArabic ? 'إغلاق' : 'Close'}
                                         </button>
                                     </div>
                                 </div>
