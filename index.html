@@ -8,7 +8,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- خطوط جوجل -->
+    <!-- خط Cairo -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
     <!-- React & Babel -->
@@ -59,10 +59,10 @@
                             </p>
                         </div>
 
-                        {/* بوابات الدخول */}
+                        {/* بوابات الدخول الثلاث */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             
-                            {/* بوابة الطالب */}
+                            {/* 1. بوابة الطالب */}
                             <a href="/student.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-500/30 group cursor-pointer text-center relative overflow-hidden block">
                                 <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-blue-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
                                 <div className="relative z-10">
@@ -77,8 +77,8 @@
                                 </div>
                             </a>
 
-                            {/* بوابة ولي الأمر */}
-                            <button onClick={() => alert(isArabic ? 'جاري تصميم هذه الواجهة في المرحلة القادمة!' : 'This interface is being designed in the next phase!')} className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-500/30 group cursor-pointer text-center relative overflow-hidden block w-full">
+                            {/* 2. بوابة ولي الأمر */}
+                            <a href="/parent.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-500/30 group cursor-pointer text-center relative overflow-hidden block">
                                 <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-emerald-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
                                 <div className="relative z-10">
                                     <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👨‍👩‍👦</div>
@@ -90,9 +90,9 @@
                                         {isArabic ? 'متابعة الأداء \u2190' : 'Track Performance \u2192'}
                                     </span>
                                 </div>
-                            </button>
+                            </a>
 
-                            {/* بوابة المعلم */}
+                            {/* 3. بوابة المعلم والإدارة */}
                             <a href="/admin.html" className="glass-card rounded-3xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-orange-500/30 group cursor-pointer text-center relative overflow-hidden block">
                                 <div className={`absolute top-0 ${isArabic ? 'right-0' : 'left-0'} w-2 h-full bg-orange-500 transition-all group-hover:w-full group-hover:opacity-10 z-0`}></div>
                                 <div className="relative z-10">
