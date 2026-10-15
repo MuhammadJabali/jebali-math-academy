@@ -14,22 +14,45 @@
 
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
-        .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        /* حل مشكلة امتداد المحتوى خارج شاشة الموبايل */
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { max-width: 100%; overflow-x: hidden; }
+        
+        /* خلفية متوازنة */
+        body { background: radial-gradient(circle at 50% 40%, #1e3a8a 0%, #111827 60%, #030712 100%); }
+        .center-glow { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 650px; height: 650px; background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
+
+        .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); max-width: 100%; word-wrap: break-word; }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .math-box { background: rgba(0, 0, 0, 0.3); border-right: 4px solid #f97316; padding: 14px; border-radius: 8px; font-size: 1.1rem; margin: 8px 0; }
+        
+        /* ضبط صندوق المعادلات لمنع القطع والسماح بالتمرير الأفقي على الشاشات الصغيرة */
+        .math-box { 
+            background: rgba(0, 0, 0, 0.4); 
+            border-right: 4px solid #f97316; 
+            padding: 16px; 
+            border-radius: 12px; 
+            font-size: 1rem; 
+            margin: 12px 0; 
+            overflow-x: auto; 
+            max-width: 100%; 
+            direction: ltr; 
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white font-cairo">
+<body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
+
+    <div class="center-glow"></div>
 
     <!-- شاشة تسجيل الدخول -->
-    <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div id="authContainer" class="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
         <div class="absolute top-6 left-6 flex gap-2">
             <button onclick="toggleLang()" id="langToggleBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">🌐 English</button>
             <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
         </div>
 
-        <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center">
+        <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center mt-12">
             <div class="text-6xl mb-4">🎓</div>
             <h2 id="loginTitle" class="text-3xl font-black mb-2">بوابة الطالب</h2>
             <p id="loginSubtitle" class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف وكلمة المرور</p>
@@ -45,13 +68,13 @@
     </div>
 
     <!-- لوحة الطالب الرئيسية -->
-    <div id="dashboardContainer" class="hidden p-4 md:p-8 max-w-4xl mx-auto">
-        <header class="flex justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl">
-            <div>
+    <div id="dashboardContainer" class="relative z-10 hidden p-4 md:p-8 max-w-4xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl gap-4">
+            <div class="text-center md:text-right">
                 <h1 id="welcomeText" class="text-xl md:text-2xl font-black">أهلاً بك 📐</h1>
                 <p id="studentInfoText" class="text-blue-200 text-xs mt-1">...</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap justify-center gap-2">
                 <button onclick="toggleLang()" class="px-3 py-2 glass-card rounded-xl font-bold text-xs transition">🌐 Lang</button>
                 <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
                 <button onclick="handleLogout()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
@@ -64,15 +87,15 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div class="p-4 bg-blue-600/20 border border-blue-500/40 rounded-2xl text-center">
                     <span class="text-xs text-blue-200 block mb-1">الحصة القادمة</span>
-                    <strong class="text-white text-sm" id="nextSessionDate">تحدد لاحقاً مع الأستاذ</strong>
+                    <strong class="text-white text-sm block truncate" id="nextSessionDate">تحدد لاحقاً مع الأستاذ</strong>
                 </div>
                 <div class="p-4 bg-emerald-600/20 border border-emerald-500/40 rounded-2xl text-center">
                     <span class="text-xs text-emerald-200 block mb-1">حالة الحساب</span>
-                    <strong class="text-emerald-300 text-sm">نشط ومفعل ✅</strong>
+                    <strong class="text-emerald-300 text-sm block">نشط ومفعل ✅</strong>
                 </div>
                 <div class="p-4 bg-orange-600/20 border border-orange-500/40 rounded-2xl text-center">
                     <span class="text-xs text-orange-200 block mb-1">إجمالي الحصص المسجلة</span>
-                    <strong class="text-orange-300 text-sm" id="totalSessionsCount">0 حصة</strong>
+                    <strong class="text-orange-300 text-sm block" id="totalSessionsCount">0 حصة</strong>
                 </div>
             </div>
         </div>
@@ -85,9 +108,8 @@
             <p class="text-xs text-blue-200 mb-4">حل المسألة الرياضية التالية:</p>
 
             <div class="math-box mb-4">
-                <p class="text-xs text-orange-300 font-bold mb-2">أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام:</p>
-                <!-- تم ضبط الحاوية باتجاه LTR لضمان عرض المعادلات الرياضية بشكل صحيح ودون انعكاس -->
-                <div dir="ltr" class="text-white font-bold my-2 text-center text-base md:text-lg" id="mathProblem">
+                <p class="text-xs text-orange-300 font-bold mb-2 text-right" dir="rtl">أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام:</p>
+                <div class="text-white font-bold my-2 text-center text-base md:text-lg" id="mathProblem">
                     $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
                     <div class="mt-2 text-amber-300">التطبيق العملي: $2x^2 + 5x + 2 = 0$</div>
                 </div>
@@ -103,9 +125,9 @@
             </form>
         </div>
 
-        <!-- تسليم الواجب المنزلي (كتابة أو رفع صورة الحل من الورق) -->
+        <!-- تسليم الواجب المنزلي -->
         <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> تسليم الواجب المنزلي (كتابة أو رفع صورة الحل من الورق)</h3>
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> تسليم الواجب المنزلي (كتابة أو رفع صورة)</h3>
             <div id="hwAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-bold"></div>
             
             <form onsubmit="handleUploadHomework(event)" class="space-y-4">
@@ -114,7 +136,7 @@
                     <input type="text" id="hwTopicInput" required placeholder="مثال: الواجب المنزلي للدرس الأول" class="w-full p-3 glass-input rounded-xl text-sm" />
                 </div>
                 <div>
-                    <label class="text-xs text-blue-200 block mb-1">📸 ارفع صورة ورقة الحل (اختياري - من الموبايل أو الكمبيوتر):</label>
+                    <label class="text-xs text-blue-200 block mb-1">📸 ارفع صورة ورقة الحل (اختياري):</label>
                     <input type="file" id="hwImageInput" accept="image/*" class="w-full p-3 glass-input rounded-xl text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
                 </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
@@ -252,12 +274,12 @@
                 document.getElementById('nextSessionDate').innerText = sessions[0].lesson_topic.split('|')[0] || 'تم الحجز بنجاح';
 
                 container.innerHTML = sessions.map(s => `
-                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
-                        <div>
-                            <div class="font-black text-sm text-white">${s.lesson_topic}</div>
-                            <div class="text-xs text-blue-300 mt-1">${s.strand}</div>
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-black text-sm text-white truncate">${s.lesson_topic}</div>
+                            <div class="text-xs text-blue-300 mt-1 truncate">${s.strand}</div>
                         </div>
-                        <span class="text-xs bg-orange-500/20 text-orange-300 px-3 py-1.5 rounded-xl font-black">⏱️ ${s.duration_hours} h</span>
+                        <span class="text-xs bg-orange-500/20 text-orange-300 px-3 py-1.5 rounded-xl font-black whitespace-nowrap">⏱️ ${s.duration_hours} h</span>
                     </div>
                 `).join('');
             } catch (e) {
@@ -282,7 +304,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic, feedback: `حل واجب مقدم من الطالب.${imageDetails}` })
                 });
-                showAlert(alertBox, '✅ تم تسليم الواجب (مع صورة الحل) بنجاح للأستاذ!', 'bg-emerald-500/20 text-emerald-200');
+                showAlert(alertBox, '✅ تم تسليم الواجب بنجاح للأستاذ!', 'bg-emerald-500/20 text-emerald-200');
                 document.getElementById('hwTopicInput').value = '';
                 fileInput.value = '';
             } catch (err) {
