@@ -27,18 +27,18 @@
 
     <div class="center-glow"></div>
 
-    <div class="relative z-10 p-4 md:p-8 max-w-6xl mx-auto">
+    <div class="relative z-10 p-4 md:p-8 max-w-7xl mx-auto">
         <!-- الهيدر -->
         <header class="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl gap-4">
             <div class="flex items-center gap-4">
                 <div class="w-14 h-14 bg-gradient-to-tr from-orange-500 to-blue-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📐</div>
                 <div>
                     <h1 class="text-2xl font-black">لوحة التحكم | Jebali Math Academy</h1>
-                    <p class="text-blue-300 text-xs font-bold mt-1">نظام الإدارة الشامل</p>
+                    <p class="text-blue-300 text-xs font-bold mt-1">نظام الإدارة الشامل والمتابعة المالية</p>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية (Home)</a>
+                <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
                 <button onclick="logoutAdmin()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
             </div>
         </header>
@@ -46,20 +46,20 @@
         <!-- الإحصائيات المالية السريعة -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 text-center">
-                <h3 class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">المبالغ المحصلة</h3>
+                <h3 class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المبالغ المحصلة</h3>
                 <div class="text-3xl font-black mt-2" id="collectedAmount">0 <span class="text-lg text-slate-400">EGP</span></div>
             </div>
             <div class="glass-card p-6 rounded-3xl border border-orange-500/30 text-center">
-                <h3 class="text-xs text-orange-300 font-bold mb-2 bg-orange-500/20 inline-block px-3 py-1 rounded-lg">المستحقات المعلقة</h3>
+                <h3 class="text-xs text-orange-300 font-bold mb-2 bg-orange-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المستحقات المعلقة (قيد الانتظار)</h3>
                 <div class="text-3xl font-black mt-2" id="pendingAmount">0 <span class="text-lg text-slate-400">EGP</span></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             
             <!-- نموذج توثيق الحصة -->
             <div class="glass-card p-6 rounded-3xl h-fit border border-blue-500/30">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق حصة</h3>
+                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق حصة دراسية جديدة</h3>
                 
                 <form id="sessionForm" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -70,7 +70,6 @@
                             </select>
                         </div>
                         <div>
-                            <!-- تم إضافة الدالة updateStrandsDropdown() هنا -->
                             <label class="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
                             <select id="sessionSystemSelect" onchange="updateStrandsDropdown()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="IGCSE">IGCSE</option>
@@ -97,15 +96,6 @@
                     </div>
 
                     <div>
-                        <label class="text-xs text-blue-200 block mb-1">مكان انعقاد الحصة:</label>
-                        <select id="sessionLocation" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                            <option value="Online (Zoom)">أونلاين (Zoom)</option>
-                            <option value="Center">سنتر تعليمي (Center)</option>
-                            <option value="Home">منزل الطالب (Home)</option>
-                        </select>
-                    </div>
-
-                    <div>
                         <label class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
                         <select id="sessionStrandSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                             <option value="">-- اختر المجال --</option>
@@ -118,16 +108,17 @@
                     </div>
 
                     <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
-                        وثّق الحصة
+                        وثّق الحصة (وسيتم تسجيلها كمعلقة للدفع)
                     </button>
                 </form>
             </div>
 
-            <!-- إضافة طالب جديد -->
+            <!-- إضافة وتعديل طالب -->
             <div class="glass-card p-6 rounded-3xl h-fit">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إضافة طالب جديد</h3>
+                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إدارة ملفات الطلاب</h3>
                 
                 <form id="addStudentForm" class="space-y-4">
+                    <input type="hidden" id="editStudentId" value="">
                     <div>
                         <input type="text" id="addName" required placeholder="اسم الطالب الثلاثي" class="w-full p-3 glass-input rounded-xl text-sm" />
                     </div>
@@ -149,28 +140,51 @@
                         <input type="text" id="addPass" required placeholder="كلمة المرور (للدخول)" class="w-full p-3 glass-input rounded-xl text-sm" />
                     </div>
                     
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
-                        تسجيل الطالب الجديد
-                    </button>
+                    <div class="flex gap-2">
+                        <button type="submit" id="studentSubmitBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">حفظ بيانات الطالب</button>
+                        <button type="button" onclick="resetStudentForm()" class="px-4 bg-slate-600 hover:bg-slate-700 rounded-xl text-sm font-bold">إلغاء</button>
+                    </div>
                 </form>
             </div>
 
         </div>
 
-        <!-- جدول الطلاب وحل مشكلة الامتداد بإضافة table-container -->
-        <div class="glass-card p-6 rounded-3xl mt-8">
+        <!-- سجل الحصص والمدفوعات -->
+        <div class="glass-card p-6 rounded-3xl mb-8">
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> سجل الحصص والمستحقات المالية</h3>
+            <div class="table-container">
+                <table class="w-full text-sm text-center">
+                    <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
+                        <tr>
+                            <th class="py-3 px-4">التاريخ والدرس</th>
+                            <th class="py-3 px-4">الطالب</th>
+                            <th class="py-3 px-4">المدة</th>
+                            <th class="py-3 px-4">حالة الدفع</th>
+                            <th class="py-3 px-4">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTableBody">
+                        <tr><td colspan="5" class="py-4 text-slate-400">جاري تحميل الحصص...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- سجل الطلاب -->
+        <div class="glass-card p-6 rounded-3xl">
             <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> سجل الطلاب المسجلين</h3>
             <div class="table-container">
                 <table class="w-full text-sm text-center">
                     <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
                         <tr>
-                            <th class="py-3 px-4">Student Name</th>
-                            <th class="py-3 px-4">System & Grade</th>
-                            <th class="py-3 px-4">Credentials (Pass)</th>
+                            <th class="py-3 px-4">اسم الطالب</th>
+                            <th class="py-3 px-4">النظام والصف</th>
+                            <th class="py-3 px-4">كلمة المرور</th>
+                            <th class="py-3 px-4">إعدادات (تعديل/حذف)</th>
                         </tr>
                     </thead>
                     <tbody id="studentsTableBody">
-                        <tr><td colspan="3" class="py-4 text-slate-400">جاري تحميل البيانات...</td></tr>
+                        <tr><td colspan="4" class="py-4 text-slate-400">جاري تحميل البيانات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -185,8 +199,9 @@
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
         let studentsList = [];
+        let sessionsList = [];
+        const HOURLY_RATE = 350; // يمكنك تغيير سعر الحصة هنا (لحساب الـ EGP)
 
-        // الدالة المسؤولة عن تغيير المهارات تلقائياً بناءً على النظام التعليمي
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value;
             const strandSelect = document.getElementById('sessionStrandSelect');
@@ -213,9 +228,14 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             updateStrandsDropdown();
-            await fetchStudents();
             document.getElementById('sessionDate').valueAsDate = new Date();
+            await fetchAllData();
         });
+
+        async function fetchAllData() {
+            await fetchStudents();
+            await fetchSessions();
+        }
 
         async function fetchStudents() {
             const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
@@ -225,6 +245,128 @@
                 populateStudentSelect();
             }
         }
+
+        async function fetchSessions() {
+            const { data, error } = await supabase.from('sessions').select(`
+                *,
+                students ( student_name )
+            `).order('created_at', { ascending: false });
+            
+            if (data) {
+                sessionsList = data;
+                renderSessionsTable();
+                calculateFinancials();
+            }
+        }
+
+        function calculateFinancials() {
+            let collected = 0;
+            let pending = 0;
+
+            sessionsList.forEach(session => {
+                // الاعتماد على مدة الحصة * السعر، أو يمكن تخصيصها حسب الحاجة
+                let amount = (session.duration_hours || 1) * HOURLY_RATE; 
+                if (session.status === 'paid') {
+                    collected += amount;
+                } else {
+                    pending += amount;
+                }
+            });
+
+            document.getElementById('collectedAmount').innerHTML = `${collected} <span class="text-lg text-slate-400">EGP</span>`;
+            document.getElementById('pendingAmount').innerHTML = `${pending} <span class="text-lg text-slate-400">EGP</span>`;
+        }
+
+        function renderSessionsTable() {
+            const tbody = document.getElementById('sessionsTableBody');
+            if (sessionsList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-slate-400">لا توجد حصص مسجلة بعد.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = sessionsList.map(s => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                    <td class="py-3 px-4 whitespace-nowrap text-right text-xs">${s.lesson_topic}<br><span class="text-blue-300">${s.strand}</span></td>
+                    <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || 'طالب محذوف'}</td>
+                    <td class="py-3 px-4 text-xs font-mono text-orange-300">${s.duration_hours}h</td>
+                    <td class="py-3 px-4">
+                        ${s.status === 'paid' 
+                            ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-xs font-bold">تم الدفع</span>`
+                            : `<span class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold">انتظار الدفع</span>`
+                        }
+                    </td>
+                    <td class="py-3 px-4">
+                        ${s.status !== 'paid' 
+                            ? `<button onclick="markSessionPaid('${s.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition">تأكيد الدفع</button>`
+                            : `<button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>`
+                        }
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.markSessionPaid = async function(id) {
+            if(confirm('هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟')) {
+                await supabase.from('sessions').update({ status: 'paid' }).eq('id', id);
+                fetchAllData();
+            }
+        };
+        
+        window.deleteSession = async function(id) {
+            if(confirm('هل أنت متأكد من حذف هذه الحصة نهائياً؟')) {
+                await supabase.from('sessions').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            if (studentsList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-slate-400">لا يوجد طلاب مسجلين بعد.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = studentsList.map(st => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                    <td class="py-3 px-4 font-bold whitespace-nowrap">${st.student_name}</td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
+                    <td class="py-3 px-4 text-xs text-orange-300 font-mono whitespace-nowrap">${st.password || 'Not Set'}</td>
+                    <td class="py-3 px-4 flex justify-center gap-2">
+                        <button onclick="editStudent('${st.id}')" class="bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
+                        <button onclick="deleteStudent('${st.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.editStudent = function(id) {
+            const st = studentsList.find(s => s.id === id);
+            if(!st) return;
+            
+            document.getElementById('editStudentId').value = st.id;
+            document.getElementById('addName').value = st.student_name;
+            document.getElementById('addPhone').value = st.student_phone || '';
+            document.getElementById('addParentPhone').value = st.parent_phone || '';
+            document.getElementById('addSystem').value = st.curriculum_system || 'National (Egyptian)';
+            document.getElementById('addGrade').value = st.grade_level || '';
+            document.getElementById('addEmail').value = st.email || '';
+            document.getElementById('addPass').value = st.password || '';
+            
+            document.getElementById('studentSubmitBtn').innerText = 'تحديث بيانات الطالب';
+            window.scrollTo({ top: document.getElementById('addStudentForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.deleteStudent = async function(id) {
+            if(confirm('تحذير: سيتم حذف الطالب وجميع الحصص المرتبطة به نهائياً. هل توافق؟')) {
+                await supabase.from('students').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        window.resetStudentForm = function() {
+            document.getElementById('addStudentForm').reset();
+            document.getElementById('editStudentId').value = '';
+            document.getElementById('studentSubmitBtn').innerText = 'تسجيل الطالب الجديد';
+        };
 
         function populateStudentSelect() {
             const select = document.getElementById('sessionStudentSelect');
@@ -237,28 +379,13 @@
             });
         }
 
-        function renderStudentsTable() {
-            const tbody = document.getElementById('studentsTableBody');
-            if (studentsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-slate-400">لا يوجد طلاب مسجلين بعد.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = studentsList.map(st => `
-                <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                    <td class="py-3 px-4 font-bold whitespace-nowrap">${st.student_name}</td>
-                    <td class="py-3 px-4 text-xs whitespace-nowrap">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
-                    <td class="py-3 px-4 text-xs text-orange-300 font-mono whitespace-nowrap">${st.password || 'Not Set'}</td>
-                </tr>
-            `).join('');
-        }
-
         document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = e.target.querySelector('button');
+            const btn = document.getElementById('studentSubmitBtn');
             const originalText = btn.innerText;
-            btn.innerText = 'جاري التسجيل...';
+            btn.innerText = 'جاري الحفظ...';
 
-            const newStudent = {
+            const studentData = {
                 student_name: document.getElementById('addName').value,
                 student_phone: document.getElementById('addPhone').value,
                 parent_phone: document.getElementById('addParentPhone').value,
@@ -269,13 +396,23 @@
                 account_status: 'active'
             };
 
-            const { error } = await supabase.from('students').insert([newStudent]);
-            if (!error) {
-                alert('✅ تم تسجيل الطالب بنجاح');
-                e.target.reset();
-                fetchStudents();
+            const editId = document.getElementById('editStudentId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('students').update(studentData).eq('id', editId);
+                errorObj = error;
             } else {
-                alert('❌ خطأ أثناء التسجيل: ' + error.message);
+                const { error } = await supabase.from('students').insert([studentData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert('✅ تم حفظ بيانات الطالب بنجاح');
+                resetStudentForm();
+                fetchAllData();
+            } else {
+                alert('❌ خطأ أثناء الحفظ: ' + errorObj.message);
             }
             btn.innerText = originalText;
         });
@@ -305,14 +442,15 @@
                 lesson_topic: `${date} | ${topic} (${sys})`,
                 strand: strand,
                 duration_hours: diffHrs,
-                status: 'completed'
+                status: 'pending' // الحصة تُسجل كمعلقة للدفع افتراضياً
             };
 
             const { error } = await supabase.from('sessions').insert([sessionData]);
             if (!error) {
-                alert('✅ تم توثيق الحصة بنجاح!');
+                alert('✅ تم توثيق الحصة وإدراجها في المستحقات المعلقة!');
                 e.target.reset();
                 document.getElementById('sessionDate').valueAsDate = new Date();
+                fetchAllData();
             } else {
                 alert('❌ خطأ في توثيق الحصة: ' + error.message);
             }
