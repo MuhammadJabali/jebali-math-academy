@@ -1,328 +1,358 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة التحكم | Jebali Math Academy</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <title id="pageTitle">بوابة الطالب المتقدمة | Jebali Math Academy</title>
     
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
-        /* حل مشكلة امتداد المحتوى وخروج الجداول عن إطار الموبايل */
+        /* منع خروج العناصر عن الشاشة في الموبايل */
         *, *::before, *::after { box-sizing: border-box; }
-        html, body { max-width: 100%; overflow-x: hidden; }
-        
-        /* خلفية الإدارة */
+        html, body { max-width: 100vw; overflow-x: hidden; }
+        .glass-card, div, form, table { max-width: 100%; word-wrap: break-word; }
+
         body { background: radial-gradient(circle at 50% 40%, #1e3a8a 0%, #111827 60%, #030712 100%); }
         .center-glow { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 650px; height: 650px; background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
-
-        .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); max-width: 100%; word-wrap: break-word; }
-        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
+        .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         
-        /* حل مشكلة الجداول على الموبايل */
-        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* ضبط صندوق المعادلات لمنع القطع والسماح بالتمرير الأفقي باتجاه LTR */
+        .math-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-right: 4px solid #f97316;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            margin: 12px 0;
+            overflow-x: auto;
+            max-width: 100%;
+            direction: ltr;
+        }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
 
     <div class="center-glow"></div>
 
-    <div class="relative z-10 p-4 md:p-8 max-w-6xl mx-auto">
-        <!-- الهيدر -->
+    <!-- شاشة تسجيل الدخول -->
+    <div id="authContainer" class="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="absolute top-6 left-6 flex gap-2">
+            <button onclick="toggleLang()" id="langToggleBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition">🌐 English</button>
+            <a href="index.html" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🏠 الرئيسية</a>
+        </div>
+
+        <div class="glass-card p-10 rounded-3xl w-full max-w-md shadow-2xl text-center mt-12">
+            <div class="text-6xl mb-4">🎓</div>
+            <h2 id="loginTitle" class="text-3xl font-black mb-2">بوابة الطالب</h2>
+            <p id="loginSubtitle" class="text-blue-200 text-xs mb-6">الدخول برقم الهاتف وكلمة المرور</p>
+            
+            <div id="alertBox" class="hidden p-3 rounded-xl mb-4 text-xs font-bold"></div>
+
+            <form onsubmit="handleLoginDirect(event)" class="space-y-4">
+                <input type="text" id="phoneInput" placeholder="رقم الهاتف" required class="w-full p-4 glass-input rounded-xl font-bold text-center text-sm" />
+                <input type="password" id="passwordInput" placeholder="كلمة المرور" required class="w-full p-4 glass-input rounded-xl font-bold text-center" />
+                <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl transition shadow-lg text-sm">تسجيل الدخول</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- لوحة الطالب الرئيسية -->
+    <div id="dashboardContainer" class="relative z-10 hidden p-4 md:p-8 max-w-4xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-center glass-card p-6 rounded-3xl mb-8 shadow-xl gap-4">
-            <div class="flex items-center gap-4">
-                <div class="w-14 h-14 bg-gradient-to-tr from-orange-500 to-blue-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📐</div>
-                <div>
-                    <h1 class="text-2xl font-black">لوحة التحكم | Jebali Math Academy</h1>
-                    <p class="text-blue-300 text-xs font-bold mt-1">نظام الإدارة الشامل</p>
-                </div>
+            <div class="text-center md:text-right">
+                <h1 id="welcomeText" class="text-xl md:text-2xl font-black">أهلاً بك 📐</h1>
+                <p id="studentInfoText" class="text-blue-200 text-xs mt-1">...</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية (Home)</a>
-                <button onclick="logoutAdmin()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
+            <div class="flex flex-wrap justify-center gap-2">
+                <button onclick="toggleLang()" class="px-3 py-2 glass-card rounded-xl font-bold text-xs transition">🌐 Lang</button>
+                <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
+                <button onclick="handleLogout()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
             </div>
         </header>
 
-        <!-- الإحصائيات المالية السريعة -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 text-center">
-                <h3 class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">المبالغ المحصلة</h3>
-                <div class="text-3xl font-black mt-2">0 <span class="text-lg text-slate-400">EGP</span></div>
-            </div>
-            <div class="glass-card p-6 rounded-3xl border border-orange-500/30 text-center">
-                <h3 class="text-xs text-orange-300 font-bold mb-2 bg-orange-500/20 inline-block px-3 py-1 rounded-lg">المستحقات المعلقة</h3>
-                <div class="text-3xl font-black mt-2">0 <span class="text-lg text-slate-400">EGP</span></div>
+        <!-- تقويم ومواعيد حصص الطالب -->
+        <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-blue-500/30">
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> جدول حصصي القادمة والمواعيد</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="p-4 bg-blue-600/20 border border-blue-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-blue-200 block mb-1">الحصة القادمة</span>
+                    <strong class="text-white text-sm block truncate" id="nextSessionDate">تحدد لاحقاً مع الأستاذ</strong>
+                </div>
+                <div class="p-4 bg-emerald-600/20 border border-emerald-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-emerald-200 block mb-1">حالة الحساب</span>
+                    <strong class="text-emerald-300 text-sm block">نشط ومفعل ✅</strong>
+                </div>
+                <div class="p-4 bg-orange-600/20 border border-orange-500/40 rounded-2xl text-center">
+                    <span class="text-xs text-orange-200 block mb-1">إجمالي الحصص المسجلة</span>
+                    <strong class="text-orange-300 text-sm block" id="totalSessionsCount">0 حصة</strong>
+                </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- مساعد الجبر الذكي وتحدي اليوم -->
+        <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-blue-600/10">
+            <h3 class="text-lg font-black mb-2 flex items-center gap-2">
+                <span>⚡</span> تحدي اليوم الرياضي (مساعد الجبر الذكي)
+            </h3>
+            <p class="text-xs text-blue-200 mb-4">حل المسألة الرياضية التالية:</p>
+
+            <!-- حاوية المعادلة معدلة لتكون LTR لمنع انعكاس الرموز -->
+            <div class="math-box mb-4">
+                <p class="text-xs text-orange-300 font-bold mb-2 text-right" dir="rtl">أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام:</p>
+                <div class="text-white font-bold my-2 text-center text-base md:text-lg" id="mathProblem">
+                    $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+                    <div class="mt-2 text-amber-300" dir="rtl">التطبيق العملي: $2x^2 + 5x + 2 = 0$</div>
+                </div>
+            </div>
+
+            <div id="testAlert" class="hidden mb-3 p-3 rounded-xl text-xs font-bold"></div>
             
-            <!-- نموذج توثيق الحصة -->
-            <div class="glass-card p-6 rounded-3xl h-fit border border-blue-500/30">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق حصة</h3>
-                
-                <form id="sessionForm" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs text-blue-200 block mb-1">اختر الطالب:</label>
-                            <select id="sessionStudentSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                                <option value="">-- تحميل الطلاب --</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
-                            <select id="sessionSystemSelect" onchange="updateStrandsDropdown()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                                <option value="IGCSE">IGCSE</option>
-                                <option value="American Diploma">American Diploma</option>
-                                <option value="IB">IB</option>
-                                <option value="National (Egyptian)">National (Egyptian)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="text-xs text-blue-200 block mb-1">التاريخ:</label>
-                            <input type="date" id="sessionDate" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
-                        </div>
-                        <div>
-                            <label class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <input type="time" id="sessionStart" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
-                        </div>
-                        <div>
-                            <label class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <input type="time" id="sessionEnd" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="text-xs text-blue-200 block mb-1">مكان انعقاد الحصة:</label>
-                        <select id="sessionLocation" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                            <option value="Online (Zoom)">أونلاين (Zoom)</option>
-                            <option value="Center">سنتر تعليمي (Center)</option>
-                            <option value="Home">منزل الطالب (Home)</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
-                        <select id="sessionStrandSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                            <option value="">-- اختر المجال --</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="text-xs text-blue-200 block mb-1">عنوان الدرس / الموضوع:</label>
-                        <input type="text" id="sessionTopicInput" required placeholder="مثال: Quadratic Functions" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
-                    </div>
-
-                    <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
-                        وثّق الحصة
-                    </button>
-                </form>
-            </div>
-
-            <!-- إضافة طالب جديد -->
-            <div class="glass-card p-6 rounded-3xl h-fit">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إضافة طالب جديد</h3>
-                
-                <form id="addStudentForm" class="space-y-4">
-                    <div>
-                        <input type="text" id="addName" required placeholder="اسم الطالب الثلاثي" class="w-full p-3 glass-input rounded-xl text-sm" />
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" id="addPhone" required placeholder="رقم هاتف الطالب" class="w-full p-3 glass-input rounded-xl text-sm" />
-                        <input type="text" id="addParentPhone" required placeholder="رقم هاتف ولي الأمر" class="w-full p-3 glass-input rounded-xl text-sm" />
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <select id="addSystem" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-white">
-                            <option value="IGCSE">IGCSE</option>
-                            <option value="American Diploma">American Diploma</option>
-                            <option value="IB">IB</option>
-                            <option value="National (Egyptian)">National (Egyptian)</option>
-                        </select>
-                        <input type="text" id="addGrade" required placeholder="الصف (مثال: Grade 10)" class="w-full p-3 glass-input rounded-xl text-sm" />
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="email" id="addEmail" placeholder="البريد الإلكتروني (اختياري)" class="w-full p-3 glass-input rounded-xl text-sm" />
-                        <input type="text" id="addPass" required placeholder="كلمة المرور (للدخول)" class="w-full p-3 glass-input rounded-xl text-sm" />
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
-                        تسجيل الطالب الجديد
-                    </button>
-                </form>
-            </div>
-
+            <form onsubmit="handleSelfTestSubmit(event)" class="space-y-3">
+                <input type="text" id="selfTestInput" required placeholder="اكتب الناتج النهائي (مثال: x = -2, x = -0.5)" class="w-full p-3 glass-input rounded-xl text-sm font-bold text-center" />
+                <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition text-sm shadow-lg flex items-center justify-center gap-2">
+                    <span>🚀</span> إرسال الحل للأستاذ
+                </button>
+            </form>
         </div>
 
-        <!-- جدول الطلاب -->
-        <div class="glass-card p-6 rounded-3xl mt-8">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> سجل الطلاب المسجلين</h3>
-            <div class="table-container">
-                <table class="w-full text-sm text-center">
-                    <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
-                        <tr>
-                            <th class="py-3 px-4">Student Name</th>
-                            <th class="py-3 px-4">System & Grade</th>
-                            <th class="py-3 px-4">Credentials (Pass)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="studentsTableBody">
-                        <tr><td colspan="3" class="py-4 text-slate-400">جاري تحميل البيانات...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+        <!-- تسليم الواجب المنزلي -->
+        <div class="glass-card p-6 md:p-8 rounded-3xl mb-8 border border-white/10">
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> تسليم الواجب المنزلي (كتابة أو رفع صورة)</h3>
+            <div id="hwAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-bold"></div>
+            
+            <form onsubmit="handleUploadHomework(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs text-blue-200 block mb-1">عنوان الواجب أو الدرس:</label>
+                    <input type="text" id="hwTopicInput" required placeholder="مثال: الواجب المنزلي للدرس الأول" class="w-full p-3 glass-input rounded-xl text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-blue-200 block mb-1">📸 ارفع صورة ورقة الحل (اختياري):</label>
+                    <input type="file" id="hwImageInput" accept="image/*" class="w-full p-3 glass-input rounded-xl text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition text-sm shadow-lg">
+                    إرسال الواجب للأستاذ 🚀
+                </button>
+            </form>
         </div>
 
+        <!-- سجل الحصص والمواعيد -->
+        <div class="glass-card p-6 md:p-8 rounded-3xl mb-8">
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📅</span> سجل الحصص السابقة</h3>
+            <div id="sessionsListContainer" class="space-y-3">
+                <p class="text-xs text-slate-300 text-center py-6">جاري تحميل الحصص...</p>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
         const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const API_WORKER_URL = 'https://jebali-api.mr-gebally.workers.dev';
 
-        let studentsList = [];
+        let currentStudent = null;
+        let currentLang = 'ar';
 
-        window.updateStrandsDropdown = function() {
-            const system = document.getElementById('sessionSystemSelect').value;
-            const strandSelect = document.getElementById('sessionStrandSelect');
-            strandSelect.innerHTML = '<option value="">-- اختر المجال أو المهارة --</option>';
+        window.toggleLang = function() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            if (currentLang === 'en') {
+                document.getElementById('loginTitle').innerText = 'Student Portal';
+                document.getElementById('loginSubtitle').innerText = 'Login with Phone & Password';
+                document.getElementById('phoneInput').placeholder = 'Phone Number';
+                document.getElementById('passwordInput').placeholder = 'Password';
+                document.getElementById('submitBtn').innerText = 'Login';
+                document.getElementById('langToggleBtn').innerText = '🌐 العربية';
+            } else {
+                document.getElementById('loginTitle').innerText = 'بوابة الطالب';
+                document.getElementById('loginSubtitle').innerText = 'الدخول برقم الهاتف وكلمة المرور';
+                document.getElementById('phoneInput').placeholder = 'رقم الهاتف';
+                document.getElementById('passwordInput').placeholder = 'كلمة المرور';
+                document.getElementById('submitBtn').innerText = 'تسجيل الدخول';
+                document.getElementById('langToggleBtn').innerText = '🌐 English';
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedStudentId = localStorage.getItem('jebali_student_id');
+            if (savedStudentId) {
+                fetchStudentById(savedStudentId);
+            }
+        });
+
+        window.handleLoginDirect = async function(e) {
+            e.preventDefault();
+            const phoneVal = document.getElementById('phoneInput').value.trim().replace(/\D/g, '');
+            const passwordVal = document.getElementById('passwordInput').value.trim();
+            const btn = document.getElementById('submitBtn');
+            const alertBox = document.getElementById('alertBox');
             
-            let strands = [];
-            if (system === 'IGCSE') {
-                strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Statistics (S1)'];
-            } else if (system === 'American Diploma') {
-                strands = ['Algebra 1 & 2', 'Pre-Calculus', 'Calculus AB/BC', 'Geometry & Statistics'];
-            } else if (system === 'IB') {
-                strands = ['Analysis and Approaches (AA)', 'Applications and Interpretation (AI)'];
-            } else {
-                strands = ['الجبر', 'التفاضل والتكامل', 'الهندسة الفراغية', 'الميكانيكا (استاتيكا / ديناميكا)'];
-            }
+            btn.innerText = currentLang === 'ar' ? 'جاري التحقق...' : 'Verifying...';
+            alertBox.classList.add('hidden');
 
-            strands.forEach(strand => {
-                const opt = document.createElement('option');
-                opt.value = strand;
-                opt.textContent = strand;
-                strandSelect.appendChild(opt);
-            });
+            try {
+                const { data: students, error } = await supabase.from('students').select('*');
+
+                if (error || !students) {
+                    showAlert(alertBox, 'خطأ في الاتصال بقاعدة البيانات.', 'bg-red-500/20 text-red-100');
+                    btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
+                    return;
+                }
+
+                const matched = students.find(st => {
+                    const stPhone = (st.student_phone || '').replace(/\D/g, '');
+                    const prPhone = (st.parent_phone || '').replace(/\D/g, '');
+                    const stPass = (st.password || '').trim();
+                    
+                    const phoneMatch = stPhone.includes(phoneVal) || prPhone.includes(phoneVal) || phoneVal.includes(stPhone);
+                    const passMatch = stPass === passwordVal;
+
+                    return phoneMatch && passMatch;
+                });
+
+                if (matched) {
+                    localStorage.setItem('jebali_student_id', matched.id);
+                    await setupDashboard(matched);
+                } else {
+                    showAlert(alertBox, currentLang === 'ar' ? 'رقم الهاتف أو كلمة المرور غير صحيحة.' : 'Invalid phone or password.', 'bg-red-500/20 text-red-100');
+                    btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
+                }
+            } catch (err) {
+                showAlert(alertBox, 'حدث خطأ غير متوقع.', 'bg-red-500/20 text-red-100');
+                btn.innerText = currentLang === 'ar' ? 'تسجيل الدخول' : 'Login';
+            }
         };
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            updateStrandsDropdown();
-            await fetchStudents();
-            document.getElementById('sessionDate').valueAsDate = new Date();
-        });
-
-        async function fetchStudents() {
-            const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+        async function fetchStudentById(id) {
+            const { data } = await supabase.from('students').select('*').eq('id', id).single();
             if (data) {
-                studentsList = data;
-                renderStudentsTable();
-                populateStudentSelect();
-            }
-        }
-
-        function populateStudentSelect() {
-            const select = document.getElementById('sessionStudentSelect');
-            select.innerHTML = '<option value="">-- اختر الطالب --</option>';
-            studentsList.forEach(st => {
-                const opt = document.createElement('option');
-                opt.value = st.id;
-                opt.textContent = st.student_name;
-                select.appendChild(opt);
-            });
-        }
-
-        function renderStudentsTable() {
-            const tbody = document.getElementById('studentsTableBody');
-            if (studentsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-slate-400">لا يوجد طلاب مسجلين بعد.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = studentsList.map(st => `
-                <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                    <td class="py-3 px-4 font-bold">${st.student_name}</td>
-                    <td class="py-3 px-4 text-xs">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
-                    <td class="py-3 px-4 text-xs text-orange-300 font-mono">${st.password || 'Not Set'}</td>
-                </tr>
-            `).join('');
-        }
-
-        document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
-            btn.innerText = 'جاري التسجيل...';
-
-            const newStudent = {
-                student_name: document.getElementById('addName').value,
-                student_phone: document.getElementById('addPhone').value,
-                parent_phone: document.getElementById('addParentPhone').value,
-                curriculum_system: document.getElementById('addSystem').value,
-                grade_level: document.getElementById('addGrade').value,
-                email: document.getElementById('addEmail').value || null,
-                password: document.getElementById('addPass').value,
-                account_status: 'active'
-            };
-
-            const { error } = await supabase.from('students').insert([newStudent]);
-            if (!error) {
-                alert('✅ تم تسجيل الطالب بنجاح');
-                e.target.reset();
-                fetchStudents();
+                await setupDashboard(data);
             } else {
-                alert('❌ خطأ أثناء التسجيل: ' + error.message);
+                localStorage.removeItem('jebali_student_id');
             }
-            btn.innerText = originalText;
-        });
+        }
 
-        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
+        async function setupDashboard(student) {
+            currentStudent = student;
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('dashboardContainer').classList.remove('hidden');
+            document.getElementById('welcomeText').innerText = `أهلاً بك، ${student.student_name} 📐`;
+            document.getElementById('studentInfoText').innerText = `${student.curriculum_system || ''} • ${student.grade_level || ''}`;
+            
+            await loadSessions(student.id);
+            renderMath();
+        }
+
+        async function loadSessions(studentId) {
+            const container = document.getElementById('sessionsListContainer');
+            try {
+                const { data: sessions } = await supabase
+                    .from('sessions')
+                    .select('*')
+                    .eq('student_id', studentId)
+                    .order('created_at', { ascending: false });
+
+                if (!sessions || sessions.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-slate-300 text-center py-6">لا توجد حصص مسجلة بعد.</p>';
+                    document.getElementById('totalSessionsCount').innerText = '0 حصة';
+                    return;
+                }
+
+                document.getElementById('totalSessionsCount').innerText = `${sessions.length} حصة`;
+                document.getElementById('nextSessionDate').innerText = sessions[0].lesson_topic.split('|')[0] || 'تم الحجز بنجاح';
+
+                container.innerHTML = sessions.map(s => `
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-black text-sm text-white truncate">${s.lesson_topic}</div>
+                            <div class="text-xs text-blue-300 mt-1 truncate">${s.strand}</div>
+                        </div>
+                        <span class="text-xs bg-orange-500/20 text-orange-300 px-3 py-1.5 rounded-xl font-black whitespace-nowrap">⏱️ ${s.duration_hours} h</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = '<p class="text-xs text-red-300 text-center py-6">خطأ في تحميل الحصص.</p>';
+            }
+        }
+
+        window.handleUploadHomework = async function(e) {
             e.preventDefault();
-            const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
-            btn.innerText = 'جاري التوثيق...';
+            const topic = document.getElementById('hwTopicInput').value;
+            const fileInput = document.getElementById('hwImageInput');
+            const alertBox = document.getElementById('hwAlert');
 
-            const studentId = document.getElementById('sessionStudentSelect').value;
-            const topic = document.getElementById('sessionTopicInput').value;
-            const strand = document.getElementById('sessionStrandSelect').value;
-            const start = document.getElementById('sessionStart').value;
-            const end = document.getElementById('sessionEnd').value;
-            const date = document.getElementById('sessionDate').value;
-            const sys = document.getElementById('sessionSystemSelect').value;
-
-            // حساب المدة بالساعات
-            const t1 = new Date(`${date}T${start}`);
-            const t2 = new Date(`${date}T${end}`);
-            let diffHrs = (t2 - t1) / (1000 * 60 * 60);
-            if (diffHrs < 0) diffHrs += 24;
-            diffHrs = Math.round(diffHrs * 100) / 100;
-
-            const sessionData = {
-                student_id: studentId,
-                lesson_topic: `${date} | ${topic} (${sys})`,
-                strand: strand,
-                duration_hours: diffHrs,
-                status: 'completed'
-            };
-
-            const { error } = await supabase.from('sessions').insert([sessionData]);
-            if (!error) {
-                alert('✅ تم توثيق الحصة بنجاح!');
-                e.target.reset();
-                document.getElementById('sessionDate').valueAsDate = new Date();
-            } else {
-                alert('❌ خطأ في توثيق الحصة: ' + error.message);
+            let imageDetails = '';
+            if (fileInput.files && fileInput.files[0]) {
+                imageDetails = ` [تم إرفاق صورة ورقة الحل: ${fileInput.files[0].name}]`;
             }
-            btn.innerText = originalText;
-        });
 
-        window.logoutAdmin = function() {
-            window.location.href = 'index.html';
+            try {
+                await fetch(API_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic, feedback: `حل واجب مقدم من الطالب.${imageDetails}` })
+                });
+                showAlert(alertBox, '✅ تم تسليم الواجب بنجاح للأستاذ!', 'bg-emerald-500/20 text-emerald-200');
+                document.getElementById('hwTopicInput').value = '';
+                fileInput.value = '';
+            } catch (err) {
+                showAlert(alertBox, '❌ فشل تسليم الواجب.', 'bg-red-500/20 text-red-200');
+            }
         };
+
+        window.handleSelfTestSubmit = async function(e) {
+            e.preventDefault();
+            const ans = document.getElementById('selfTestInput').value;
+            const alertBox = document.getElementById('testAlert');
+
+            try {
+                await fetch(API_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'submit_homework', studentId: currentStudent.id, topic: 'تحدي اليوم الرياضي', feedback: `إجابة الطالب في التحدي: ${ans}` })
+                });
+                showAlert(alertBox, '🎉 تم إرسال إجابة التحدي للأستاذ بنجاح!', 'bg-emerald-500/20 text-emerald-200');
+                document.getElementById('selfTestInput').value = '';
+            } catch (err) {
+                showAlert(alertBox, '❌ خطأ في الإرسال.', 'bg-red-500/20 text-red-200');
+            }
+        };
+
+        window.handleLogout = function() {
+            localStorage.removeItem('jebali_student_id');
+            window.location.reload();
+        };
+
+        function showAlert(el, msg, cls) {
+            el.className = `mb-4 p-3 rounded-xl text-xs font-bold ${cls}`;
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        function renderMath() {
+            if (window.renderMathInElement) {
+                window.renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false}
+                    ]
+                });
+            }
+        }
     </script>
 </body>
 </html>
