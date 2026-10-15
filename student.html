@@ -15,29 +15,28 @@
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
-        /* حل مشكلة امتداد المحتوى خارج شاشة الموبايل */
+        /* منع خروج العناصر عن الشاشة في الموبايل */
         *, *::before, *::after { box-sizing: border-box; }
-        html, body { max-width: 100%; overflow-x: hidden; }
-        
-        /* خلفية متوازنة */
+        html, body { max-width: 100vw; overflow-x: hidden; }
+        .glass-card, div, form, table { max-width: 100%; word-wrap: break-word; }
+
         body { background: radial-gradient(circle at 50% 40%, #1e3a8a 0%, #111827 60%, #030712 100%); }
         .center-glow { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 650px; height: 650px; background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
-
-        .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); max-width: 100%; word-wrap: break-word; }
+        .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
         .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 12px; }
         .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         
-        /* ضبط صندوق المعادلات لمنع القطع والسماح بالتمرير الأفقي على الشاشات الصغيرة */
-        .math-box { 
-            background: rgba(0, 0, 0, 0.4); 
-            border-right: 4px solid #f97316; 
-            padding: 16px; 
-            border-radius: 12px; 
-            font-size: 1rem; 
-            margin: 12px 0; 
-            overflow-x: auto; 
-            max-width: 100%; 
-            direction: ltr; 
+        /* ضبط صندوق المعادلات لمنع القطع والسماح بالتمرير الأفقي باتجاه LTR */
+        .math-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-right: 4px solid #f97316;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            margin: 12px 0;
+            overflow-x: auto;
+            max-width: 100%;
+            direction: ltr;
         }
     </style>
 </head>
@@ -107,11 +106,12 @@
             </h3>
             <p class="text-xs text-blue-200 mb-4">حل المسألة الرياضية التالية:</p>
 
+            <!-- حاوية المعادلة معدلة لتكون LTR لمنع انعكاس الرموز -->
             <div class="math-box mb-4">
                 <p class="text-xs text-orange-300 font-bold mb-2 text-right" dir="rtl">أوجد جذري المعادلة التربيعية الآتية باستخدام القانون العام:</p>
                 <div class="text-white font-bold my-2 text-center text-base md:text-lg" id="mathProblem">
                     $$ax^2 + bx + c = 0 \implies x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
-                    <div class="mt-2 text-amber-300">التطبيق العملي: $2x^2 + 5x + 2 = 0$</div>
+                    <div class="mt-2 text-amber-300" dir="rtl">التطبيق العملي: $2x^2 + 5x + 2 = 0$</div>
                 </div>
             </div>
 
@@ -176,12 +176,14 @@
                 document.getElementById('phoneInput').placeholder = 'Phone Number';
                 document.getElementById('passwordInput').placeholder = 'Password';
                 document.getElementById('submitBtn').innerText = 'Login';
+                document.getElementById('langToggleBtn').innerText = '🌐 العربية';
             } else {
                 document.getElementById('loginTitle').innerText = 'بوابة الطالب';
                 document.getElementById('loginSubtitle').innerText = 'الدخول برقم الهاتف وكلمة المرور';
                 document.getElementById('phoneInput').placeholder = 'رقم الهاتف';
                 document.getElementById('passwordInput').placeholder = 'كلمة المرور';
                 document.getElementById('submitBtn').innerText = 'تسجيل الدخول';
+                document.getElementById('langToggleBtn').innerText = '🌐 English';
             }
         };
 
