@@ -57,11 +57,13 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             
-            <!-- نموذج توثيق الحصة -->
+            <!-- نموذج توثيق وتعديل الحصة -->
             <div class="glass-card p-6 rounded-3xl h-fit border border-blue-500/30">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق حصة دراسية جديدة</h3>
+                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق وتعديل الحصص</h3>
                 
                 <form id="sessionForm" class="space-y-4">
+                    <input type="hidden" id="editSessionId" value="">
+                    
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">اختر الطالب:</label>
@@ -95,11 +97,21 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
-                        <select id="sessionStrandSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
-                            <option value="">-- اختر المجال --</option>
-                        </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-blue-200 block mb-1">مكان انعقاد الحصة:</label>
+                            <select id="sessionLocation" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
+                                <option value="Online (Zoom)">أونلاين (Zoom)</option>
+                                <option value="Center">سنتر تعليمي (Center)</option>
+                                <option value="Home">منزل الطالب</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
+                            <select id="sessionStrandSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
+                                <option value="">-- اختر المجال --</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -107,9 +119,12 @@
                         <input type="text" id="sessionTopicInput" required placeholder="مثال: Quadratic Functions" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                     </div>
 
-                    <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
-                        وثّق الحصة (وسيتم تسجيلها كمعلقة للدفع)
-                    </button>
+                    <div class="flex gap-2">
+                        <button type="submit" id="sessionSubmitBtn" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">
+                            وثّق الحصة (وتسجيلها كمعلقة)
+                        </button>
+                        <button type="button" id="cancelSessionEditBtn" onclick="resetSessionForm()" class="hidden px-4 bg-slate-600 hover:bg-slate-700 rounded-xl text-sm font-bold transition">إلغاء التعديل</button>
+                    </div>
                 </form>
             </div>
 
@@ -200,7 +215,7 @@
 
         let studentsList = [];
         let sessionsList = [];
-        const HOURLY_RATE = 350; // يمكنك تغيير سعر الحصة هنا (لحساب الـ EGP)
+        const HOURLY_RATE = 350;
 
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value;
@@ -249,7 +264,7 @@
         async function fetchSessions() {
             const { data, error } = await supabase.from('sessions').select(`
                 *,
-                students ( student_name )
+                students ( student_name, curriculum_system )
             `).order('created_at', { ascending: false });
             
             if (data) {
@@ -264,7 +279,6 @@
             let pending = 0;
 
             sessionsList.forEach(session => {
-                // الاعتماد على مدة الحصة * السعر، أو يمكن تخصيصها حسب الحاجة
                 let amount = (session.duration_hours || 1) * HOURLY_RATE; 
                 if (session.status === 'paid') {
                     collected += amount;
@@ -286,7 +300,7 @@
 
             tbody.innerHTML = sessionsList.map(s => `
                 <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                    <td class="py-3 px-4 whitespace-nowrap text-right text-xs">${s.lesson_topic}<br><span class="text-blue-300">${s.strand}</span></td>
+                    <td class="py-3 px-4 whitespace-nowrap text-right text-xs" dir="ltr">${s.lesson_topic}<br><span class="text-blue-300 block mt-1">${s.strand}</span></td>
                     <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || 'طالب محذوف'}</td>
                     <td class="py-3 px-4 text-xs font-mono text-orange-300">${s.duration_hours}h</td>
                     <td class="py-3 px-4">
@@ -295,15 +309,82 @@
                             : `<span class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold">انتظار الدفع</span>`
                         }
                     </td>
-                    <td class="py-3 px-4">
+                    <td class="py-3 px-4 flex justify-center gap-2 flex-wrap min-w-[120px]">
                         ${s.status !== 'paid' 
                             ? `<button onclick="markSessionPaid('${s.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition">تأكيد الدفع</button>`
-                            : `<button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>`
+                            : ``
                         }
+                        <button onclick="editSession('${s.id}')" class="bg-slate-500/30 text-slate-200 hover:bg-slate-500/50 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
+                        <button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
                     </td>
                 </tr>
             `).join('');
         }
+
+        // --- دوال التحكم في الحصص (تعديل - إلغاء - حذف) ---
+        window.editSession = function(id) {
+            const session = sessionsList.find(s => s.id === id);
+            if(!session) return;
+            
+            document.getElementById('editSessionId').value = session.id;
+            document.getElementById('sessionStudentSelect').value = session.student_id;
+            
+            // محاولة تفكيك بيانات درس سابقة لاستخراج الوقت والمكان (Fallback)
+            const topicStr = session.lesson_topic || '';
+            document.getElementById('sessionDate').valueAsDate = new Date();
+            document.getElementById('sessionStart').value = '12:00';
+            document.getElementById('sessionEnd').value = '13:00';
+            document.getElementById('sessionTopicInput').value = topicStr; 
+            
+            try {
+                if (topicStr.includes('|')) {
+                    const parts = topicStr.split('|').map(p => p.trim());
+                    // التاريخ
+                    const dateMatch = parts[0].match(/(\d{4}-\d{2}-\d{2})/);
+                    if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
+                    // الوقت
+                    if (parts.length > 1 && parts[1].includes('-')) {
+                        const timeParts = parts[1].split('-').map(t => t.trim());
+                        document.getElementById('sessionStart').value = timeParts[0];
+                        document.getElementById('sessionEnd').value = timeParts[1];
+                    }
+                    // الموضوع والمكان
+                    if (parts.length > 2) {
+                        let tAndL = parts[2];
+                        const locMatch = tAndL.match(/\[(.*?)\]/);
+                        if (locMatch) {
+                            const locText = locMatch[1];
+                            if (locText.includes('Zoom')) document.getElementById('sessionLocation').value = 'Online (Zoom)';
+                            else if (locText.includes('سنتر')) document.getElementById('sessionLocation').value = 'Center';
+                            else document.getElementById('sessionLocation').value = 'Home';
+                            tAndL = tAndL.replace(/\[.*?\]/, '').trim();
+                        }
+                        document.getElementById('sessionTopicInput').value = tAndL;
+                    }
+                }
+            } catch(e) {}
+
+            // ضبط النظام التعليمي
+            const student = studentsList.find(s => s.id === session.student_id);
+            if (student) {
+                document.getElementById('sessionSystemSelect').value = student.curriculum_system || 'National (Egyptian)';
+                updateStrandsDropdown();
+            }
+            
+            setTimeout(() => { document.getElementById('sessionStrandSelect').value = session.strand || ''; }, 100);
+
+            document.getElementById('sessionSubmitBtn').innerText = 'تحديث بيانات الحصة';
+            document.getElementById('cancelSessionEditBtn').classList.remove('hidden');
+            window.scrollTo({ top: document.getElementById('sessionForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.resetSessionForm = function() {
+            document.getElementById('sessionForm').reset();
+            document.getElementById('editSessionId').value = '';
+            document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
+            document.getElementById('cancelSessionEditBtn').classList.add('hidden');
+            document.getElementById('sessionDate').valueAsDate = new Date();
+        };
 
         window.markSessionPaid = async function(id) {
             if(confirm('هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟')) {
@@ -319,6 +400,65 @@
             }
         };
 
+        // حفظ وتحديث الحصة
+        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('sessionSubmitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'جاري الحفظ...';
+
+            const studentId = document.getElementById('sessionStudentSelect').value;
+            const topic = document.getElementById('sessionTopicInput').value;
+            const strand = document.getElementById('sessionStrandSelect').value;
+            const start = document.getElementById('sessionStart').value;
+            const end = document.getElementById('sessionEnd').value;
+            const date = document.getElementById('sessionDate').value;
+            
+            // حساب المدة
+            const t1 = new Date(`${date}T${start}`);
+            const t2 = new Date(`${date}T${end}`);
+            let diffHrs = (t2 - t1) / (1000 * 60 * 60);
+            if (diffHrs < 0) diffHrs += 24;
+            diffHrs = Math.round(diffHrs * 100) / 100;
+
+            // تنسيق الاسم الاحترافي
+            const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = daysAr[new Date(date).getDay()];
+            const locVal = document.getElementById('sessionLocation').value;
+            const locString = locVal === 'Online (Zoom)' ? 'أونلاين Zoom' : (locVal === 'Center' ? 'سنتر تعليمي' : 'منزل الطالب');
+            
+            const fullTopic = `${date} (${dayName}) | ${start} - ${end} | ${topic} [${locString}]`;
+
+            const sessionData = {
+                student_id: studentId,
+                lesson_topic: fullTopic,
+                strand: strand,
+                duration_hours: diffHrs
+            };
+
+            const editId = document.getElementById('editSessionId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('sessions').update(sessionData).eq('id', editId);
+                errorObj = error;
+            } else {
+                sessionData.status = 'pending';
+                const { error } = await supabase.from('sessions').insert([sessionData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert('✅ تم حفظ الحصة بنجاح!');
+                resetSessionForm();
+                fetchAllData();
+            } else {
+                alert('❌ خطأ في الحفظ: ' + errorObj.message);
+            }
+            btn.innerText = originalText;
+        });
+
+        // --- دوال التحكم في الطلاب ---
         function renderStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
             if (studentsList.length === 0) {
@@ -413,46 +553,6 @@
                 fetchAllData();
             } else {
                 alert('❌ خطأ أثناء الحفظ: ' + errorObj.message);
-            }
-            btn.innerText = originalText;
-        });
-
-        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
-            btn.innerText = 'جاري التوثيق...';
-
-            const studentId = document.getElementById('sessionStudentSelect').value;
-            const topic = document.getElementById('sessionTopicInput').value;
-            const strand = document.getElementById('sessionStrandSelect').value;
-            const start = document.getElementById('sessionStart').value;
-            const end = document.getElementById('sessionEnd').value;
-            const date = document.getElementById('sessionDate').value;
-            const sys = document.getElementById('sessionSystemSelect').value;
-
-            const t1 = new Date(`${date}T${start}`);
-            const t2 = new Date(`${date}T${end}`);
-            let diffHrs = (t2 - t1) / (1000 * 60 * 60);
-            if (diffHrs < 0) diffHrs += 24;
-            diffHrs = Math.round(diffHrs * 100) / 100;
-
-            const sessionData = {
-                student_id: studentId,
-                lesson_topic: `${date} | ${topic} (${sys})`,
-                strand: strand,
-                duration_hours: diffHrs,
-                status: 'pending' // الحصة تُسجل كمعلقة للدفع افتراضياً
-            };
-
-            const { error } = await supabase.from('sessions').insert([sessionData]);
-            if (!error) {
-                alert('✅ تم توثيق الحصة وإدراجها في المستحقات المعلقة!');
-                e.target.reset();
-                document.getElementById('sessionDate').valueAsDate = new Date();
-                fetchAllData();
-            } else {
-                alert('❌ خطأ في توثيق الحصة: ' + error.message);
             }
             btn.innerText = originalText;
         });
