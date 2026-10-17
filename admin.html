@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <!-- مكتبة الساعة التناظرية (Analog Clock) الرسمية -->
+    <!-- مكتبة الساعة التناظرية (Analog Clock) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdtimepicker@2.0.2/dist/mdtimepicker.min.css">
     
     <style>
@@ -267,7 +267,6 @@
             mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true }).on('timechanged', function(){ calculateLiveDuration(); });
             mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true }).on('timechanged', function(){ calculateLiveDuration(); });
             
-            // ضبط تاريخ اليوم تلقائياً
             const today = new Date();
             const offset = today.getTimezoneOffset() * 60000;
             const localISOTime = (new Date(today - offset)).toISOString().split('T')[0];
@@ -277,7 +276,6 @@
             fetchAllData();
         });
 
-        // تحويل نظام 12 ساعة إلى 24 ساعة لحساب المدة
         function parseTo24Hour(timeStr) {
             if (!timeStr) return '00:00';
             const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
@@ -314,7 +312,6 @@
             }
         };
 
-        // دالة تبديل اللغة للوحة الإدارة
         window.toggleLang = function() {
             currentLang = currentLang === 'ar' ? 'en' : 'ar';
             document.documentElement.lang = currentLang;
@@ -436,7 +433,6 @@
             });
         };
 
-        // دالة سحب الوحدات والمهارات ديناميكياً من قاعدة البيانات (Supabase)
         window.updateStrandsDropdown = async function() {
             const system = document.getElementById('sessionSystemSelect').value || '';
             const strandSelect = document.getElementById('sessionStrandSelect');
@@ -454,7 +450,6 @@
                     strandSelect.appendChild(opt);
                 });
             } else {
-                // خيارات احتياطية في حال لم يتم إدخال الوحدات لهذا النظام بعد
                 const defaultOptions = ['الجبر / Algebra', 'الهندسة / Geometry', 'الإحصاء / Statistics'];
                 defaultOptions.forEach(strand => {
                     const opt = document.createElement('option');
@@ -505,7 +500,6 @@
             document.getElementById('pendingAmount').innerHTML = `${pending} <span class="text-lg text-slate-400">EGP</span>`;
         }
 
-        // إرسال تذكير واتساب
         window.sendWhatsAppReminder = function(sessionId) {
             const session = sessionsList.find(s => s.id === sessionId);
             if(!session || !session.students || !session.students.parent_phone) {
@@ -573,7 +567,8 @@
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
             const topicStr = session.lesson_topic || '';
-            document.getElementById('sessionDate').valueAsDate = new Date();
+            const todayISO = new Date().toISOString().split('T')[0];
+            document.getElementById('sessionDate').value = todayISO;
             
             try {
                 if (topicStr.includes('|')) {
@@ -824,9 +819,7 @@
         });
 
         window.logoutAdmin = function() {
-            window.logoutAdmin = function() {
-                window.location.href = 'index.html';
-            }
+            window.location.href = 'index.html';
         };
     </script>
 </body>
