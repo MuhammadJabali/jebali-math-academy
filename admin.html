@@ -20,7 +20,19 @@
         .center-glow { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 650px; height: 650px; background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(0,0,0,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
 
         .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
-        .glass-input { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
+        
+        /* ضبط الحقول وأيقونات المتصفح (النتيجة والساعة) لتصبح بيضاء */
+        .glass-input { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            color: white; 
+            color-scheme: dark; 
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
@@ -114,6 +126,18 @@
                         </div>
                     </div>
 
+                    <!-- استعادة حقول التكلفة المالية -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-4 mt-2">
+                        <div>
+                            <label class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
+                            <input type="number" id="sessionHourlyRate" required value="350" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-blue-200 block mb-1">تكلفة إضافية / خصم (EGP):</label>
+                            <input type="number" id="sessionAdditionalCost" required value="0" placeholder="أضف (سالب) للخصم" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                        </div>
+                    </div>
+
                     <div>
                         <label class="text-xs text-blue-200 block mb-1">عنوان الدرس / الموضوع:</label>
                         <input type="text" id="sessionTopicInput" required placeholder="مثال: Quadratic Functions" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
@@ -174,12 +198,13 @@
                             <th class="py-3 px-4">التاريخ والدرس</th>
                             <th class="py-3 px-4">الطالب</th>
                             <th class="py-3 px-4">المدة</th>
+                            <th class="py-3 px-4">الإجمالي</th>
                             <th class="py-3 px-4">حالة الدفع</th>
                             <th class="py-3 px-4">إجراء</th>
                         </tr>
                     </thead>
                     <tbody id="sessionsTableBody">
-                        <tr><td colspan="5" class="py-4 text-slate-400">جاري تحميل الحصص...</td></tr>
+                        <tr><td colspan="6" class="py-4 text-slate-400">جاري تحميل الحصص...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -215,7 +240,6 @@
 
         let studentsList = [];
         let sessionsList = [];
-        const HOURLY_RATE = 350;
 
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value;
@@ -279,7 +303,11 @@
             let pending = 0;
 
             sessionsList.forEach(session => {
-                let amount = (session.duration_hours || 1) * HOURLY_RATE; 
+                // الاعتماد على التكلفة المخزنة أو الافتراضية
+                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : 350;
+                let extra = session.additional_cost !== undefined ? parseFloat(session.additional_cost) : 0;
+                let amount = ((session.duration_hours || 1) * rate) + extra; 
+                
                 if (session.status === 'paid') {
                     collected += amount;
                 } else {
@@ -294,15 +322,21 @@
         function renderSessionsTable() {
             const tbody = document.getElementById('sessionsTableBody');
             if (sessionsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-slate-400">لا توجد حصص مسجلة بعد.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-slate-400">لا توجد حصص مسجلة بعد.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = sessionsList.map(s => `
+            tbody.innerHTML = sessionsList.map(s => {
+                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : 350;
+                let extra = s.additional_cost !== undefined ? parseFloat(s.additional_cost) : 0;
+                let amount = ((s.duration_hours || 1) * rate) + extra;
+                
+                return `
                 <tr class="border-b border-white/5 hover:bg-white/5 transition">
                     <td class="py-3 px-4 whitespace-nowrap text-right text-xs" dir="ltr">${s.lesson_topic}<br><span class="text-blue-300 block mt-1">${s.strand}</span></td>
                     <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || 'طالب محذوف'}</td>
                     <td class="py-3 px-4 text-xs font-mono text-orange-300">${s.duration_hours}h</td>
+                    <td class="py-3 px-4 text-xs font-black text-emerald-400">${amount} EGP</td>
                     <td class="py-3 px-4">
                         ${s.status === 'paid' 
                             ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-xs font-bold">تم الدفع</span>`
@@ -318,10 +352,9 @@
                         <button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
-        // --- دوال التحكم في الحصص (تعديل - إلغاء - حذف) ---
         window.editSession = function(id) {
             const session = sessionsList.find(s => s.id === id);
             if(!session) return;
@@ -329,7 +362,9 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
-            // محاولة تفكيك بيانات درس سابقة لاستخراج الوقت والمكان (Fallback)
+            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : 350;
+            document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
+            
             const topicStr = session.lesson_topic || '';
             document.getElementById('sessionDate').valueAsDate = new Date();
             document.getElementById('sessionStart').value = '12:00';
@@ -339,16 +374,13 @@
             try {
                 if (topicStr.includes('|')) {
                     const parts = topicStr.split('|').map(p => p.trim());
-                    // التاريخ
                     const dateMatch = parts[0].match(/(\d{4}-\d{2}-\d{2})/);
                     if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
-                    // الوقت
                     if (parts.length > 1 && parts[1].includes('-')) {
                         const timeParts = parts[1].split('-').map(t => t.trim());
                         document.getElementById('sessionStart').value = timeParts[0];
                         document.getElementById('sessionEnd').value = timeParts[1];
                     }
-                    // الموضوع والمكان
                     if (parts.length > 2) {
                         let tAndL = parts[2];
                         const locMatch = tAndL.match(/\[(.*?)\]/);
@@ -364,7 +396,6 @@
                 }
             } catch(e) {}
 
-            // ضبط النظام التعليمي
             const student = studentsList.find(s => s.id === session.student_id);
             if (student) {
                 document.getElementById('sessionSystemSelect').value = student.curriculum_system || 'National (Egyptian)';
@@ -381,6 +412,8 @@
         window.resetSessionForm = function() {
             document.getElementById('sessionForm').reset();
             document.getElementById('editSessionId').value = '';
+            document.getElementById('sessionHourlyRate').value = '350';
+            document.getElementById('sessionAdditionalCost').value = '0';
             document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
             document.getElementById('cancelSessionEditBtn').classList.add('hidden');
             document.getElementById('sessionDate').valueAsDate = new Date();
@@ -400,7 +433,6 @@
             }
         };
 
-        // حفظ وتحديث الحصة
         document.getElementById('sessionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('sessionSubmitBtn');
@@ -414,14 +446,15 @@
             const end = document.getElementById('sessionEnd').value;
             const date = document.getElementById('sessionDate').value;
             
-            // حساب المدة
+            const hourlyRate = parseFloat(document.getElementById('sessionHourlyRate').value) || 0;
+            const additionalCost = parseFloat(document.getElementById('sessionAdditionalCost').value) || 0;
+            
             const t1 = new Date(`${date}T${start}`);
             const t2 = new Date(`${date}T${end}`);
             let diffHrs = (t2 - t1) / (1000 * 60 * 60);
             if (diffHrs < 0) diffHrs += 24;
             diffHrs = Math.round(diffHrs * 100) / 100;
 
-            // تنسيق الاسم الاحترافي
             const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
             const dayName = daysAr[new Date(date).getDay()];
             const locVal = document.getElementById('sessionLocation').value;
@@ -433,7 +466,9 @@
                 student_id: studentId,
                 lesson_topic: fullTopic,
                 strand: strand,
-                duration_hours: diffHrs
+                duration_hours: diffHrs,
+                hourly_rate: hourlyRate,
+                additional_cost: additionalCost
             };
 
             const editId = document.getElementById('editSessionId').value;
@@ -458,7 +493,6 @@
             btn.innerText = originalText;
         });
 
-        // --- دوال التحكم في الطلاب ---
         function renderStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
             if (studentsList.length === 0) {
