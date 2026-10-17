@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
+    <!-- مكتبة الساعة الدائرية التناظرية (Analog Clock) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.css">
+    
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
@@ -20,17 +23,21 @@
 
         .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
         
-        /* ضبط الحقول لتكون متوافقة مع الوضع الليلي والأيقونات البيضاء */
         .glass-input { 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.2); 
             color: white; 
-            color-scheme: dark; /* هذه الخاصية تجبر المتصفح على جعل أيقونات النتيجة والساعة بيضاء */
+            color-scheme: dark; 
         }
         
-        input[type="time"], input[type="date"] {
-            cursor: text;
+        /* إجبار أيقونة الأجندة (التاريخ) لتكون بيضاء ناصعة */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(100%) brightness(200%);
+            cursor: pointer;
         }
+        
+        /* ضبط تنسيق نافذة الساعة التناظرية */
+        .mdtimepicker { direction: ltr; font-family: 'Inter', sans-serif; }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
@@ -98,17 +105,23 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label id="lblDate" class="text-xs text-blue-200 block mb-1">التاريخ:</label>
-                            <input type="date" id="sessionDate" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-center" />
+                            <input type="date" id="sessionDate" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                         <div>
                             <label id="lblStartTime" class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <!-- حقل الوقت الأصلي للمتصفح -->
-                            <input type="time" id="sessionStart" onchange="calculateLiveDuration()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-center" />
+                            <!-- حقل وقت البدء مع أيقونة بيضاء ثابتة لفتح الساعة التناظرية -->
+                            <div class="relative">
+                                <input type="text" id="sessionStart" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
                         </div>
                         <div>
                             <label id="lblEndTime" class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <!-- حقل الوقت الأصلي للمتصفح -->
-                            <input type="time" id="sessionEnd" onchange="calculateLiveDuration()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-center" />
+                            <!-- حقل وقت الانتهاء مع أيقونة بيضاء ثابتة لفتح الساعة التناظرية -->
+                            <div class="relative">
+                                <input type="text" id="sessionEnd" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
                         </div>
                     </div>
                     
@@ -157,7 +170,7 @@
                 </form>
             </div>
 
-            <!-- إدارة الطلاب -->
+            <!-- إضافة وتعديل طالب -->
             <div class="glass-card p-6 rounded-3xl h-fit">
                 <h3 id="studentFormTitle" class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إدارة ملفات الطلاب</h3>
                 
@@ -241,6 +254,9 @@
 
     </div>
 
+    <!-- استدعاء سكريبت الساعة التناظرية (Analog Clock) -->
+    <script src="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.js"></script>
+
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
@@ -252,13 +268,25 @@
         const HOURLY_RATE = 400;
         let currentLang = 'ar';
 
-        // دالة عرض مدة الحصة مباشرة للمستخدم
+        // تفعيل الساعة الدائرية الاحترافية عند الضغط على الحقول
+        window.addEventListener('load', () => {
+            mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true }).on('timechanged', function(e){
+                calculateLiveDuration();
+            });
+            mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true }).on('timechanged', function(e){
+                calculateLiveDuration();
+            });
+        });
+
+        // دالة عرض مدة الحصة مباشرة
         window.calculateLiveDuration = function() {
-            const start = document.getElementById('sessionStart').value;
-            const end = document.getElementById('sessionEnd').value;
+            const startRaw = document.getElementById('sessionStart').value;
+            const endRaw = document.getElementById('sessionEnd').value;
             const display = document.getElementById('liveDurationDisplay');
             
-            if(start && end) {
+            if(startRaw && endRaw) {
+                const start = parseTo24Hour(startRaw);
+                const end = parseTo24Hour(endRaw);
                 const date = document.getElementById('sessionDate').value || new Date().toISOString().split('T')[0];
                 const t1 = new Date(`${date}T${start}`);
                 const t2 = new Date(`${date}T${end}`);
@@ -273,7 +301,7 @@
             }
         };
 
-        // دالة تبديل اللغة للوحة الإدارة
+        // دالة تبديل اللغة
         window.toggleLang = function() {
             currentLang = currentLang === 'ar' ? 'en' : 'ar';
             document.documentElement.lang = currentLang;
@@ -357,6 +385,21 @@
             calculateLiveDuration();
         };
 
+        // تحويل نظام 12 ساعة إلى 24 ساعة لحساب المدة بالـ JS
+        function parseTo24Hour(timeStr) {
+            if (!timeStr) return '00:00';
+            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
+            if (match) {
+                let h = parseInt(match[1], 10);
+                let m = match[2];
+                let mod = match[3].toUpperCase();
+                if (h === 12) h = 0;
+                if (mod === 'PM') h += 12;
+                return `${h.toString().padStart(2, '0')}:${m}`;
+            }
+            return timeStr;
+        }
+
         window.handleStudentSelectionChange = function() {
             const studentId = document.getElementById('sessionStudentSelect').value;
             if (!studentId) return;
@@ -432,7 +475,6 @@
             updateStrandsDropdown();
             updateGradesDropdown();
             
-            // وضع تاريخ اليوم كقيمة افتراضية بطريقة صحيحة تمنع فرق التوقيت
             const today = new Date();
             const offset = today.getTimezoneOffset() * 60000;
             const localISOTime = (new Date(today - offset)).toISOString().split('T')[0];
@@ -549,7 +591,6 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
-            // قراءة القيم المالية للعرض
             document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : HOURLY_RATE;
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
@@ -564,8 +605,17 @@
                     if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
                     if (parts.length > 1 && parts[1].includes('-')) {
                         const timeParts = parts[1].split('-').map(t => t.trim());
-                        document.getElementById('sessionStart').value = timeParts[0];
-                        document.getElementById('sessionEnd').value = timeParts[1];
+                        
+                        function to12Hour(time24) {
+                            let [h, m] = time24.split(':');
+                            h = parseInt(h);
+                            let mod = h >= 12 ? 'PM' : 'AM';
+                            h = h % 12 || 12;
+                            return `${h.toString().padStart(2, '0')}:${m} ${mod}`;
+                        }
+                        
+                        document.getElementById('sessionStart').value = timeParts[0].includes('M') ? timeParts[0] : to12Hour(timeParts[0]);
+                        document.getElementById('sessionEnd').value = timeParts[1].includes('M') ? timeParts[1] : to12Hour(timeParts[1]);
                     }
                     if (parts.length > 2) {
                         let tAndL = parts[2];
@@ -632,12 +682,12 @@
             const studentId = document.getElementById('sessionStudentSelect').value;
             const topic = document.getElementById('sessionTopicInput').value;
             const strand = document.getElementById('sessionStrandSelect').value;
-            const start = document.getElementById('sessionStart').value;
-            const end = document.getElementById('sessionEnd').value;
+            const startRaw = document.getElementById('sessionStart').value;
+            const endRaw = document.getElementById('sessionEnd').value;
             const date = document.getElementById('sessionDate').value;
             
-            const hourlyRate = parseFloat(document.getElementById('sessionHourlyRate').value) || 0;
-            const additionalCost = parseFloat(document.getElementById('sessionAdditionalCost').value) || 0;
+            const start = parseTo24Hour(startRaw);
+            const end = parseTo24Hour(endRaw);
 
             const t1 = new Date(`${date}T${start}`);
             const t2 = new Date(`${date}T${end}`);
@@ -650,9 +700,8 @@
             const locVal = document.getElementById('sessionLocation').value;
             const locString = locVal === 'Online (Zoom)' ? 'أونلاين Zoom' : (locVal === 'Center' ? 'سنتر تعليمي' : 'منزل الطالب');
             
-            const fullTopic = `${date} (${dayName}) | ${start} - ${end} | ${topic} [${locString}]`;
+            const fullTopic = `${date} (${dayName}) | ${startRaw} - ${endRaw} | ${topic} [${locString}]`;
 
-            // لنرسل البيانات بدون حقول الأسعار لقاعدة البيانات لتجنب الخطأ
             const sessionData = {
                 student_id: studentId,
                 lesson_topic: fullTopic,
@@ -675,13 +724,16 @@
             if (!errorObj) {
                 // إرسال إشعار للموبايل بعد التوثيق بنجاح
                 const student = studentsList.find(s => s.id === studentId);
+                let hourlyRate = parseFloat(document.getElementById('sessionHourlyRate').value) || HOURLY_RATE;
+                let additionalCost = parseFloat(document.getElementById('sessionAdditionalCost').value) || 0;
                 let totalCost = (diffHrs * hourlyRate) + additionalCost;
+                
                 let waConfirm = confirm(currentLang === 'ar' ? '✅ تم توثيق الحصة. هل تريد إرسال إشعار لولي الأمر عبر واتساب الآن؟' : '✅ Saved! Send WhatsApp notification to parent?');
                 
                 if(waConfirm && student && student.parent_phone) {
                     let phone = student.parent_phone.replace(/\D/g, '');
                     if(!phone.startsWith('20') && phone.startsWith('01')) { phone = '20' + phone.substring(1); }
-                    let msg = `تم توثيق حصة رياضيات بنجاح:\nالطالب: ${student.student_name}\nالتاريخ: ${date} (${dayName})\nالوقت: ${start} إلى ${end}\nالموضوع: ${topic}\nالمدة: ${diffHrs}h\nإجمالي التكلفة: ${totalCost} EGP`;
+                    let msg = `تم توثيق حصة رياضيات بنجاح:\nالطالب: ${student.student_name}\nالتاريخ: ${date} (${dayName})\nالوقت: ${startRaw} إلى ${endRaw}\nالموضوع: ${topic}\nالمدة: ${diffHrs}h\nإجمالي التكلفة: ${totalCost} EGP`;
                     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                 } else if (waConfirm) {
                     alert(currentLang === 'ar' ? 'لا يوجد هاتف ولي أمر مسجل.' : 'No parent phone registered.');
