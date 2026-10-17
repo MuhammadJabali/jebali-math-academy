@@ -7,8 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <!-- مكتبة الساعة الدائرية الاحترافية (Analog Clock) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.css">
+    <!-- مكتبة الساعة الدائرية الجديدة (Clocklet) - تدعم الكتابة بالكيبورد والضغط -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/clocklet@0.3.0/css/clocklet.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/clocklet@0.3.0/js/clocklet.min.js"></script>
     
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
@@ -27,16 +28,21 @@
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.2); 
             color: white; 
+            color-scheme: dark; 
         }
-        
-        /* إجبار أيقونة النتيجة الأصلية لتكون بيضاء ناصعة */
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(100%) brightness(200%);
             cursor: pointer;
         }
-        
-        /* تنسيقات نافذة الساعة الدائرية لتناسب التصميم */
-        .mdtimepicker { direction: ltr; font-family: 'Inter', sans-serif; }
+
+        /* تخصيص ألوان الساعة الدائرية لتناسب التصميم الداكن */
+        .clocklet-color-example {
+            --clocklet-background-color: #1e293b;
+            --clocklet-color: #ffffff;
+            --clocklet-hand-color: #f97316;
+            --clocklet-dial-background-color: #0f172a;
+            --clocklet-ampm-color: #38bdf8;
+        }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
@@ -49,24 +55,26 @@
             <div class="flex items-center gap-4">
                 <div class="w-14 h-14 bg-gradient-to-tr from-orange-500 to-blue-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📐</div>
                 <div>
-                    <h1 class="text-2xl font-black">لوحة التحكم | Jebali Math Academy</h1>
-                    <p class="text-blue-300 text-xs font-bold mt-1">نظام الإدارة الشامل والمتابعة المالية</p>
+                    <h1 id="mainTitle" class="text-2xl font-black">لوحة التحكم | Jebali Math Academy</h1>
+                    <p id="mainSubtitle" class="text-blue-300 text-xs font-bold mt-1">نظام الإدارة الشامل والمتابعة المالية</p>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="index.html" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
-                <button onclick="logoutAdmin()" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
+                <!-- زر تغيير اللغة عاد للعمل -->
+                <button onclick="toggleLang()" id="langBtn" class="px-4 py-2 glass-card rounded-xl font-bold text-xs hover:bg-white/20 transition flex items-center gap-1">🌐 English</button>
+                <a href="index.html" id="homeBtn" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs transition flex items-center gap-1">🏠 الرئيسية</a>
+                <button onclick="logoutAdmin()" id="logoutBtn" class="px-4 py-2 bg-red-500/20 text-red-100 rounded-xl font-bold text-xs transition">خروج</button>
             </div>
         </header>
 
         <!-- الإحصائيات المالية السريعة -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 text-center">
-                <h3 class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المبالغ المحصلة</h3>
+                <h3 id="statCollectedText" class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المبالغ المحصلة</h3>
                 <div class="text-3xl font-black mt-2" id="collectedAmount">0 <span class="text-lg text-slate-400">EGP</span></div>
             </div>
             <div class="glass-card p-6 rounded-3xl border border-orange-500/30 text-center">
-                <h3 class="text-xs text-orange-300 font-bold mb-2 bg-orange-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المستحقات المعلقة (قيد الانتظار)</h3>
+                <h3 id="statPendingText" class="text-xs text-orange-300 font-bold mb-2 bg-orange-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المستحقات المعلقة (قيد الانتظار)</h3>
                 <div class="text-3xl font-black mt-2" id="pendingAmount">0 <span class="text-lg text-slate-400">EGP</span></div>
             </div>
         </div>
@@ -75,20 +83,20 @@
             
             <!-- نموذج توثيق وتعديل الحصة -->
             <div class="glass-card p-6 rounded-3xl h-fit border border-blue-500/30">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق وتعديل الحصص</h3>
+                <h3 id="sessionFormTitle" class="text-lg font-black mb-4 flex items-center gap-2"><span>📚</span> توثيق وتعديل الحصص</h3>
                 
                 <form id="sessionForm" class="space-y-4">
                     <input type="hidden" id="editSessionId" value="">
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">اختر الطالب:</label>
+                            <label id="lblSelectStudent" class="text-xs text-blue-200 block mb-1">اختر الطالب:</label>
                             <select id="sessionStudentSelect" onchange="handleStudentSelectionChange()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="">-- تحميل الطلاب --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
+                            <label id="lblSelectSystem" class="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
                             <select id="sessionSystemSelect" onchange="updateStrandsDropdown()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="National (Arabic)">National (Egyptian - عربي)</option>
                                 <option value="National (Languages)">National (Egyptian - لغات)</option>
@@ -102,30 +110,28 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">التاريخ:</label>
+                            <label id="lblDate" class="text-xs text-blue-200 block mb-1">التاريخ:</label>
                             <input type="date" id="sessionDate" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <!-- حقل وقت البدء باستخدام الساعة الدائرية مع أيقونة بيضاء ثابتة -->
+                            <label id="lblStartTime" class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
+                            <!-- حقل وقت البدء يدعم الكتابة ويدعم الساعة الدائرية -->
                             <div class="relative">
-                                <input type="text" id="sessionStart" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
-                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <input type="text" id="sessionStart" data-clocklet="format: hh:mm A; class-name: clocklet-color-example;" required placeholder="04:00 PM" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-center font-mono" />
                             </div>
                         </div>
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <!-- حقل وقت الانتهاء باستخدام الساعة الدائرية مع أيقونة بيضاء ثابتة -->
+                            <label id="lblEndTime" class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
+                            <!-- حقل وقت الانتهاء يدعم الكتابة ويدعم الساعة الدائرية -->
                             <div class="relative">
-                                <input type="text" id="sessionEnd" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
-                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <input type="text" id="sessionEnd" data-clocklet="format: hh:mm A; class-name: clocklet-color-example;" required placeholder="05:00 PM" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-center font-mono" />
                             </div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">مكان انعقاد الحصة:</label>
+                            <label id="lblLocation" class="text-xs text-blue-200 block mb-1">مكان انعقاد الحصة:</label>
                             <select id="sessionLocation" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="Online (Zoom)">أونلاين (Zoom)</option>
                                 <option value="Center">سنتر تعليمي (Center)</option>
@@ -133,7 +139,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
+                            <label id="lblStrand" class="text-xs text-blue-200 block mb-1">🎯 المهارات الدولية أو المجال:</label>
                             <select id="sessionStrandSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="">-- اختر المجال --</option>
                             </select>
@@ -142,17 +148,17 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-4 mt-2">
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
+                            <label id="lblRate" class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
                             <input type="number" id="sessionHourlyRate" step="10" required value="400" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                         <div>
-                            <label class="text-xs text-blue-200 block mb-1">تكلفة إضافية / خصم (EGP):</label>
+                            <label id="lblExtra" class="text-xs text-blue-200 block mb-1">تكلفة إضافية / خصم (EGP):</label>
                             <input type="number" id="sessionAdditionalCost" step="10" required value="0" placeholder="أضف (سالب) للخصم" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                     </div>
 
                     <div>
-                        <label class="text-xs text-blue-200 block mb-1">عنوان الدرس / الموضوع:</label>
+                        <label id="lblTopic" class="text-xs text-blue-200 block mb-1">عنوان الدرس / الموضوع:</label>
                         <input type="text" id="sessionTopicInput" required placeholder="مثال: Quadratic Functions" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                     </div>
 
@@ -167,7 +173,7 @@
 
             <!-- إضافة وتعديل طالب -->
             <div class="glass-card p-6 rounded-3xl h-fit">
-                <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إدارة ملفات الطلاب</h3>
+                <h3 id="studentFormTitle" class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إدارة ملفات الطلاب</h3>
                 
                 <form id="addStudentForm" class="space-y-4">
                     <input type="hidden" id="editStudentId" value="">
@@ -198,7 +204,7 @@
                     
                     <div class="flex gap-2">
                         <button type="submit" id="studentSubmitBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl transition shadow-lg text-sm">حفظ بيانات الطالب</button>
-                        <button type="button" onclick="resetStudentForm()" class="px-4 bg-slate-600 hover:bg-slate-700 rounded-xl text-sm font-bold">إلغاء</button>
+                        <button type="button" id="cancelStudentEditBtn" onclick="resetStudentForm()" class="px-4 bg-slate-600 hover:bg-slate-700 rounded-xl text-sm font-bold">إلغاء</button>
                     </div>
                 </form>
             </div>
@@ -207,17 +213,17 @@
 
         <!-- سجل الحصص والمدفوعات -->
         <div class="glass-card p-6 rounded-3xl mb-8">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> سجل الحصص والمستحقات المالية</h3>
+            <h3 id="tableSessionsTitle" class="text-lg font-black mb-4 flex items-center gap-2"><span>📝</span> سجل الحصص والمستحقات المالية</h3>
             <div class="table-container">
                 <table class="w-full text-sm text-center">
                     <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
                         <tr>
-                            <th class="py-3 px-4">التاريخ والدرس</th>
-                            <th class="py-3 px-4">الطالب</th>
-                            <th class="py-3 px-4">المدة</th>
-                            <th class="py-3 px-4">الإجمالي</th>
-                            <th class="py-3 px-4">حالة الدفع</th>
-                            <th class="py-3 px-4">إجراء</th>
+                            <th id="thDate" class="py-3 px-4">التاريخ والدرس</th>
+                            <th id="thStudent" class="py-3 px-4">الطالب</th>
+                            <th id="thDuration" class="py-3 px-4">المدة</th>
+                            <th id="thTotal" class="py-3 px-4">الإجمالي</th>
+                            <th id="thStatus" class="py-3 px-4">حالة الدفع</th>
+                            <th id="thAction" class="py-3 px-4">إجراء</th>
                         </tr>
                     </thead>
                     <tbody id="sessionsTableBody">
@@ -229,15 +235,15 @@
 
         <!-- سجل الطلاب -->
         <div class="glass-card p-6 rounded-3xl">
-            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> سجل الطلاب المسجلين</h3>
+            <h3 id="tableStudentsTitle" class="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> سجل الطلاب المسجلين</h3>
             <div class="table-container">
                 <table class="w-full text-sm text-center">
                     <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
                         <tr>
-                            <th class="py-3 px-4">اسم الطالب</th>
-                            <th class="py-3 px-4">النظام والصف</th>
-                            <th class="py-3 px-4">كلمة المرور</th>
-                            <th class="py-3 px-4">إعدادات (تعديل/حذف)</th>
+                            <th id="thStName" class="py-3 px-4">اسم الطالب</th>
+                            <th id="thStGrade" class="py-3 px-4">النظام والصف</th>
+                            <th id="thStPass" class="py-3 px-4">كلمة المرور</th>
+                            <th id="thStAction" class="py-3 px-4">إعدادات (تعديل/حذف)</th>
                         </tr>
                     </thead>
                     <tbody id="studentsTableBody">
@@ -249,9 +255,6 @@
 
     </div>
 
-    <!-- استدعاء سكريبت الساعة الدائرية -->
-    <script src="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.js"></script>
-
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
@@ -261,14 +264,92 @@
         let studentsList = [];
         let sessionsList = [];
         const HOURLY_RATE = 400;
+        let currentLang = 'ar';
 
-        // تفعيل الساعة الدائرية
-        window.addEventListener('load', () => {
-            mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
-            mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
-        });
+        // دالة تبديل اللغة للوحة الإدارة
+        window.toggleLang = function() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
 
-        // تحويل نظام 12 ساعة (AM/PM) إلى نظام 24 ساعة لحساب المدة بالـ JS
+            if (currentLang === 'en') {
+                document.getElementById('langBtn').innerText = '🌐 العربية';
+                document.getElementById('homeBtn').innerText = '🏠 Home';
+                document.getElementById('logoutBtn').innerText = 'Logout';
+                document.getElementById('mainTitle').innerText = 'Admin Dashboard | Jebali Math Academy';
+                document.getElementById('mainSubtitle').innerText = 'Comprehensive Management & Financial Tracking';
+                document.getElementById('statCollectedText').innerText = 'Total Collected Amount';
+                document.getElementById('statPendingText').innerText = 'Total Pending Dues';
+                document.getElementById('sessionFormTitle').innerHTML = '<span>📚</span> Log & Edit Sessions';
+                document.getElementById('lblSelectStudent').innerText = 'Select Student:';
+                document.getElementById('lblSelectSystem').innerText = 'Curriculum System:';
+                document.getElementById('lblDate').innerText = 'Date:';
+                document.getElementById('lblStartTime').innerText = 'Start Time:';
+                document.getElementById('lblEndTime').innerText = 'End Time:';
+                document.getElementById('lblLocation').innerText = 'Location:';
+                document.getElementById('lblStrand').innerText = '🎯 Strand / Topic Area:';
+                document.getElementById('lblRate').innerText = 'Hourly Rate (EGP):';
+                document.getElementById('lblExtra').innerText = 'Extra Cost / Discount (EGP):';
+                document.getElementById('lblTopic').innerText = 'Lesson Topic:';
+                if(!document.getElementById('editSessionId').value) {
+                    document.getElementById('sessionSubmitBtn').innerText = 'Log Session (Pending Payment)';
+                }
+                document.getElementById('studentFormTitle').innerHTML = '<span>👤</span> Manage Student Profiles';
+                document.getElementById('studentSubmitBtn').innerText = 'Save Student Data';
+                document.getElementById('cancelStudentEditBtn').innerText = 'Cancel';
+                
+                document.getElementById('thDate').innerText = 'Date & Lesson';
+                document.getElementById('thStudent').innerText = 'Student';
+                document.getElementById('thDuration').innerText = 'Duration';
+                document.getElementById('thTotal').innerText = 'Total';
+                document.getElementById('thStatus').innerText = 'Status';
+                document.getElementById('thAction').innerText = 'Action';
+                document.getElementById('thStName').innerText = 'Student Name';
+                document.getElementById('thStGrade').innerText = 'System & Grade';
+                document.getElementById('thStPass').innerText = 'Password';
+                document.getElementById('thStAction').innerText = 'Settings';
+            } else {
+                document.getElementById('langBtn').innerText = '🌐 English';
+                document.getElementById('homeBtn').innerText = '🏠 الرئيسية';
+                document.getElementById('logoutBtn').innerText = 'خروج';
+                document.getElementById('mainTitle').innerText = 'لوحة التحكم | Jebali Math Academy';
+                document.getElementById('mainSubtitle').innerText = 'نظام الإدارة الشامل والمتابعة المالية';
+                document.getElementById('statCollectedText').innerText = 'إجمالي المبالغ المحصلة';
+                document.getElementById('statPendingText').innerText = 'إجمالي المستحقات المعلقة (قيد الانتظار)';
+                document.getElementById('sessionFormTitle').innerHTML = '<span>📚</span> توثيق وتعديل الحصص';
+                document.getElementById('lblSelectStudent').innerText = 'اختر الطالب:';
+                document.getElementById('lblSelectSystem').innerText = 'النظام التعليمي:';
+                document.getElementById('lblDate').innerText = 'التاريخ:';
+                document.getElementById('lblStartTime').innerText = 'وقت البدء:';
+                document.getElementById('lblEndTime').innerText = 'وقت الانتهاء:';
+                document.getElementById('lblLocation').innerText = 'مكان انعقاد الحصة:';
+                document.getElementById('lblStrand').innerText = '🎯 المهارات الدولية أو المجال:';
+                document.getElementById('lblRate').innerText = 'سعر الساعة (EGP):';
+                document.getElementById('lblExtra').innerText = 'تكلفة إضافية / خصم (EGP):';
+                document.getElementById('lblTopic').innerText = 'عنوان الدرس / الموضوع:';
+                if(!document.getElementById('editSessionId').value) {
+                    document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
+                }
+                document.getElementById('studentFormTitle').innerHTML = '<span>👤</span> إدارة ملفات الطلاب';
+                document.getElementById('studentSubmitBtn').innerText = 'حفظ بيانات الطالب';
+                document.getElementById('cancelStudentEditBtn').innerText = 'إلغاء';
+                
+                document.getElementById('thDate').innerText = 'التاريخ والدرس';
+                document.getElementById('thStudent').innerText = 'الطالب';
+                document.getElementById('thDuration').innerText = 'المدة';
+                document.getElementById('thTotal').innerText = 'الإجمالي';
+                document.getElementById('thStatus').innerText = 'حالة الدفع';
+                document.getElementById('thAction').innerText = 'إجراء';
+                document.getElementById('thStName').innerText = 'اسم الطالب';
+                document.getElementById('thStGrade').innerText = 'النظام والصف';
+                document.getElementById('thStPass').innerText = 'كلمة المرور';
+                document.getElementById('thStAction').innerText = 'إعدادات (تعديل/حذف)';
+            }
+            renderSessionsTable();
+            renderStudentsTable();
+        };
+
+        // تحويل وقت AM/PM إلى 24 ساعة للعمليات الحسابية
         function parseTo24Hour(timeStr) {
             if (!timeStr) return '00:00';
             const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
@@ -280,6 +361,7 @@
                 if (mod === 'PM') h += 12;
                 return `${h.toString().padStart(2, '0')}:${m}`;
             }
+            // Fallback
             return timeStr;
         }
 
@@ -297,7 +379,6 @@
                 } else {
                     sysSelect.value = "National (Arabic)"; 
                 }
-                
                 updateStrandsDropdown();
             }
         };
@@ -447,7 +528,7 @@
         function renderSessionsTable() {
             const tbody = document.getElementById('sessionsTableBody');
             if (sessionsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-slate-400">لا توجد حصص مسجلة بعد.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-slate-400">${currentLang === 'ar' ? 'لا توجد حصص مسجلة بعد.' : 'No sessions logged yet.'}</td></tr>`;
                 return;
             }
 
@@ -456,26 +537,24 @@
                 let extra = s.additional_cost !== undefined ? parseFloat(s.additional_cost) : 0;
                 let amount = ((s.duration_hours || 1) * rate) + extra;
                 
+                let statusBadge = s.status === 'paid' 
+                    ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-xs font-bold">${currentLang === 'ar' ? 'تم الدفع' : 'Paid'}</span>`
+                    : `<span class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold">${currentLang === 'ar' ? 'انتظار الدفع' : 'Pending'}</span>`;
+                    
+                let actions = s.status !== 'paid' 
+                    ? `<button onclick="markSessionPaid('${s.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'تأكيد الدفع' : 'Confirm Pay'}</button>`
+                    : ``;
+                actions += `<button onclick="editSession('${s.id}')" class="bg-slate-500/30 text-slate-200 hover:bg-slate-500/50 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'تعديل' : 'Edit'}</button>`;
+                actions += `<button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'حذف' : 'Delete'}</button>`;
+
                 return `
                 <tr class="border-b border-white/5 hover:bg-white/5 transition">
                     <td class="py-3 px-4 whitespace-nowrap text-right text-xs" dir="ltr">${s.lesson_topic}<br><span class="text-blue-300 block mt-1">${s.strand}</span></td>
-                    <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || 'طالب محذوف'}</td>
+                    <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || (currentLang === 'ar' ? 'طالب محذوف' : 'Deleted Student')}</td>
                     <td class="py-3 px-4 text-xs font-mono text-orange-300">${s.duration_hours}h</td>
                     <td class="py-3 px-4 text-xs font-black text-emerald-400">${amount} EGP</td>
-                    <td class="py-3 px-4">
-                        ${s.status === 'paid' 
-                            ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-xs font-bold">تم الدفع</span>`
-                            : `<span class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold">انتظار الدفع</span>`
-                        }
-                    </td>
-                    <td class="py-3 px-4 flex justify-center gap-2 flex-wrap min-w-[120px]">
-                        ${s.status !== 'paid' 
-                            ? `<button onclick="markSessionPaid('${s.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition">تأكيد الدفع</button>`
-                            : ``
-                        }
-                        <button onclick="editSession('${s.id}')" class="bg-slate-500/30 text-slate-200 hover:bg-slate-500/50 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
-                        <button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
-                    </td>
+                    <td class="py-3 px-4">${statusBadge}</td>
+                    <td class="py-3 px-4 flex justify-center gap-2 flex-wrap min-w-[120px]">${actions}</td>
                 </tr>
             `}).join('');
         }
@@ -487,7 +566,6 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
-            // قراءة القيم دون إرسالها لقاعدة البيانات لتجنب الخطأ
             document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : HOURLY_RATE;
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
@@ -519,7 +597,7 @@
                         if (locMatch) {
                             const locText = locMatch[1];
                             if (locText.includes('Zoom')) document.getElementById('sessionLocation').value = 'Online (Zoom)';
-                            else if (locText.includes('سنتر')) document.getElementById('sessionLocation').value = 'Center';
+                            else if (locText.includes('Center') || locText.includes('سنتر')) document.getElementById('sessionLocation').value = 'Center';
                             else document.getElementById('sessionLocation').value = 'Home';
                             tAndL = tAndL.replace(/\[.*?\]/, '').trim();
                         }
@@ -539,7 +617,7 @@
             
             setTimeout(() => { document.getElementById('sessionStrandSelect').value = session.strand || ''; }, 100);
 
-            document.getElementById('sessionSubmitBtn').innerText = 'تحديث بيانات الحصة';
+            document.getElementById('sessionSubmitBtn').innerText = currentLang === 'ar' ? 'تحديث بيانات الحصة' : 'Update Session';
             document.getElementById('cancelSessionEditBtn').classList.remove('hidden');
             window.scrollTo({ top: document.getElementById('sessionForm').offsetTop - 50, behavior: 'smooth' });
         };
@@ -549,20 +627,20 @@
             document.getElementById('editSessionId').value = '';
             document.getElementById('sessionHourlyRate').value = '400';
             document.getElementById('sessionAdditionalCost').value = '0';
-            document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
+            document.getElementById('sessionSubmitBtn').innerText = currentLang === 'ar' ? 'وثّق الحصة (وتسجيلها كمعلقة)' : 'Log Session (Pending)';
             document.getElementById('cancelSessionEditBtn').classList.add('hidden');
             document.getElementById('sessionDate').valueAsDate = new Date();
         };
 
         window.markSessionPaid = async function(id) {
-            if(confirm('هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟')) {
+            if(confirm(currentLang === 'ar' ? 'هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟' : 'Confirm payment for this session?')) {
                 await supabase.from('sessions').update({ status: 'paid' }).eq('id', id);
                 fetchAllData();
             }
         };
         
         window.deleteSession = async function(id) {
-            if(confirm('هل أنت متأكد من حذف هذه الحصة نهائياً؟')) {
+            if(confirm(currentLang === 'ar' ? 'هل أنت متأكد من حذف هذه الحصة نهائياً؟' : 'Delete this session permanently?')) {
                 await supabase.from('sessions').delete().eq('id', id);
                 fetchAllData();
             }
@@ -572,7 +650,7 @@
             e.preventDefault();
             const btn = document.getElementById('sessionSubmitBtn');
             const originalText = btn.innerText;
-            btn.innerText = 'جاري الحفظ...';
+            btn.innerText = currentLang === 'ar' ? 'جاري الحفظ...' : 'Saving...';
 
             const studentId = document.getElementById('sessionStudentSelect').value;
             const topic = document.getElementById('sessionTopicInput').value;
@@ -581,7 +659,6 @@
             const endRaw = document.getElementById('sessionEnd').value;
             const date = document.getElementById('sessionDate').value;
             
-            // حساب المدة بعد تحويل الساعة الدائرية لـ 24 ساعة
             const start = parseTo24Hour(startRaw);
             const end = parseTo24Hour(endRaw);
 
@@ -596,9 +673,8 @@
             const locVal = document.getElementById('sessionLocation').value;
             const locString = locVal === 'Online (Zoom)' ? 'أونلاين Zoom' : (locVal === 'Center' ? 'سنتر تعليمي' : 'منزل الطالب');
             
-            const fullTopic = `${date} (${dayName}) | ${start} - ${end} | ${topic} [${locString}]`;
+            const fullTopic = `${date} (${dayName}) | ${startRaw} - ${endRaw} | ${topic} [${locString}]`;
 
-            // إزالة الحقول المالية من عملية الإرسال
             const sessionData = {
                 student_id: studentId,
                 lesson_topic: fullTopic,
@@ -619,11 +695,11 @@
             }
 
             if (!errorObj) {
-                alert('✅ تم حفظ الحصة بنجاح!');
+                alert(currentLang === 'ar' ? '✅ تم حفظ الحصة بنجاح!' : '✅ Session logged successfully!');
                 resetSessionForm();
                 fetchAllData();
             } else {
-                alert('❌ خطأ في الحفظ: ' + errorObj.message);
+                alert('❌ Error: ' + errorObj.message);
             }
             btn.innerText = originalText;
         });
@@ -631,7 +707,7 @@
         function renderStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
             if (studentsList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-slate-400">لا يوجد طلاب مسجلين بعد.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-slate-400">${currentLang === 'ar' ? 'لا يوجد طلاب مسجلين بعد.' : 'No students found.'}</td></tr>`;
                 return;
             }
             tbody.innerHTML = studentsList.map(st => `
@@ -640,8 +716,8 @@
                     <td class="py-3 px-4 text-xs whitespace-nowrap">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
                     <td class="py-3 px-4 text-xs text-orange-300 font-mono whitespace-nowrap">${st.password || 'Not Set'}</td>
                     <td class="py-3 px-4 flex justify-center gap-2">
-                        <button onclick="editStudent('${st.id}')" class="bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
-                        <button onclick="deleteStudent('${st.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
+                        <button onclick="editStudent('${st.id}')" class="bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'تعديل' : 'Edit'}</button>
+                        <button onclick="deleteStudent('${st.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'حذف' : 'Delete'}</button>
                     </td>
                 </tr>
             `).join('');
@@ -672,12 +748,12 @@
             document.getElementById('addEmail').value = st.email || '';
             document.getElementById('addPass').value = st.password || '';
             
-            document.getElementById('studentSubmitBtn').innerText = 'تحديث بيانات الطالب';
+            document.getElementById('studentSubmitBtn').innerText = currentLang === 'ar' ? 'تحديث بيانات الطالب' : 'Update Student';
             window.scrollTo({ top: document.getElementById('addStudentForm').offsetTop - 50, behavior: 'smooth' });
         };
 
         window.deleteStudent = async function(id) {
-            if(confirm('تحذير: سيتم حذف الطالب وجميع الحصص المرتبطة به نهائياً. هل توافق؟')) {
+            if(confirm(currentLang === 'ar' ? 'تحذير: سيتم حذف الطالب وجميع الحصص المرتبطة به نهائياً. هل توافق؟' : 'Warning: Student and all their sessions will be deleted permanently. Agree?')) {
                 await supabase.from('students').delete().eq('id', id);
                 fetchAllData();
             }
@@ -686,13 +762,13 @@
         window.resetStudentForm = function() {
             document.getElementById('addStudentForm').reset();
             document.getElementById('editStudentId').value = '';
-            document.getElementById('studentSubmitBtn').innerText = 'تسجيل الطالب الجديد';
+            document.getElementById('studentSubmitBtn').innerText = currentLang === 'ar' ? 'حفظ بيانات الطالب' : 'Save Student Data';
             updateGradesDropdown();
         };
 
         function populateStudentSelect() {
             const select = document.getElementById('sessionStudentSelect');
-            select.innerHTML = '<option value="">-- اختر الطالب --</option>';
+            select.innerHTML = `<option value="">-- ${currentLang === 'ar' ? 'اختر الطالب' : 'Select Student'} --</option>`;
             studentsList.forEach(st => {
                 const opt = document.createElement('option');
                 opt.value = st.id;
@@ -705,7 +781,7 @@
             e.preventDefault();
             const btn = document.getElementById('studentSubmitBtn');
             const originalText = btn.innerText;
-            btn.innerText = 'جاري الحفظ...';
+            btn.innerText = currentLang === 'ar' ? 'جاري الحفظ...' : 'Saving...';
 
             const studentData = {
                 student_name: document.getElementById('addName').value,
@@ -729,11 +805,11 @@
             }
 
             if (!errorObj) {
-                alert('✅ تم حفظ بيانات الطالب بنجاح');
+                alert(currentLang === 'ar' ? '✅ تم حفظ بيانات الطالب بنجاح' : '✅ Student data saved successfully');
                 resetStudentForm();
                 fetchAllData();
             } else {
-                alert('❌ خطأ أثناء الحفظ: ' + errorObj.message);
+                alert('❌ Error: ' + errorObj.message);
             }
             btn.innerText = originalText;
         });
