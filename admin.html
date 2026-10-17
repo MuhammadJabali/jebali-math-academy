@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
+    <!-- مكتبة الساعة الدائرية الاحترافية (Analog Clock) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.css">
+    
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
@@ -26,12 +29,14 @@
             color: white; 
         }
         
-        /* إجبار صارم لأيقونات النتيجة والساعة لتكون باللون الأبيض الناصع */
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(200%);
+        /* إجبار أيقونة النتيجة الأصلية لتكون بيضاء ناصعة */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(100%) brightness(200%);
             cursor: pointer;
         }
+        
+        /* تنسيقات نافذة الساعة الدائرية لتناسب التصميم */
+        .mdtimepicker { direction: ltr; font-family: 'Inter', sans-serif; }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
@@ -54,7 +59,7 @@
             </div>
         </header>
 
-        <!-- الإحصائيات المالية -->
+        <!-- الإحصائيات المالية السريعة -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div class="glass-card p-6 rounded-3xl border border-emerald-500/30 text-center">
                 <h3 class="text-xs text-emerald-300 font-bold mb-2 bg-emerald-500/20 inline-block px-3 py-1 rounded-lg">إجمالي المبالغ المحصلة</h3>
@@ -102,11 +107,19 @@
                         </div>
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <input type="time" id="sessionStart" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                            <!-- حقل وقت البدء باستخدام الساعة الدائرية مع أيقونة بيضاء ثابتة -->
+                            <div class="relative">
+                                <input type="text" id="sessionStart" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
                         </div>
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <input type="time" id="sessionEnd" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                            <!-- حقل وقت الانتهاء باستخدام الساعة الدائرية مع أيقونة بيضاء ثابتة -->
+                            <div class="relative">
+                                <input type="text" id="sessionEnd" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
                         </div>
                     </div>
 
@@ -236,6 +249,9 @@
 
     </div>
 
+    <!-- استدعاء سكريبت الساعة الدائرية -->
+    <script src="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.js"></script>
+
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
@@ -245,6 +261,27 @@
         let studentsList = [];
         let sessionsList = [];
         const HOURLY_RATE = 400;
+
+        // تفعيل الساعة الدائرية
+        window.addEventListener('load', () => {
+            mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
+            mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
+        });
+
+        // تحويل نظام 12 ساعة (AM/PM) إلى نظام 24 ساعة لحساب المدة بالـ JS
+        function parseTo24Hour(timeStr) {
+            if (!timeStr) return '00:00';
+            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
+            if (match) {
+                let h = parseInt(match[1], 10);
+                let m = match[2];
+                let mod = match[3].toUpperCase();
+                if (h === 12) h = 0;
+                if (mod === 'PM') h += 12;
+                return `${h.toString().padStart(2, '0')}:${m}`;
+            }
+            return timeStr;
+        }
 
         window.handleStudentSelectionChange = function() {
             const studentId = document.getElementById('sessionStudentSelect').value;
@@ -450,14 +487,12 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
+            // قراءة القيم دون إرسالها لقاعدة البيانات لتجنب الخطأ
             document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : HOURLY_RATE;
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
             const topicStr = session.lesson_topic || '';
             document.getElementById('sessionDate').valueAsDate = new Date();
-            document.getElementById('sessionStart').value = '12:00';
-            document.getElementById('sessionEnd').value = '13:00';
-            document.getElementById('sessionTopicInput').value = topicStr; 
             
             try {
                 if (topicStr.includes('|')) {
@@ -466,8 +501,17 @@
                     if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
                     if (parts.length > 1 && parts[1].includes('-')) {
                         const timeParts = parts[1].split('-').map(t => t.trim());
-                        document.getElementById('sessionStart').value = timeParts[0];
-                        document.getElementById('sessionEnd').value = timeParts[1];
+                        
+                        function to12Hour(time24) {
+                            let [h, m] = time24.split(':');
+                            h = parseInt(h);
+                            let mod = h >= 12 ? 'PM' : 'AM';
+                            h = h % 12 || 12;
+                            return `${h.toString().padStart(2, '0')}:${m} ${mod}`;
+                        }
+                        
+                        document.getElementById('sessionStart').value = timeParts[0].includes('M') ? timeParts[0] : to12Hour(timeParts[0]);
+                        document.getElementById('sessionEnd').value = timeParts[1].includes('M') ? timeParts[1] : to12Hour(timeParts[1]);
                     }
                     if (parts.length > 2) {
                         let tAndL = parts[2];
@@ -533,10 +577,14 @@
             const studentId = document.getElementById('sessionStudentSelect').value;
             const topic = document.getElementById('sessionTopicInput').value;
             const strand = document.getElementById('sessionStrandSelect').value;
-            const start = document.getElementById('sessionStart').value;
-            const end = document.getElementById('sessionEnd').value;
+            const startRaw = document.getElementById('sessionStart').value;
+            const endRaw = document.getElementById('sessionEnd').value;
             const date = document.getElementById('sessionDate').value;
             
+            // حساب المدة بعد تحويل الساعة الدائرية لـ 24 ساعة
+            const start = parseTo24Hour(startRaw);
+            const end = parseTo24Hour(endRaw);
+
             const t1 = new Date(`${date}T${start}`);
             const t2 = new Date(`${date}T${end}`);
             let diffHrs = (t2 - t1) / (1000 * 60 * 60);
@@ -550,6 +598,7 @@
             
             const fullTopic = `${date} (${dayName}) | ${start} - ${end} | ${topic} [${locString}]`;
 
+            // إزالة الحقول المالية من عملية الإرسال
             const sessionData = {
                 student_id: studentId,
                 lesson_topic: fullTopic,
