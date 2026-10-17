@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <!-- مكتبة الساعة الدائرية (Analog Clock) التي تفضلها -->
+    <!-- مكتبة الساعة الدائرية الاحترافية (Analog Clock) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.css">
     
     <style>
@@ -30,7 +30,7 @@
             color-scheme: dark; 
         }
         
-        /* إجبار أيقونة الأجندة (النتيجة) لتكون بيضاء ناصعة */
+        /* إجبار أيقونة النتيجة (التاريخ) لتكون بيضاء ناصعة */
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(100%) brightness(200%);
             cursor: pointer;
@@ -109,17 +109,17 @@
                         </div>
                         <div>
                             <label id="lblStartTime" class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <!-- حقل وقت البدء مع أيقونة بيضاء ثابتة لضمان الظهور -->
+                            <!-- تم حذف readonly لتتمكن من الكتابة بيدك بكل سهولة -->
                             <div class="relative">
-                                <input type="text" id="sessionStart" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <input type="text" id="sessionStart" required placeholder="04:00 PM" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 text-center font-mono" />
                                 <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                         </div>
                         <div>
                             <label id="lblEndTime" class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <!-- حقل وقت الانتهاء مع أيقونة بيضاء ثابتة لضمان الظهور -->
+                            <!-- تم حذف readonly لتتمكن من الكتابة بيدك بكل سهولة -->
                             <div class="relative">
-                                <input type="text" id="sessionEnd" readonly required placeholder="--:-- --" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                                <input type="text" id="sessionEnd" required placeholder="05:00 PM" class="w-full p-3 pl-10 glass-input rounded-xl text-sm bg-slate-800 text-center font-mono" />
                                 <svg class="w-5 h-5 absolute left-3 top-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                         </div>
@@ -265,7 +265,7 @@
         const HOURLY_RATE = 400;
         let currentLang = 'ar';
 
-        // تفعيل الساعة الدائرية عند تحميل الصفحة
+        // تفعيل الساعة الدائرية مع السماح بالكتابة اليدوية
         window.addEventListener('load', () => {
             mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
             mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
@@ -363,7 +363,8 @@
                 let m = match[2];
                 let mod = match[3].toUpperCase();
                 if (h === 12) h = 0;
-                if (mod === 'PM') h += 12;
+                if (mod === 'PM' && h !== 12) h += 12;
+                if (mod === 'AM' && h === 12) h = 0;
                 return `${h.toString().padStart(2, '0')}:${m}`;
             }
             return timeStr;
@@ -610,3 +611,219 @@
                     }
                 }
             } catch(e) {}
+
+            const student = studentsList.find(s => s.id === session.student_id);
+            if (student) {
+                const sysSelect = document.getElementById('sessionSystemSelect');
+                let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === student.curriculum_system);
+                if (!matchedOption) sysSelect.value = "National (Arabic)"; 
+                else sysSelect.value = student.curriculum_system;
+                updateStrandsDropdown();
+            }
+            
+            setTimeout(() => { document.getElementById('sessionStrandSelect').value = session.strand || ''; }, 100);
+
+            document.getElementById('sessionSubmitBtn').innerText = currentLang === 'ar' ? 'تحديث بيانات الحصة' : 'Update Session';
+            document.getElementById('cancelSessionEditBtn').classList.remove('hidden');
+            window.scrollTo({ top: document.getElementById('sessionForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.resetSessionForm = function() {
+            document.getElementById('sessionForm').reset();
+            document.getElementById('editSessionId').value = '';
+            document.getElementById('sessionHourlyRate').value = '400';
+            document.getElementById('sessionAdditionalCost').value = '0';
+            document.getElementById('sessionSubmitBtn').innerText = currentLang === 'ar' ? 'وثّق الحصة (وتسجيلها كمعلقة)' : 'Log Session (Pending)';
+            document.getElementById('cancelSessionEditBtn').classList.add('hidden');
+            document.getElementById('sessionDate').valueAsDate = new Date();
+        };
+
+        window.markSessionPaid = async function(id) {
+            if(confirm(currentLang === 'ar' ? 'هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟' : 'Confirm payment for this session?')) {
+                await supabase.from('sessions').update({ status: 'paid' }).eq('id', id);
+                fetchAllData();
+            }
+        };
+        
+        window.deleteSession = async function(id) {
+            if(confirm(currentLang === 'ar' ? 'هل أنت متأكد من حذف هذه الحصة نهائياً؟' : 'Delete this session permanently?')) {
+                await supabase.from('sessions').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('sessionSubmitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = currentLang === 'ar' ? 'جاري الحفظ...' : 'Saving...';
+
+            const studentId = document.getElementById('sessionStudentSelect').value;
+            const topic = document.getElementById('sessionTopicInput').value;
+            const strand = document.getElementById('sessionStrandSelect').value;
+            const startRaw = document.getElementById('sessionStart').value;
+            const endRaw = document.getElementById('sessionEnd').value;
+            const date = document.getElementById('sessionDate').value;
+            
+            // تحويل الوقت من الساعة الدائرية لـ 24 ساعة
+            const start = parseTo24Hour(startRaw);
+            const end = parseTo24Hour(endRaw);
+
+            const t1 = new Date(`${date}T${start}`);
+            const t2 = new Date(`${date}T${end}`);
+            let diffHrs = (t2 - t1) / (1000 * 60 * 60);
+            if (diffHrs < 0) diffHrs += 24;
+            diffHrs = Math.round(diffHrs * 100) / 100;
+
+            const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = daysAr[new Date(date).getDay()];
+            const locVal = document.getElementById('sessionLocation').value;
+            const locString = locVal === 'Online (Zoom)' ? 'أونلاين Zoom' : (locVal === 'Center' ? 'سنتر تعليمي' : 'منزل الطالب');
+            
+            const fullTopic = `${date} (${dayName}) | ${startRaw} - ${endRaw} | ${topic} [${locString}]`;
+
+            const sessionData = {
+                student_id: studentId,
+                lesson_topic: fullTopic,
+                strand: strand,
+                duration_hours: diffHrs
+            };
+
+            const editId = document.getElementById('editSessionId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('sessions').update(sessionData).eq('id', editId);
+                errorObj = error;
+            } else {
+                sessionData.status = 'pending';
+                const { error } = await supabase.from('sessions').insert([sessionData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert(currentLang === 'ar' ? '✅ تم حفظ الحصة بنجاح!' : '✅ Session logged successfully!');
+                resetSessionForm();
+                fetchAllData();
+            } else {
+                alert('❌ Error: ' + errorObj.message);
+            }
+            btn.innerText = originalText;
+        });
+
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            if (studentsList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-slate-400">${currentLang === 'ar' ? 'لا يوجد طلاب مسجلين بعد.' : 'No students found.'}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = studentsList.map(st => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                    <td class="py-3 px-4 font-bold whitespace-nowrap">${st.student_name}</td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
+                    <td class="py-3 px-4 text-xs text-orange-300 font-mono whitespace-nowrap">${st.password || 'Not Set'}</td>
+                    <td class="py-3 px-4 flex justify-center gap-2">
+                        <button onclick="editStudent('${st.id}')" class="bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'تعديل' : 'Edit'}</button>
+                        <button onclick="deleteStudent('${st.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">${currentLang === 'ar' ? 'حذف' : 'Delete'}</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.editStudent = function(id) {
+            const st = studentsList.find(s => s.id === id);
+            if(!st) return;
+            
+            document.getElementById('editStudentId').value = st.id;
+            document.getElementById('addName').value = st.student_name;
+            document.getElementById('addPhone').value = st.student_phone || '';
+            document.getElementById('addParentPhone').value = st.parent_phone || '';
+            
+            const sysSelect = document.getElementById('addSystem');
+            let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === st.curriculum_system);
+            
+            if (!matchedOption) {
+                sysSelect.value = "National (Arabic)"; 
+            } else {
+                sysSelect.value = st.curriculum_system;
+            }
+            
+            updateGradesDropdown();
+            
+            setTimeout(() => { document.getElementById('addGrade').value = st.grade_level || ''; }, 50);
+            
+            document.getElementById('addEmail').value = st.email || '';
+            document.getElementById('addPass').value = st.password || '';
+            
+            document.getElementById('studentSubmitBtn').innerText = currentLang === 'ar' ? 'تحديث بيانات الطالب' : 'Update Student';
+            window.scrollTo({ top: document.getElementById('addStudentForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.deleteStudent = async function(id) {
+            if(confirm(currentLang === 'ar' ? 'تحذير: سيتم حذف الطالب وجميع الحصص المرتبطة به نهائياً. هل توافق؟' : 'Warning: Student and all their sessions will be deleted permanently. Agree?')) {
+                await supabase.from('students').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        window.resetStudentForm = function() {
+            document.getElementById('addStudentForm').reset();
+            document.getElementById('editStudentId').value = '';
+            document.getElementById('studentSubmitBtn').innerText = currentLang === 'ar' ? 'حفظ بيانات الطالب' : 'Save Student Data';
+            updateGradesDropdown();
+        };
+
+        function populateStudentSelect() {
+            const select = document.getElementById('sessionStudentSelect');
+            select.innerHTML = `<option value="">-- ${currentLang === 'ar' ? 'اختر الطالب' : 'Select Student'} --</option>`;
+            studentsList.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st.id;
+                opt.textContent = st.student_name;
+                select.appendChild(opt);
+            });
+        }
+
+        document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('studentSubmitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = currentLang === 'ar' ? 'جاري الحفظ...' : 'Saving...';
+
+            const studentData = {
+                student_name: document.getElementById('addName').value,
+                student_phone: document.getElementById('addPhone').value,
+                parent_phone: document.getElementById('addParentPhone').value,
+                curriculum_system: document.getElementById('addSystem').value,
+                grade_level: document.getElementById('addGrade').value,
+                email: document.getElementById('addEmail').value || null,
+                password: document.getElementById('addPass').value
+            };
+
+            const editId = document.getElementById('editStudentId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('students').update(studentData).eq('id', editId);
+                errorObj = error;
+            } else {
+                const { error } = await supabase.from('students').insert([studentData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert(currentLang === 'ar' ? '✅ تم حفظ بيانات الطالب بنجاح' : '✅ Student data saved successfully');
+                resetStudentForm();
+                fetchAllData();
+            } else {
+                alert('❌ Error: ' + errorObj.message);
+            }
+            btn.innerText = originalText;
+        });
+
+        window.logoutAdmin = function() {
+            window.location.href = 'index.html';
+        };
+    </script>
+</body>
+</html>
