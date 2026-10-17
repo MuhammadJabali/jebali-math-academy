@@ -126,6 +126,7 @@
                         </div>
                     </div>
 
+                    <!-- تم إضافة step="10" وتعديل السعر الافتراضي لـ 400 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-4 mt-2">
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
@@ -243,11 +244,14 @@
 
         let studentsList = [];
         let sessionsList = [];
-        const HOURLY_RATE = 400;
+        const HOURLY_RATE = 400; // تحديث السعر الافتراضي العام
 
         window.handleStudentSelectionChange = function() {
             const studentId = document.getElementById('sessionStudentSelect').value;
-            if (!studentId) return;
+            if (!studentId) {
+                updateStrandsDropdown();
+                return;
+            }
 
             const student = studentsList.find(s => s.id === studentId);
             if (student && student.curriculum_system) {
@@ -290,59 +294,47 @@
             });
         };
 
-        // دالة المهارات الذكية (تعتمد على النظام التعليمي ومرحلة الطالب معاً)
+        // دالة المهارات الذكية المحدثة لتشمل المرحلة الدراسية بجانب النظام التعليمي
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value || '';
             const studentId = document.getElementById('sessionStudentSelect').value;
+            let grade = '';
+            
+            if (studentId) {
+                const student = studentsList.find(s => s.id === studentId);
+                if (student) grade = student.grade_level || '';
+            }
+
             const strandSelect = document.getElementById('sessionStrandSelect');
             strandSelect.innerHTML = '<option value="">-- اختر المجال أو المهارة --</option>';
             
-            let grade = '';
-            if(studentId) {
-                const student = studentsList.find(s => s.id === studentId);
-                if(student) grade = student.grade_level || '';
-            }
-            
             let strands = [];
 
-            if (system.includes('IGCSE')) {
-                if (grade.includes('9') || grade.includes('10')) {
-                    strands = ['Core Mathematics', 'Extended Mathematics (0580)', 'International Mathematics (0607)'];
+            if (system.includes('National') || system.includes('Egyptian') || system.includes('عربي') || system.includes('لغات')) {
+                if (grade.includes('Primary')) {
+                    strands = ['الحساب والأعداد', 'الهندسة والقياس', 'الإحصاء والاحتمالات'];
+                    if(system.includes('لغات')) strands = ['Numbers & Operations', 'Geometry & Measurement', 'Statistics'];
+                } else if (grade.includes('Prep')) {
+                    strands = ['الجبر', 'الهندسة التحليلية والمستوية', 'الإحصاء والاحتمالات'];
+                    if(system.includes('لغات')) strands = ['Algebra', 'Geometry', 'Statistics'];
+                } else if (grade.includes('Secondary')) {
+                    strands = ['الجبر', 'التفاضل والتكامل', 'حساب المثلثات', 'الهندسة الفراغية والتحليلية', 'الميكانيكا (استاتيكا)', 'الميكانيكا (ديناميكا)', 'الإحصاء'];
+                    if(system.includes('لغات')) strands = ['Algebra', 'Calculus', 'Trigonometry', 'Solid Geometry', 'Mechanics (Statics)', 'Mechanics (Dynamics)', 'Statistics'];
                 } else {
-                    strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 2 (P2)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Probability & Statistics 1 (S1)'];
+                     strands = ['الجبر (Algebra)', 'الهندسة (Geometry)', 'التفاضل والتكامل (Calculus)', 'الميكانيكا (Mechanics)', 'الإحصاء (Statistics)'];
+                }
+            } else if (system.includes('IGCSE')) {
+                if (grade.includes('9') || grade.includes('10')) {
+                    strands = ['Numbers', 'Algebra', 'Mensuration', 'Geometry', 'Trigonometry', 'Graphs', 'Sets & Vectors', 'Statistics & Probability'];
+                } else { 
+                    strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 2 (P2)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Mechanics (M2)', 'Probability & Statistics 1 (S1)', 'Probability & Statistics 2 (S2)'];
                 }
             } else if (system.includes('American')) {
-                strands = ['Pre-Algebra', 'Algebra 1', 'Geometry', 'Algebra 2', 'Pre-Calculus', 'Calculus AB/BC', 'AP Statistics'];
+                strands = ['Pre-Algebra', 'Algebra 1', 'Geometry', 'Algebra 2 / Trigonometry', 'Pre-Calculus', 'Calculus AB', 'Calculus BC', 'Statistics (AP)'];
             } else if (system.includes('IB')) {
-                strands = ['Analysis and Approaches (AA) SL/HL', 'Applications and Interpretation (AI) SL/HL'];
-            } else if (system.includes('Languages') || system.includes('لغات')) {
-                if (grade.includes('Primary')) {
-                    strands = ['Mathematics (Numbers & Operations)', 'Geometry & Measurement'];
-                } else if (grade.includes('Prep')) {
-                    strands = ['Algebra & Statistics', 'Geometry'];
-                } else if (grade.includes('Secondary 1')) {
-                    strands = ['Algebra', 'Trigonometry', 'Geometry'];
-                } else if (grade.includes('Secondary 2')) {
-                    strands = ['Pure Math (Algebra, Calculus, Trig)', 'Applied Math (Statics, Probability)'];
-                } else { // Secondary 3
-                    strands = ['Algebra & Solid Geometry', 'Calculus', 'Statics', 'Dynamics'];
-                }
-            } else { // National Arabic
-                if (grade.includes('Primary') || grade.includes('ابتدائي')) {
-                    strands = ['الحساب والأعداد', 'الهندسة والقياس'];
-                } else if (grade.includes('Prep') || grade.includes('إعدادي')) {
-                    strands = ['الجبر والإحصاء', 'الهندسة المستوية'];
-                } else if (grade.includes('Secondary 1') || grade.includes('الأول الثانوي')) {
-                    strands = ['الجبر', 'حساب المثلثات', 'الهندسة'];
-                } else if (grade.includes('Secondary 2') || grade.includes('الثاني الثانوي')) {
-                    strands = ['الرياضيات البحتة (جبر، تفاضل، مثلثات)', 'الرياضيات التطبيقية (استاتيكا، احتمالات)'];
-                } else { // Secondary 3
-                    strands = ['الجبر والهندسة الفراغية', 'التفاضل والتكامل', 'الاستاتيكا', 'الديناميكا'];
-                }
-            }
-
-            if (strands.length === 0) {
-                 strands = ['الجبر / Algebra', 'الهندسة / Geometry', 'حساب المثلثات / Trigonometry', 'التفاضل والتكامل / Calculus', 'الإحصاء / Statistics'];
+                strands = ['AA HL (Analysis & Approaches)', 'AA SL (Analysis & Approaches)', 'AI HL (Applications & Interpretation)', 'AI SL (Applications & Interpretation)', 'Core: Number & Algebra', 'Core: Geometry & Trig', 'Core: Calculus'];
+            } else {
+                strands = ['General Math', 'Algebra', 'Geometry', 'Calculus'];
             }
 
             strands.forEach(strand => {
@@ -392,7 +384,7 @@
             let pending = 0;
 
             sessionsList.forEach(session => {
-                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : HOURLY_RATE;
+                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : 400;
                 let extra = session.additional_cost !== undefined ? parseFloat(session.additional_cost) : 0;
                 let amount = ((session.duration_hours || 1) * rate) + extra; 
                 
@@ -415,7 +407,7 @@
             }
 
             tbody.innerHTML = sessionsList.map(s => {
-                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : HOURLY_RATE;
+                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : 400;
                 let extra = s.additional_cost !== undefined ? parseFloat(s.additional_cost) : 0;
                 let amount = ((s.duration_hours || 1) * rate) + extra;
                 
@@ -450,7 +442,7 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
-            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : HOURLY_RATE;
+            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : 400;
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
             const topicStr = session.lesson_topic || '';
