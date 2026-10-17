@@ -77,7 +77,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">اختر الطالب:</label>
-                            <select id="sessionStudentSelect" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
+                            <select id="sessionStudentSelect" onchange="handleStudentSelectionChange()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
                                 <option value="">-- تحميل الطلاب --</option>
                             </select>
                         </div>
@@ -129,11 +129,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-4 mt-2">
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
-                            <input type="number" id="sessionHourlyRate" required value="350" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                            <input type="number" id="sessionHourlyRate" step="10" required value="400" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">تكلفة إضافية / خصم (EGP):</label>
-                            <input type="number" id="sessionAdditionalCost" required value="0" placeholder="أضف (سالب) للخصم" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
+                            <input type="number" id="sessionAdditionalCost" step="10" required value="0" placeholder="أضف (سالب) للخصم" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                     </div>
 
@@ -243,6 +243,26 @@
 
         let studentsList = [];
         let sessionsList = [];
+        const HOURLY_RATE = 400;
+
+        window.handleStudentSelectionChange = function() {
+            const studentId = document.getElementById('sessionStudentSelect').value;
+            if (!studentId) return;
+
+            const student = studentsList.find(s => s.id === studentId);
+            if (student && student.curriculum_system) {
+                const sysSelect = document.getElementById('sessionSystemSelect');
+                let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === student.curriculum_system);
+                
+                if (matchedOption) {
+                    sysSelect.value = student.curriculum_system;
+                } else {
+                    sysSelect.value = "National (Arabic)"; 
+                }
+                
+                updateStrandsDropdown();
+            }
+        };
 
         window.updateGradesDropdown = function() {
             const sys = document.getElementById('addSystem').value || '';
@@ -270,20 +290,59 @@
             });
         };
 
+        // دالة المهارات الذكية (تعتمد على النظام التعليمي ومرحلة الطالب معاً)
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value || '';
+            const studentId = document.getElementById('sessionStudentSelect').value;
             const strandSelect = document.getElementById('sessionStrandSelect');
             strandSelect.innerHTML = '<option value="">-- اختر المجال أو المهارة --</option>';
             
+            let grade = '';
+            if(studentId) {
+                const student = studentsList.find(s => s.id === studentId);
+                if(student) grade = student.grade_level || '';
+            }
+            
             let strands = [];
+
             if (system.includes('IGCSE')) {
-                strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Statistics (S1)'];
+                if (grade.includes('9') || grade.includes('10')) {
+                    strands = ['Core Mathematics', 'Extended Mathematics (0580)', 'International Mathematics (0607)'];
+                } else {
+                    strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 2 (P2)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Probability & Statistics 1 (S1)'];
+                }
             } else if (system.includes('American')) {
-                strands = ['Algebra 1 & 2', 'Pre-Calculus', 'Calculus AB/BC', 'Geometry & Statistics'];
+                strands = ['Pre-Algebra', 'Algebra 1', 'Geometry', 'Algebra 2', 'Pre-Calculus', 'Calculus AB/BC', 'AP Statistics'];
             } else if (system.includes('IB')) {
-                strands = ['Analysis and Approaches (AA)', 'Applications and Interpretation (AI)'];
-            } else {
-                strands = ['الجبر', 'التفاضل والتكامل', 'الهندسة الفراغية', 'الميكانيكا (استاتيكا / ديناميكا)'];
+                strands = ['Analysis and Approaches (AA) SL/HL', 'Applications and Interpretation (AI) SL/HL'];
+            } else if (system.includes('Languages') || system.includes('لغات')) {
+                if (grade.includes('Primary')) {
+                    strands = ['Mathematics (Numbers & Operations)', 'Geometry & Measurement'];
+                } else if (grade.includes('Prep')) {
+                    strands = ['Algebra & Statistics', 'Geometry'];
+                } else if (grade.includes('Secondary 1')) {
+                    strands = ['Algebra', 'Trigonometry', 'Geometry'];
+                } else if (grade.includes('Secondary 2')) {
+                    strands = ['Pure Math (Algebra, Calculus, Trig)', 'Applied Math (Statics, Probability)'];
+                } else { // Secondary 3
+                    strands = ['Algebra & Solid Geometry', 'Calculus', 'Statics', 'Dynamics'];
+                }
+            } else { // National Arabic
+                if (grade.includes('Primary') || grade.includes('ابتدائي')) {
+                    strands = ['الحساب والأعداد', 'الهندسة والقياس'];
+                } else if (grade.includes('Prep') || grade.includes('إعدادي')) {
+                    strands = ['الجبر والإحصاء', 'الهندسة المستوية'];
+                } else if (grade.includes('Secondary 1') || grade.includes('الأول الثانوي')) {
+                    strands = ['الجبر', 'حساب المثلثات', 'الهندسة'];
+                } else if (grade.includes('Secondary 2') || grade.includes('الثاني الثانوي')) {
+                    strands = ['الرياضيات البحتة (جبر، تفاضل، مثلثات)', 'الرياضيات التطبيقية (استاتيكا، احتمالات)'];
+                } else { // Secondary 3
+                    strands = ['الجبر والهندسة الفراغية', 'التفاضل والتكامل', 'الاستاتيكا', 'الديناميكا'];
+                }
+            }
+
+            if (strands.length === 0) {
+                 strands = ['الجبر / Algebra', 'الهندسة / Geometry', 'حساب المثلثات / Trigonometry', 'التفاضل والتكامل / Calculus', 'الإحصاء / Statistics'];
             }
 
             strands.forEach(strand => {
@@ -333,7 +392,7 @@
             let pending = 0;
 
             sessionsList.forEach(session => {
-                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : 350;
+                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : HOURLY_RATE;
                 let extra = session.additional_cost !== undefined ? parseFloat(session.additional_cost) : 0;
                 let amount = ((session.duration_hours || 1) * rate) + extra; 
                 
@@ -356,7 +415,7 @@
             }
 
             tbody.innerHTML = sessionsList.map(s => {
-                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : 350;
+                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : HOURLY_RATE;
                 let extra = s.additional_cost !== undefined ? parseFloat(s.additional_cost) : 0;
                 let amount = ((s.duration_hours || 1) * rate) + extra;
                 
@@ -391,7 +450,7 @@
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('sessionStudentSelect').value = session.student_id;
             
-            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : 350;
+            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : HOURLY_RATE;
             document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
             
             const topicStr = session.lesson_topic || '';
@@ -444,7 +503,7 @@
         window.resetSessionForm = function() {
             document.getElementById('sessionForm').reset();
             document.getElementById('editSessionId').value = '';
-            document.getElementById('sessionHourlyRate').value = '350';
+            document.getElementById('sessionHourlyRate').value = '400';
             document.getElementById('sessionAdditionalCost').value = '0';
             document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
             document.getElementById('cancelSessionEditBtn').classList.add('hidden');
@@ -604,7 +663,6 @@
             const originalText = btn.innerText;
             btn.innerText = 'جاري الحفظ...';
 
-            // حقل account_status تمت إزالته لتفادي الخطأ
             const studentData = {
                 student_name: document.getElementById('addName').value,
                 student_phone: document.getElementById('addPhone').value,
