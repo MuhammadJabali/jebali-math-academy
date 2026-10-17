@@ -10,7 +10,6 @@
     <style>
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
-        /* منع خروج العناصر والجدول عن الشاشة في الموبايل */
         *, *::before, *::after { box-sizing: border-box; }
         html, body { max-width: 100vw; overflow-x: hidden; }
         .glass-card, div, form, table { max-width: 100%; word-wrap: break-word; }
@@ -21,7 +20,6 @@
 
         .glass-card { background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
         
-        /* ضبط الحقول وأيقونات المتصفح (النتيجة والساعة) لتصبح بيضاء */
         .glass-input { 
             background: rgba(255, 255, 255, 0.05); 
             border: 1px solid rgba(255, 255, 255, 0.2); 
@@ -86,11 +84,12 @@
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">النظام التعليمي:</label>
                             <select id="sessionSystemSelect" onchange="updateStrandsDropdown()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800">
+                                <option value="National (Arabic)">National (Egyptian - عربي)</option>
+                                <option value="National (Languages)">National (Egyptian - لغات)</option>
+                                <option value="National (Egyptian)" class="hidden">National (Egyptian)</option>
                                 <option value="IGCSE">IGCSE</option>
                                 <option value="American Diploma">American Diploma</option>
                                 <option value="IB">IB</option>
-                                <option value="National (Arabic)">National (Egyptian - عربي)</option>
-                                <option value="National (Languages)">National (Egyptian - لغات)</option>
                             </select>
                         </div>
                     </div>
@@ -127,7 +126,6 @@
                         </div>
                     </div>
 
-                    <!-- حقول التكلفة المالية -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/10 pt-4 mt-2">
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">سعر الساعة (EGP):</label>
@@ -153,7 +151,7 @@
                 </form>
             </div>
 
-            <!-- إضافة وتعديل طالب (مع قائمة المراحل الدراسية الذكية) -->
+            <!-- إضافة وتعديل طالب -->
             <div class="glass-card p-6 rounded-3xl h-fit">
                 <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>👤</span> إدارة ملفات الطلاب</h3>
                 
@@ -167,15 +165,14 @@
                         <input type="text" id="addParentPhone" required placeholder="رقم هاتف ولي الأمر" class="w-full p-3 glass-input rounded-xl text-sm" />
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- تم تحديث قائمة الأنظمة لتشمل مسارات النظام المصري بوضوح -->
-                        <select id="addSystem" onchange="updateGradesDropdown()" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-white">
+                        <select id="addSystem" onchange="updateGradesDropdown()" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-white">
+                            <option value="National (Arabic)">National (Egyptian - عربي)</option>
+                            <option value="National (Languages)">National (Egyptian - لغات)</option>
+                            <option value="National (Egyptian)" class="hidden">National (Egyptian)</option>
                             <option value="IGCSE">IGCSE</option>
                             <option value="American Diploma">American Diploma</option>
                             <option value="IB">IB</option>
-                            <option value="National (Arabic)">National (Egyptian - عربي)</option>
-                            <option value="National (Languages)">National (Egyptian - لغات)</option>
                         </select>
-                        <!-- تحول حقل الصف إلى قائمة منسدلة ذكية تتغير بناء على النظام -->
                         <select id="addGrade" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 text-white">
                             <option value="">-- اختر الصف الدراسي --</option>
                         </select>
@@ -218,4 +215,429 @@
 
         <!-- سجل الطلاب -->
         <div class="glass-card p-6 rounded-3xl">
-            <h3 class="text-lg font
+            <h3 class="text-lg font-black mb-4 flex items-center gap-2"><span>📋</span> سجل الطلاب المسجلين</h3>
+            <div class="table-container">
+                <table class="w-full text-sm text-center">
+                    <thead class="text-xs text-blue-200 uppercase bg-white/5 border-b border-white/10">
+                        <tr>
+                            <th class="py-3 px-4">اسم الطالب</th>
+                            <th class="py-3 px-4">النظام والصف</th>
+                            <th class="py-3 px-4">كلمة المرور</th>
+                            <th class="py-3 px-4">إعدادات (تعديل/حذف)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr><td colspan="4" class="py-4 text-slate-400">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_lLPLnkxYBJRmD71FjfrEww_h4YL2-dK';
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        let studentsList = [];
+        let sessionsList = [];
+
+        // التحديث الذكي للمراحل الدراسية لتتوافق مع أي مسمى للنظام المصري
+        window.updateGradesDropdown = function() {
+            const sys = document.getElementById('addSystem').value || '';
+            const gradeSelect = document.getElementById('addGrade');
+            gradeSelect.innerHTML = '<option value="">-- اختر الصف الدراسي --</option>';
+            
+            let grades = [];
+            if (sys.includes('National') || sys.includes('Egyptian') || sys.includes('عربي') || sys.includes('لغات')) {
+                grades = ['Primary 4', 'Primary 5', 'Primary 6', 'Prep 1', 'Prep 2', 'Prep 3', 'Secondary 1', 'Secondary 2', 'Secondary 3'];
+            } else if (sys.includes('IGCSE')) {
+                grades = ['Year 9', 'Year 10', 'Year 11', 'Year 12'];
+            } else if (sys.includes('American')) {
+                grades = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+            } else if (sys.includes('IB')) {
+                grades = ['MYP', 'DP1', 'DP2'];
+            } else {
+                grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+            }
+
+            grades.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                gradeSelect.appendChild(opt);
+            });
+        };
+
+        // التحديث الذكي للمهارات الدولية
+        window.updateStrandsDropdown = function() {
+            const system = document.getElementById('sessionSystemSelect').value || '';
+            const strandSelect = document.getElementById('sessionStrandSelect');
+            strandSelect.innerHTML = '<option value="">-- اختر المجال أو المهارة --</option>';
+            
+            let strands = [];
+            if (system.includes('IGCSE')) {
+                strands = ['Pure Mathematics 1 (P1)', 'Pure Mathematics 3 (P3)', 'Mechanics (M1)', 'Statistics (S1)'];
+            } else if (system.includes('American')) {
+                strands = ['Algebra 1 & 2', 'Pre-Calculus', 'Calculus AB/BC', 'Geometry & Statistics'];
+            } else if (system.includes('IB')) {
+                strands = ['Analysis and Approaches (AA)', 'Applications and Interpretation (AI)'];
+            } else {
+                strands = ['الجبر', 'التفاضل والتكامل', 'الهندسة الفراغية', 'الميكانيكا (استاتيكا / ديناميكا)'];
+            }
+
+            strands.forEach(strand => {
+                const opt = document.createElement('option');
+                opt.value = strand;
+                opt.textContent = strand;
+                strandSelect.appendChild(opt);
+            });
+        };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            updateStrandsDropdown();
+            updateGradesDropdown();
+            document.getElementById('sessionDate').valueAsDate = new Date();
+            await fetchAllData();
+        });
+
+        async function fetchAllData() {
+            await fetchStudents();
+            await fetchSessions();
+        }
+
+        async function fetchStudents() {
+            const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+            if (data) {
+                studentsList = data;
+                renderStudentsTable();
+                populateStudentSelect();
+            }
+        }
+
+        async function fetchSessions() {
+            const { data, error } = await supabase.from('sessions').select(`
+                *,
+                students ( student_name, curriculum_system )
+            `).order('created_at', { ascending: false });
+            
+            if (data) {
+                sessionsList = data;
+                renderSessionsTable();
+                calculateFinancials();
+            }
+        }
+
+        function calculateFinancials() {
+            let collected = 0;
+            let pending = 0;
+
+            sessionsList.forEach(session => {
+                let rate = session.hourly_rate !== undefined ? parseFloat(session.hourly_rate) : 350;
+                let extra = session.additional_cost !== undefined ? parseFloat(session.additional_cost) : 0;
+                let amount = ((session.duration_hours || 1) * rate) + extra; 
+                
+                if (session.status === 'paid') {
+                    collected += amount;
+                } else {
+                    pending += amount;
+                }
+            });
+
+            document.getElementById('collectedAmount').innerHTML = `${collected} <span class="text-lg text-slate-400">EGP</span>`;
+            document.getElementById('pendingAmount').innerHTML = `${pending} <span class="text-lg text-slate-400">EGP</span>`;
+        }
+
+        function renderSessionsTable() {
+            const tbody = document.getElementById('sessionsTableBody');
+            if (sessionsList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-slate-400">لا توجد حصص مسجلة بعد.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = sessionsList.map(s => {
+                let rate = s.hourly_rate !== undefined ? parseFloat(s.hourly_rate) : 350;
+                let extra = s.additional_cost !== undefined ? parseFloat(s.additional_cost) : 0;
+                let amount = ((s.duration_hours || 1) * rate) + extra;
+                
+                return `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                    <td class="py-3 px-4 whitespace-nowrap text-right text-xs" dir="ltr">${s.lesson_topic}<br><span class="text-blue-300 block mt-1">${s.strand}</span></td>
+                    <td class="py-3 px-4 font-bold text-xs">${s.students?.student_name || 'طالب محذوف'}</td>
+                    <td class="py-3 px-4 text-xs font-mono text-orange-300">${s.duration_hours}h</td>
+                    <td class="py-3 px-4 text-xs font-black text-emerald-400">${amount} EGP</td>
+                    <td class="py-3 px-4">
+                        ${s.status === 'paid' 
+                            ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-xs font-bold">تم الدفع</span>`
+                            : `<span class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold">انتظار الدفع</span>`
+                        }
+                    </td>
+                    <td class="py-3 px-4 flex justify-center gap-2 flex-wrap min-w-[120px]">
+                        ${s.status !== 'paid' 
+                            ? `<button onclick="markSessionPaid('${s.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition">تأكيد الدفع</button>`
+                            : ``
+                        }
+                        <button onclick="editSession('${s.id}')" class="bg-slate-500/30 text-slate-200 hover:bg-slate-500/50 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
+                        <button onclick="deleteSession('${s.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        window.editSession = function(id) {
+            const session = sessionsList.find(s => s.id === id);
+            if(!session) return;
+            
+            document.getElementById('editSessionId').value = session.id;
+            document.getElementById('sessionStudentSelect').value = session.student_id;
+            
+            document.getElementById('sessionHourlyRate').value = session.hourly_rate !== undefined ? session.hourly_rate : 350;
+            document.getElementById('sessionAdditionalCost').value = session.additional_cost !== undefined ? session.additional_cost : 0;
+            
+            const topicStr = session.lesson_topic || '';
+            document.getElementById('sessionDate').valueAsDate = new Date();
+            document.getElementById('sessionStart').value = '12:00';
+            document.getElementById('sessionEnd').value = '13:00';
+            document.getElementById('sessionTopicInput').value = topicStr; 
+            
+            try {
+                if (topicStr.includes('|')) {
+                    const parts = topicStr.split('|').map(p => p.trim());
+                    const dateMatch = parts[0].match(/(\d{4}-\d{2}-\d{2})/);
+                    if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
+                    if (parts.length > 1 && parts[1].includes('-')) {
+                        const timeParts = parts[1].split('-').map(t => t.trim());
+                        document.getElementById('sessionStart').value = timeParts[0];
+                        document.getElementById('sessionEnd').value = timeParts[1];
+                    }
+                    if (parts.length > 2) {
+                        let tAndL = parts[2];
+                        const locMatch = tAndL.match(/\[(.*?)\]/);
+                        if (locMatch) {
+                            const locText = locMatch[1];
+                            if (locText.includes('Zoom')) document.getElementById('sessionLocation').value = 'Online (Zoom)';
+                            else if (locText.includes('سنتر')) document.getElementById('sessionLocation').value = 'Center';
+                            else document.getElementById('sessionLocation').value = 'Home';
+                            tAndL = tAndL.replace(/\[.*?\]/, '').trim();
+                        }
+                        document.getElementById('sessionTopicInput').value = tAndL;
+                    }
+                }
+            } catch(e) {}
+
+            const student = studentsList.find(s => s.id === session.student_id);
+            if (student) {
+                document.getElementById('sessionSystemSelect').value = student.curriculum_system || 'National (Arabic)';
+                updateStrandsDropdown();
+            }
+            
+            setTimeout(() => { document.getElementById('sessionStrandSelect').value = session.strand || ''; }, 100);
+
+            document.getElementById('sessionSubmitBtn').innerText = 'تحديث بيانات الحصة';
+            document.getElementById('cancelSessionEditBtn').classList.remove('hidden');
+            window.scrollTo({ top: document.getElementById('sessionForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.resetSessionForm = function() {
+            document.getElementById('sessionForm').reset();
+            document.getElementById('editSessionId').value = '';
+            document.getElementById('sessionHourlyRate').value = '350';
+            document.getElementById('sessionAdditionalCost').value = '0';
+            document.getElementById('sessionSubmitBtn').innerText = 'وثّق الحصة (وتسجيلها كمعلقة)';
+            document.getElementById('cancelSessionEditBtn').classList.add('hidden');
+            document.getElementById('sessionDate').valueAsDate = new Date();
+        };
+
+        window.markSessionPaid = async function(id) {
+            if(confirm('هل أنت متأكد من تأكيد استلام مبلغ هذه الحصة؟')) {
+                await supabase.from('sessions').update({ status: 'paid' }).eq('id', id);
+                fetchAllData();
+            }
+        };
+        
+        window.deleteSession = async function(id) {
+            if(confirm('هل أنت متأكد من حذف هذه الحصة نهائياً؟')) {
+                await supabase.from('sessions').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('sessionSubmitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'جاري الحفظ...';
+
+            const studentId = document.getElementById('sessionStudentSelect').value;
+            const topic = document.getElementById('sessionTopicInput').value;
+            const strand = document.getElementById('sessionStrandSelect').value;
+            const start = document.getElementById('sessionStart').value;
+            const end = document.getElementById('sessionEnd').value;
+            const date = document.getElementById('sessionDate').value;
+            
+            const hourlyRate = parseFloat(document.getElementById('sessionHourlyRate').value) || 0;
+            const additionalCost = parseFloat(document.getElementById('sessionAdditionalCost').value) || 0;
+            
+            const t1 = new Date(`${date}T${start}`);
+            const t2 = new Date(`${date}T${end}`);
+            let diffHrs = (t2 - t1) / (1000 * 60 * 60);
+            if (diffHrs < 0) diffHrs += 24;
+            diffHrs = Math.round(diffHrs * 100) / 100;
+
+            const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayName = daysAr[new Date(date).getDay()];
+            const locVal = document.getElementById('sessionLocation').value;
+            const locString = locVal === 'Online (Zoom)' ? 'أونلاين Zoom' : (locVal === 'Center' ? 'سنتر تعليمي' : 'منزل الطالب');
+            
+            const fullTopic = `${date} (${dayName}) | ${start} - ${end} | ${topic} [${locString}]`;
+
+            const sessionData = {
+                student_id: studentId,
+                lesson_topic: fullTopic,
+                strand: strand,
+                duration_hours: diffHrs,
+                hourly_rate: hourlyRate,
+                additional_cost: additionalCost
+            };
+
+            const editId = document.getElementById('editSessionId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('sessions').update(sessionData).eq('id', editId);
+                errorObj = error;
+            } else {
+                sessionData.status = 'pending';
+                const { error } = await supabase.from('sessions').insert([sessionData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert('✅ تم حفظ الحصة بنجاح!');
+                resetSessionForm();
+                fetchAllData();
+            } else {
+                alert('❌ خطأ في الحفظ: ' + errorObj.message);
+            }
+            btn.innerText = originalText;
+        });
+
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            if (studentsList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-slate-400">لا يوجد طلاب مسجلين بعد.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = studentsList.map(st => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                    <td class="py-3 px-4 font-bold whitespace-nowrap">${st.student_name}</td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${st.curriculum_system}<br><span class="text-blue-300">${st.grade_level}</span></td>
+                    <td class="py-3 px-4 text-xs text-orange-300 font-mono whitespace-nowrap">${st.password || 'Not Set'}</td>
+                    <td class="py-3 px-4 flex justify-center gap-2">
+                        <button onclick="editStudent('${st.id}')" class="bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">تعديل</button>
+                        <button onclick="deleteStudent('${st.id}')" class="bg-red-500/20 text-red-200 hover:bg-red-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">حذف</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.editStudent = function(id) {
+            const st = studentsList.find(s => s.id === id);
+            if(!st) return;
+            
+            document.getElementById('editStudentId').value = st.id;
+            document.getElementById('addName').value = st.student_name;
+            document.getElementById('addPhone').value = st.student_phone || '';
+            document.getElementById('addParentPhone').value = st.parent_phone || '';
+            
+            const sysSelect = document.getElementById('addSystem');
+            let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === st.curriculum_system);
+            
+            if (!matchedOption) {
+                sysSelect.value = "National (Egyptian)"; 
+            } else {
+                sysSelect.value = st.curriculum_system;
+            }
+            
+            updateGradesDropdown();
+            
+            setTimeout(() => { document.getElementById('addGrade').value = st.grade_level || ''; }, 50);
+            
+            document.getElementById('addEmail').value = st.email || '';
+            document.getElementById('addPass').value = st.password || '';
+            
+            document.getElementById('studentSubmitBtn').innerText = 'تحديث بيانات الطالب';
+            window.scrollTo({ top: document.getElementById('addStudentForm').offsetTop - 50, behavior: 'smooth' });
+        };
+
+        window.deleteStudent = async function(id) {
+            if(confirm('تحذير: سيتم حذف الطالب وجميع الحصص المرتبطة به نهائياً. هل توافق؟')) {
+                await supabase.from('students').delete().eq('id', id);
+                fetchAllData();
+            }
+        };
+
+        window.resetStudentForm = function() {
+            document.getElementById('addStudentForm').reset();
+            document.getElementById('editStudentId').value = '';
+            document.getElementById('studentSubmitBtn').innerText = 'تسجيل الطالب الجديد';
+            updateGradesDropdown();
+        };
+
+        function populateStudentSelect() {
+            const select = document.getElementById('sessionStudentSelect');
+            select.innerHTML = '<option value="">-- اختر الطالب --</option>';
+            studentsList.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st.id;
+                opt.textContent = st.student_name;
+                select.appendChild(opt);
+            });
+        }
+
+        document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('studentSubmitBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'جاري الحفظ...';
+
+            const studentData = {
+                student_name: document.getElementById('addName').value,
+                student_phone: document.getElementById('addPhone').value,
+                parent_phone: document.getElementById('addParentPhone').value,
+                curriculum_system: document.getElementById('addSystem').value,
+                grade_level: document.getElementById('addGrade').value,
+                email: document.getElementById('addEmail').value || null,
+                password: document.getElementById('addPass').value,
+                account_status: 'active'
+            };
+
+            const editId = document.getElementById('editStudentId').value;
+            let errorObj;
+
+            if (editId) {
+                const { error } = await supabase.from('students').update(studentData).eq('id', editId);
+                errorObj = error;
+            } else {
+                const { error } = await supabase.from('students').insert([studentData]);
+                errorObj = error;
+            }
+
+            if (!errorObj) {
+                alert('✅ تم حفظ بيانات الطالب بنجاح');
+                resetStudentForm();
+                fetchAllData();
+            } else {
+                alert('❌ خطأ أثناء الحفظ: ' + errorObj.message);
+            }
+            btn.innerText = originalText;
+        });
+
+        window.logoutAdmin = function() {
+            window.location.href = 'index.html';
+        };
+    </script>
+</body>
+</html>
