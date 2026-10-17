@@ -244,7 +244,6 @@
         let studentsList = [];
         let sessionsList = [];
 
-        // التحديث الذكي للمراحل الدراسية لتتوافق مع أي مسمى للنظام المصري
         window.updateGradesDropdown = function() {
             const sys = document.getElementById('addSystem').value || '';
             const gradeSelect = document.getElementById('addGrade');
@@ -271,7 +270,6 @@
             });
         };
 
-        // التحديث الذكي للمهارات الدولية
         window.updateStrandsDropdown = function() {
             const system = document.getElementById('sessionSystemSelect').value || '';
             const strandSelect = document.getElementById('sessionStrandSelect');
@@ -429,7 +427,10 @@
 
             const student = studentsList.find(s => s.id === session.student_id);
             if (student) {
-                document.getElementById('sessionSystemSelect').value = student.curriculum_system || 'National (Arabic)';
+                const sysSelect = document.getElementById('sessionSystemSelect');
+                let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === student.curriculum_system);
+                if (!matchedOption) sysSelect.value = "National (Arabic)"; 
+                else sysSelect.value = student.curriculum_system;
                 updateStrandsDropdown();
             }
             
@@ -556,7 +557,7 @@
             let matchedOption = Array.from(sysSelect.options).find(opt => opt.value === st.curriculum_system);
             
             if (!matchedOption) {
-                sysSelect.value = "National (Egyptian)"; 
+                sysSelect.value = "National (Arabic)"; 
             } else {
                 sysSelect.value = st.curriculum_system;
             }
@@ -603,6 +604,7 @@
             const originalText = btn.innerText;
             btn.innerText = 'جاري الحفظ...';
 
+            // حقل account_status تمت إزالته لتفادي الخطأ
             const studentData = {
                 student_name: document.getElementById('addName').value,
                 student_phone: document.getElementById('addPhone').value,
@@ -610,8 +612,7 @@
                 curriculum_system: document.getElementById('addSystem').value,
                 grade_level: document.getElementById('addGrade').value,
                 email: document.getElementById('addEmail').value || null,
-                password: document.getElementById('addPass').value,
-                account_status: 'active'
+                password: document.getElementById('addPass').value
             };
 
             const editId = document.getElementById('editStudentId').value;
