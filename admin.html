@@ -7,11 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <!-- مكتبة الساعة الدائرية (Analog Clock) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.css">
-    
     <style>
-        :root { color-scheme: dark; }
         .font-cairo { font-family: 'Cairo', sans-serif; }
         
         *, *::before, *::after { box-sizing: border-box; }
@@ -30,13 +26,12 @@
             color: white; 
         }
         
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1) brightness(2);
+        /* إجبار صارم لأيقونات النتيجة والساعة لتكون باللون الأبيض الناصع */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(200%);
             cursor: pointer;
         }
-        
-        /* تعديلات جمالية لأيقونات الساعة الدائرية */
-        .mdtimepicker { direction: ltr; font-family: 'Inter', sans-serif; }
     </style>
 </head>
 <body class="min-h-screen text-white font-cairo overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
@@ -107,13 +102,11 @@
                         </div>
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">وقت البدء:</label>
-                            <!-- تم تغيير الحقول لتعمل مع الساعة الدائرية -->
-                            <input type="text" id="sessionStart" readonly required placeholder="--:-- --" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                            <input type="time" id="sessionStart" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                         <div>
                             <label class="text-xs text-blue-200 block mb-1">وقت الانتهاء:</label>
-                            <!-- تم تغيير الحقول لتعمل مع الساعة الدائرية -->
-                            <input type="text" id="sessionEnd" readonly required placeholder="--:-- --" class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800 cursor-pointer text-center font-mono" />
+                            <input type="time" id="sessionEnd" required class="w-full p-3 glass-input rounded-xl text-sm bg-slate-800" />
                         </div>
                     </div>
 
@@ -243,9 +236,6 @@
 
     </div>
 
-    <!-- تفعيل مكتبة الساعة الدائرية -->
-    <script src="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.1.rc2/mdtimepicker.min.js"></script>
-
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
         const supabaseUrl = 'https://vtzxfopaovhxefxhzxyb.supabase.co';
@@ -255,27 +245,6 @@
         let studentsList = [];
         let sessionsList = [];
         const HOURLY_RATE = 400;
-
-        // تهيئة الساعة الدائرية على الحقول
-        window.addEventListener('load', () => {
-            mdtimepicker('#sessionStart', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
-            mdtimepicker('#sessionEnd', { format: 'hh:mm tt', theme: 'dark', clearBtn: true });
-        });
-
-        // دالة مساعدة لتحويل الوقت من AM/PM إلى نظام 24 ساعة لحساب المدة
-        function parseTo24Hour(timeStr) {
-            if (!timeStr) return '00:00';
-            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM|am|pm)/i);
-            if (match) {
-                let h = parseInt(match[1], 10);
-                let m = match[2];
-                let mod = match[3].toUpperCase();
-                if (h === 12) h = 0;
-                if (mod === 'PM') h += 12;
-                return `${h.toString().padStart(2, '0')}:${m}`;
-            }
-            return timeStr;
-        }
 
         window.handleStudentSelectionChange = function() {
             const studentId = document.getElementById('sessionStudentSelect').value;
@@ -486,6 +455,9 @@
             
             const topicStr = session.lesson_topic || '';
             document.getElementById('sessionDate').valueAsDate = new Date();
+            document.getElementById('sessionStart').value = '12:00';
+            document.getElementById('sessionEnd').value = '13:00';
+            document.getElementById('sessionTopicInput').value = topicStr; 
             
             try {
                 if (topicStr.includes('|')) {
@@ -494,16 +466,8 @@
                     if (dateMatch) document.getElementById('sessionDate').value = dateMatch[1];
                     if (parts.length > 1 && parts[1].includes('-')) {
                         const timeParts = parts[1].split('-').map(t => t.trim());
-                        // تحويل الوقت من نظام 24 إلى نظام 12 ساعة (للساعة الدائرية)
-                        function to12Hour(time24) {
-                            let [h, m] = time24.split(':');
-                            h = parseInt(h);
-                            let mod = h >= 12 ? 'PM' : 'AM';
-                            h = h % 12 || 12;
-                            return `${h.toString().padStart(2, '0')}:${m} ${mod}`;
-                        }
-                        document.getElementById('sessionStart').value = timeParts[0].includes('M') ? timeParts[0] : to12Hour(timeParts[0]);
-                        document.getElementById('sessionEnd').value = timeParts[1].includes('M') ? timeParts[1] : to12Hour(timeParts[1]);
+                        document.getElementById('sessionStart').value = timeParts[0];
+                        document.getElementById('sessionEnd').value = timeParts[1];
                     }
                     if (parts.length > 2) {
                         let tAndL = parts[2];
@@ -569,14 +533,10 @@
             const studentId = document.getElementById('sessionStudentSelect').value;
             const topic = document.getElementById('sessionTopicInput').value;
             const strand = document.getElementById('sessionStrandSelect').value;
-            const startRaw = document.getElementById('sessionStart').value;
-            const endRaw = document.getElementById('sessionEnd').value;
+            const start = document.getElementById('sessionStart').value;
+            const end = document.getElementById('sessionEnd').value;
             const date = document.getElementById('sessionDate').value;
             
-            // تحويل الوقت من الساعة الدائرية (12h) إلى نظام (24h) للحسابات الصحيحة
-            const start = parseTo24Hour(startRaw);
-            const end = parseTo24Hour(endRaw);
-
             const t1 = new Date(`${date}T${start}`);
             const t2 = new Date(`${date}T${end}`);
             let diffHrs = (t2 - t1) / (1000 * 60 * 60);
